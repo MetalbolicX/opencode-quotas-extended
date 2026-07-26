@@ -11,6 +11,16 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "opencode-quotas": "dist/cli/index.js"
+  },
+  "files": [
+    "dist/",
+    "schemas/",
+    "commands/",
+    "README.md",
+    "package.json"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
