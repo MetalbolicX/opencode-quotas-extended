@@ -1,7 +1,7 @@
 ---
 description: Show quota usage and predictions for configured AI providers.
 agent: build
-model: anthropic/claude-sonnet-4-6
+model: default
 ---
 
 Render a quota status report for all configured providers using the shared pipeline.
