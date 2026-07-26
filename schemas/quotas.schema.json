@@ -159,6 +159,11 @@
       "type": "boolean",
       "default": false
     },
+    "show": {
+      "type": "boolean",
+      "default": true,
+      "description": "Controls footer visibility: false=hidden, true=show (compact=simple, full=detailed). Orthogonal to displayMode (table|json|markdown) which controls output format. When false, the plugin footer hook suppresses injection; /quotas and CLI commands still render normally."
+    },
     "anthropic": {
       "type": "object",
       "additionalProperties": false,
