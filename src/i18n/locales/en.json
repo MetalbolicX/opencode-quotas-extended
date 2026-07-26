@@ -1,0 +1,19 @@
+{
+  "status.OK": "OK",
+  "status.WRN": "WRN",
+  "status.ERR": "ERR",
+  "status.UNK": "UNK",
+  "header.name": "Name",
+  "header.used": "Used",
+  "header.limit": "Limit",
+  "header.bar": "Bar",
+  "header.percent": "%",
+  "header.reset": "Reset",
+  "header.ettl": "ETTL",
+  "header.status": "Status",
+  "footer.compact": "Compact quota summary",
+  "unit.req": "req",
+  "unit.credits": "credits",
+  "unit.calls": "calls",
+  "unit.%": "%"
+}
