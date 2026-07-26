@@ -1,0 +1,21 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "api_usage",
+      "id": "gen-abc123",
+      "model": "gpt-4o",
+      "ip_override": "203.0.113.42",
+      "user": "user_abc123",
+      "generated": 142857,
+      "cached": 42857,
+      "context_tokens": 999999,
+      "n_context_tokens_generated": 500000,
+      "n_generated_tokens": 142857,
+      "endpoint": "chat/completions",
+      "created_at": 1753328400
+    }
+  ],
+  "total_usage": 142857,
+  "limit_user": 100000000
+}

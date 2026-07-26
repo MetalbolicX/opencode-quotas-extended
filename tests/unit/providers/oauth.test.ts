@@ -1,136 +1,53 @@
-// RED → GREEN: shared OAuth helper with 401 single-refresh + retry.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+// RED → GREEN: shared OAuth helper — Bearer header, 401 single-refresh + retry.
+import { describe, it, expect, vi } from "vitest";
 import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient, HttpRequest } from "../../../src/ports/http.js";
+import type { HttpClient } from "../../../src/ports/http.js";
 import { withOAuth } from "../../../src/adapters/providers/oauth.js";
 
-function makeSource(getFn: () => Promise<Credential | null>): CredentialSource {
-  return { get: getFn } as CredentialSource;
-}
+function src(cred: Credential | null) { return { get: () => Promise.resolve(cred) } as unknown as CredentialSource; }
+const oauthCred: Credential = { variant: "oauth", access: "tok", refresh: "ref", expires: Date.now() + 60_000 };
+const apiCred: Credential = { variant: "api", key: "sk-test" };
+const fakeReq = { url: "https://x.com", method: "GET" as const };
 
-const oauthCred: Credential = {
-  variant: "oauth",
-  access: "access_token_123",
-  refresh: "refresh_token_456",
-  expires: Date.now() + 60_000,
-};
-
-const apiCred: Credential = {
-  variant: "api",
-  key: "sk-openai-test-key",
-};
-
-const fakeReq: HttpRequest = {
-  url: "https://chatgpt.com/backend-api/wham/usage",
-  method: "GET",
-};
-
-describe("oauth helper — withOAuth", () => {
-  it("sets Bearer Authorization header for oauth credential", async () => {
-    const source = makeSource(() => Promise.resolve(oauthCred));
-    let capturedReq: HttpRequest | undefined;
-    const http = {
-      request: vi.fn(async (req: HttpRequest) => {
-        capturedReq = req;
-        return { ok: true };
-      }),
-    } as unknown as HttpClient;
-
-    await withOAuth(source, http, "openai", async (client) => {
-      return client.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true });
-    });
-
-    expect(capturedReq?.headers?.["Authorization"]).toBe("Bearer access_token_123");
+describe("oauth helper", () => {
+  it("oauth → Bearer token", async () => {
+    let req: unknown;
+    const http = { request: vi.fn((r: unknown) => { req = r; return Promise.resolve(42); }) } as unknown as HttpClient;
+    await withOAuth(src(oauthCred), http, "openai", (c) => c.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true }));
+    expect((req as { headers?: Record<string, string> }).headers?.Authorization).toBe("Bearer tok");
   });
 
-  it("sets Authorization header with API key for api credential", async () => {
-    const source = makeSource(() => Promise.resolve(apiCred));
-    let capturedReq: HttpRequest | undefined;
-    const http = {
-      request: vi.fn(async (req: HttpRequest) => {
-        capturedReq = req;
-        return { ok: true };
-      }),
-    } as unknown as HttpClient;
-
-    await withOAuth(source, http, "openai", async (client) => {
-      return client.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true });
-    });
-
-    expect(capturedReq?.headers?.["Authorization"]).toBe("Bearer sk-openai-test-key");
+  it("api → Bearer key", async () => {
+    let req: unknown;
+    const http = { request: vi.fn((r: unknown) => { req = r; return Promise.resolve(42); }) } as unknown as HttpClient;
+    await withOAuth(src(apiCred), http, "openai", (c) => c.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true }));
+    expect((req as { headers?: Record<string, string> }).headers?.Authorization).toBe("Bearer sk-test");
   });
 
-  it("returns result from successful oauth request", async () => {
-    const source = makeSource(() => Promise.resolve(oauthCred));
-    const expected = { rate_limit: { primary_window: {} } };
-    const http = { request: vi.fn(() => Promise.resolve(expected)) } as unknown as HttpClient;
-
-    const result = await withOAuth(source, http, "openai", async (client) => {
-      return client.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true });
-    });
-
-    expect(result).toEqual(expected);
+  it("success → returns result", async () => {
+    const http = { request: vi.fn(() => Promise.resolve({ ok: true })) } as unknown as HttpClient;
+    const r = await withOAuth(src(oauthCred), http, "openai", (c) => c.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true }));
+    expect(r).toEqual({ ok: true });
   });
 
-  it("on 401: refreshes once then retries", async () => {
+  it("401 → refresh once then retry", async () => {
     let callCount = 0;
-    const source = makeSource(() => {
-      callCount++;
-      return Promise.resolve(callCount === 1 ? oauthCred : { ...oauthCred, access: "refreshed_token" });
-    });
-
-    const responses: unknown[] = [];
-    let reqCount = 0;
-    const http = {
-      request: vi.fn(async () => {
-        reqCount++;
-        if (reqCount === 1) {
-          const err = new Error("401") as Error & { status?: number };
-          err.status = 401;
-          throw err;
-        }
-        return { ok: true, refreshed: true };
-      }),
-    } as unknown as HttpClient;
-
-    const result = await withOAuth(source, http, "openai", async (client) => {
-      return client.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true });
-    });
-
-    expect(reqCount).toBe(2);
-    expect(result).toEqual({ ok: true, refreshed: true });
+    const http = { request: vi.fn(async () => { callCount++; if (callCount === 1) { const e = new Error(); (e as Error & { status?: number }).status = 401; throw e; } return { ok: true }; }) } as unknown as HttpClient;
+    const r = await withOAuth(src(oauthCred), http, "openai", (c) => c.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true }));
+    expect(callCount).toBe(2);
+    expect(r).toEqual({ ok: true });
   });
 
-  it("on second 401 after refresh: returns [] and does not retry again", async () => {
-    let reqCount = 0;
-    const source = makeSource(() => Promise.resolve(oauthCred));
-    const http = {
-      request: vi.fn(async () => {
-        reqCount++;
-        const err = new Error("401") as Error & { status?: number };
-        err.status = 401;
-        throw err;
-      }),
-    } as unknown as HttpClient;
-
-    const result = await withOAuth(source, http, "openai", async (client) => {
-      return client.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true });
-    });
-
-    // Only 2 calls: original (401) + refresh (401) — no third retry
-    expect(reqCount).toBe(2);
-    expect(result).toEqual([]);
+  it("second 401 → returns []", async () => {
+    let callCount = 0;
+    const http = { request: vi.fn(async () => { callCount++; const e = new Error(); (e as Error & { status?: number }).status = 401; throw e; }) } as unknown as HttpClient;
+    expect(await withOAuth(src(oauthCred), http, "openai", (c) => c.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true }))).toEqual([]);
+    expect(callCount).toBe(2);
   });
 
-  it("when credential is null: skips request and returns []", async () => {
-    const source = makeSource(() => Promise.resolve(null));
+  it("null cred → skips request, returns []", async () => {
     const http = { request: vi.fn() } as unknown as HttpClient;
-
-    const result = await withOAuth(source, http, "openai", async (client) => {
-      return client.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true });
-    });
-
-    expect(result).toEqual([]);
+    expect(await withOAuth(src(null), http, "openai", (c) => c.request(fakeReq, { timeoutMs: 5000, retries: 0, redact: true }))).toEqual([]);
     expect(http.request).not.toHaveBeenCalled();
   });
 });
