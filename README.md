@@ -75,7 +75,7 @@ bun run build        # Compiles TypeScript → dist/cli/index.js
 ## Development
 
 ```bash
-bun run test         # Run all tests (252 passing)
+bun run test         # Run all tests (280 passing)
 bun run test:watch   # Watch mode
 bun run test:coverage  # Coverage report
 bun run typecheck     # TypeScript type checking
@@ -89,6 +89,22 @@ bash scripts/check-secrets.sh  # CI secret-leak gate
 - **Immutable domain**: `QuotaData` is a plain readonly object; no mutable state in the core.
 - **Failure isolation**: Each provider adapter runs independently; a single provider failure does not crash the report.
 - **TDD-first**: Every behavior is driven by a failing test before implementation.
+
+## Status
+
+**10/10 slices complete.** All gates pass:
+
+| Gate | Result |
+|------|--------|
+| `bun run test` | ✅ 280 tests pass |
+| `bun run typecheck` | ✅ 0 errors |
+| `bash scripts/check-secrets.sh` | ✅ exit 0 |
+| `bun run build` | ✅ dist/ produced |
+
+**8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
+Five (Zen, Go, z.ai, Kimi, Minimax) have `TODO(research)` endpoints pending URL pinning before production use.
+
+Run `bun run test` to execute all gates. See [Open Issues](#open-issues) for the pending endpoint list.
 
 ## Open Issues
 
