@@ -158,6 +158,16 @@
     "showUnaggregated": {
       "type": "boolean",
       "default": false
+    },
+    "anthropic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "orgId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }

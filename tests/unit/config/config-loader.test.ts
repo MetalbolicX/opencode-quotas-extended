@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, ConfigValidationError } from "../../../src/adapters/infra/config-loader.js";
+import { loadConfig, ConfigValidationError, resolveAnthropicOrgId } from "../../../src/adapters/infra/config-loader.js";
 
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const FIXTURE_DIR = join(PROJECT_ROOT, "tests/fixtures/config");
@@ -80,5 +80,59 @@ describe("loadConfig", () => {
     expect(config.displayMode).toBe("markdown");
     expect(config.historyMaxAgeHours).toBe(24); // default
     expect(config.pollingInterval).toBe(0); // default
+  });
+});
+
+describe("resolveAnthropicOrgId", () => {
+  const baseConfig = { displayMode: "table" as const, disabled: [] as readonly string[], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false };
+  const baseAuth = {};
+
+  it("config wins over env", () => {
+    const cfg = { ...baseConfig, anthropic: { orgId: "cfg-org" } } as any;
+    const auth = { anthropic: { orgId: "auth-org" } };
+    const env = { ANTHROPIC_ORG_ID: "env-org" };
+    expect(resolveAnthropicOrgId(cfg, auth, env)).toBe("cfg-org");
+  });
+
+  it("auth.json orgId fallback", () => {
+    const cfg = { ...baseConfig } as any;
+    const auth = { anthropic: { orgId: "auth-org" } };
+    const env = { ANTHROPIC_ORG_ID: "env-org" };
+    expect(resolveAnthropicOrgId(cfg, auth, env)).toBe("auth-org");
+  });
+
+  it("auth.json org (not orgId) field works", () => {
+    const cfg = { ...baseConfig } as any;
+    const auth = { anthropic: { org: "auth-org" } };
+    const env = {};
+    expect(resolveAnthropicOrgId(cfg, auth, env)).toBe("auth-org");
+  });
+
+  it("env fallback", () => {
+    const cfg = { ...baseConfig } as any;
+    const auth = {};
+    const env = { ANTHROPIC_ORG_ID: "env-org" };
+    expect(resolveAnthropicOrgId(cfg, auth, env)).toBe("env-org");
+  });
+
+  it("all absent throws clear error", () => {
+    const cfg = { ...baseConfig } as any;
+    const auth = {};
+    const env = {};
+    expect(() => resolveAnthropicOrgId(cfg, auth, env)).toThrow(/anthropic.*org_id|org.*missing/i);
+  });
+
+  it("empty string in config is ignored", () => {
+    const cfg = { ...baseConfig, anthropic: { orgId: "" } } as any;
+    const auth = { anthropic: { orgId: "auth-org" } };
+    const env = {};
+    expect(resolveAnthropicOrgId(cfg, auth, env)).toBe("auth-org");
+  });
+
+  it("whitespace-only string in config is ignored", () => {
+    const cfg = { ...baseConfig, anthropic: { orgId: "   " } } as any;
+    const auth = { anthropic: { orgId: "auth-org" } };
+    const env = {};
+    expect(resolveAnthropicOrgId(cfg, auth, env)).toBe("auth-org");
   });
 });
