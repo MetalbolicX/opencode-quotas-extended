@@ -1,6 +1,8 @@
 // Footer hook — mutates output.text by appending a compact quota footer.
-// Guards: already processed, already pending, signature in text, non-text/last-part checks.
+// Guards: show===false (hidden), already processed, already pending, signature in text.
 // Uses pluginState.acquireLock for concurrency safety.
+// show tri-state: simple=true|undefined (compact footer), detailed=true+full (/quotas),
+// hidden=false (footer suppressed). displayMode (table|json|markdown) is orthogonal.
 import type { PluginState } from "./state.js";
 
 export interface TextCompleteInput {
@@ -19,6 +21,13 @@ export interface FooterDeps {
   renderFooter: () => Promise<string>;
   /** Signature string that marks "footer already present" in text. */
   signature: string;
+  /**
+   * Controls footer visibility.
+   * - show === false → reference "hidden": footer hook returns early, nothing appended.
+   * - show === true | undefined → reference "simple": compact footer appended.
+   * Orthogonal to displayMode (table|json|markdown), which controls output format.
+   */
+  show?: boolean;
 }
 
 /**
@@ -37,8 +46,14 @@ export async function handleTextComplete(
   output: TextCompleteOutput,
   deps: FooterDeps,
 ): Promise<void> {
-  const { pluginState, renderFooter, signature } = deps;
+  const { pluginState, renderFooter, signature, show } = deps;
   const { messageID } = input;
+
+  // show === false → reference "hidden": footer suppressed (idempotent no-op)
+  if (show === false) {
+    pluginState.markProcessed(messageID);
+    return;
+  }
 
   // Fast-path guards — before acquiring lock
   if (pluginState.isProcessed(messageID)) return;

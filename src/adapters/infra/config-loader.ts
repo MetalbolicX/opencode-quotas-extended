@@ -36,6 +36,8 @@ export interface QuotasConfig {
   readonly predictionWindowMinutes: number;
   readonly predictionShortWindowMinutes: number;
   readonly showUnaggregated: boolean;
+  /** Controls footer visibility: false=hidden, true=show (compact=simple, full=detailed). Orthogonal to displayMode. */
+  readonly show?: boolean;
   readonly filterByCurrentModel?: boolean;
   readonly progressBar?: {
     readonly width?: number;
@@ -59,6 +61,7 @@ export const DEFAULTS: QuotasConfig = {
   predictionWindowMinutes: 60,
   predictionShortWindowMinutes: 5,
   showUnaggregated: false,
+  show: true,
 };
 
 /**
