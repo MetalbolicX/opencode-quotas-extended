@@ -45,6 +45,9 @@ export interface QuotasConfig {
     readonly gradients?: boolean;
   };
   readonly credentials?: Readonly<Record<string, { type: "api"; key: string } | { type: "env"; envVar: string }>>;
+  readonly anthropic?: {
+    readonly orgId?: string;
+  };
 }
 
 export const DEFAULTS: QuotasConfig = {
@@ -95,4 +98,34 @@ export class ConfigValidationError extends Error {
     this.name = "ConfigValidationError";
     this.cause = cause;
   }
+}
+
+/**
+ * Resolves the Anthropic organization ID from three sources in priority order:
+ * 1. quotas.json  → config.anthropic.orgId
+ * 2. auth.json    → auth.anthropic.orgId | auth.anthropic.org
+ * 3. env          → ANTHROPIC_ORG_ID
+ *
+ * @param cfg  — the loaded QuotasConfig
+ * @param auth — the auth record (keyed by provider, e.g. { anthropic: { orgId?, org? } })
+ * @param env  — process.env
+ * @throws Error with a clear, actionable message if no orgId is found in any source.
+ */
+export function resolveAnthropicOrgId(
+  cfg: QuotasConfig,
+  auth: Record<string, unknown> | undefined,
+  env: NodeJS.ProcessEnv,
+): string {
+  const fromCfg = cfg.anthropic?.orgId;
+  if (typeof fromCfg === "string" && fromCfg.trim().length > 0) return fromCfg.trim();
+  const anthropicAuth = auth?.anthropic as { org?: string; orgId?: string } | undefined;
+  const fromAuth = anthropicAuth?.orgId ?? anthropicAuth?.org;
+  if (typeof fromAuth === "string" && fromAuth.length > 0) return fromAuth;
+  const fromEnv = env.ANTHROPIC_ORG_ID;
+  if (typeof fromEnv === "string" && fromEnv.length > 0) return fromEnv;
+  throw new Error(
+    "Anthropic org_id missing: set anthropic.orgId in quotas.json, " +
+    "anthropic.orgId (or anthropic.org) in auth.json, " +
+    "or ANTHROPIC_ORG_ID env variable",
+  );
 }
