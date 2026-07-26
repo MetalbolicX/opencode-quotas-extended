@@ -1,0 +1,15 @@
+{
+  "history": {
+    "openai": [
+      { "timestamp": 1753000000000, "used": 50, "limit": 100 },
+      { "timestamp": 1753001000000, "used": 55, "limit": 100 },
+      { "timestamp": 1753002000000, "used": 60, "limit": 100 },
+      { "timestamp": 1753003000000, "used": 70, "limit": 100 },
+      { "timestamp": 1753004000000, "used": 80, "limit": 100 }
+    ],
+    "anthropic": [
+      { "timestamp": 1753000000000, "used": 1000, "limit": 10000 },
+      { "timestamp": 1753000600000, "used": 1100, "limit": 10000 }
+    ]
+  }
+}

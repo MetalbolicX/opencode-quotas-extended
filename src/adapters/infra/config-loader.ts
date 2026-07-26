@@ -47,7 +47,7 @@ export interface QuotasConfig {
   readonly credentials?: Readonly<Record<string, { type: "api"; key: string } | { type: "env"; envVar: string }>>;
 }
 
-const DEFAULTS: QuotasConfig = {
+export const DEFAULTS: QuotasConfig = {
   displayMode: "table",
   disabled: [],
   aggregatedGroups: {},
