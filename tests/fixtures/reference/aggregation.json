@@ -1,0 +1,60 @@
+{
+  "strategies": {
+    "most_critical": {
+      "description": "Select shortest ETTL; fallback to max ratio when ETTL=Infinity",
+      "cases": [
+        {
+          "id": "has-predictions",
+          "quotas": [
+            { "id": "a", "providerName": "P1", "used": 80, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
+            { "id": "b", "providerName": "P2", "used": 50, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }
+          ],
+          "ettlMap": { "a": 3600000, "b": 7200000 },
+          "expected": { "id": "a" }
+        },
+        {
+          "id": "all-infinite-ettl",
+          "quotas": [
+            { "id": "a", "providerName": "P1", "used": 10, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
+            { "id": "b", "providerName": "P2", "used": 20, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }
+          ],
+          "ettlMap": { "a": 999999999999, "b": 999999999999 },
+          "expected": { "id": "a", "ratio": 0.1 }
+        },
+        {
+          "id": "empty",
+          "quotas": [],
+          "ettlMap": {},
+          "expected": null
+        }
+      ]
+    },
+    "max": {
+      "description": "Select highest used/limit ratio",
+      "cases": [
+        { "id": "a-higher", "quotas": [{ "id": "a", "providerName": "P1", "used": 80, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 30, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "id": "a", "ratio": 0.8 } },
+        { "id": "unlimited-ignored", "quotas": [{ "id": "a", "providerName": "P1", "used": 100, "limit": null, "unit": "req", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 50, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "id": "b", "ratio": 0.5 } },
+        { "id": "zero-limit", "quotas": [{ "id": "a", "providerName": "P1", "used": 0, "limit": 0, "unit": "req", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 50, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "id": "b", "ratio": 0.5 } }
+      ]
+    },
+    "min": {
+      "description": "Select lowest used/limit ratio",
+      "cases": [
+        { "id": "b-lower", "quotas": [{ "id": "a", "providerName": "P1", "used": 80, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 10, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "id": "b", "ratio": 0.1 } }
+      ]
+    },
+    "mean": {
+      "description": "Synthetic quota with average ratio × 100, limit=100, unit=%",
+      "cases": [
+        { "id": "three-quotas", "quotas": [{ "id": "a", "providerName": "P1", "used": 20, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 60, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "c", "providerName": "P3", "used": 40, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "used": 40, "limit": 100, "unit": "%" } }
+      ]
+    },
+    "median": {
+      "description": "Synthetic quota with median ratio × 100, limit=100, unit=%",
+      "cases": [
+        { "id": "odd-count", "quotas": [{ "id": "a", "providerName": "P1", "used": 10, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 50, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "c", "providerName": "P3", "used": 90, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "used": 50, "limit": 100, "unit": "%" } },
+        { "id": "even-count", "quotas": [{ "id": "a", "providerName": "P1", "used": 10, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, { "id": "b", "providerName": "P2", "used": 90, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }], "expected": { "used": 90, "limit": 100, "unit": "%" } }
+      ]
+    }
+  }
+}
