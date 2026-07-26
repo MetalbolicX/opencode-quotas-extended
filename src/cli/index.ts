@@ -1,7 +1,10 @@
 // CLI entry — opencode-quotas.
 // Flags: --provider <id> --model <id> --mode <table|json|markdown> --no-color
-// Bootstrap: configLoader → credentialResolver → httpClient → registry → fetch → aggregate → predict → render → stdout.
+// Bootstrap: configLoader → credentialResolver → httpClient → registry → shared-pipeline → stdout.
 // Exit: 0 render success, 1 no providers / fatal.
+//
+// Slice 10: The inline pipeline has been extracted to src/application/report-pipeline.ts.
+// This CLI now delegates to the shared module for all surfaces.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -11,10 +14,9 @@ import { DEFAULTS, loadConfig } from "../adapters/infra/config-loader.js";
 import { createCredentialResolver } from "../adapters/auth/credential-resolver.js";
 import { FetchHttpClient } from "../adapters/infra/fetch-http.js";
 import { buildDefaultRegistry } from "../adapters/providers/registry.js";
-import { selectRenderer } from "../rendering/index.js";
-import { createI18nTranslator } from "../i18n/translator.js";
 import type { Logger } from "../ports/logger.js";
-import type { QuotaData } from "../domain/types.js";
+import { reportQuotas as pipeline } from "../application/report-pipeline.js";
+import type { ReportResult } from "../application/report-pipeline.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = join(__dirname, "..", "..");
@@ -40,21 +42,12 @@ export function parseArgs(argv: string[]): CliArgs {
   return args;
 }
 
-// ── No-op logger ─────────────────────────────────────────────────────────────
+// ── No-op logger (CLI doesn't emit debug/info; errors surface via result) ─────
 
-const noopLogger: Logger = {
-  debug() {},
-  info() {},
-  warn() {},
-  error() {},
-};
+const noopLogger: Logger = { debug() {}, info() {}, warn() {}, error() {} };
 
-// ── reportQuotas — inline pipeline (Slice 9 minimal; Slice 10 extracts) ──────
-
-export interface ReportResult {
-  readonly rendered: string;
-  readonly errors: Record<string, string>;
-}
+// ── Shared reportQuotas (backward-compatible wrapper) ─────────────────────────
+// Re-exports the pipeline as a factory so tests can inject deps when needed.
 
 export interface ReportOptions {
   readonly providerId?: string;
@@ -63,79 +56,49 @@ export interface ReportOptions {
   readonly noColor: boolean;
 }
 
-export async function reportQuotas(opts: ReportOptions): Promise<ReportResult> {
-  const { providerId, mode, noColor } = opts;
+/**
+ * Creates a reportQuotas function bound to the CLI's filesystem/bootstrap context.
+ * The underlying call goes through src/application/report-pipeline.ts.
+ */
+export function createReportQuotas() {
+  return async function reportQuotas(opts: ReportOptions): Promise<ReportResult> {
+    const { providerId, modelId, mode, noColor } = opts;
 
-  // Config
-  const configPath = join(ROOT, ".opencode", "quotas.json");
-  const config = existsSync(configPath) ? loadConfig(configPath) : DEFAULTS;
+    // Config
+    const configPath = join(ROOT, ".opencode", "quotas.json");
+    const config = existsSync(configPath) ? loadConfig(configPath) : DEFAULTS;
 
-  // Credentials
-  const credentialResolver = createCredentialResolver(
-    config,
-    { readFileSync: (p) => require("node:fs").readFileSync(p, "utf-8") },
-    process.env as Record<string, string | undefined>,
-  );
+    // Credentials
+    const credentialResolver = createCredentialResolver(
+      config,
+      { readFileSync: (p) => require("node:fs").readFileSync(p, "utf-8") },
+      process.env as Record<string, string | undefined>,
+    );
 
-  // HTTP + registry
-  const http = new FetchHttpClient(noopLogger);
-  const registry = buildDefaultRegistry(
-    { get: (id) => credentialResolver.get(id) },
-    http,
-  );
+    // HTTP + registry
+    const http = new FetchHttpClient(noopLogger);
+    const registry = buildDefaultRegistry({ get: (id) => credentialResolver.get(id) }, http);
 
-  // Filter
-  const providers = registry.list().filter(
-    (p) => !providerId || p.id === providerId,
-  );
-
-  if (providers.length === 0) {
-    return { rendered: "", errors: { _: "No providers found." } };
-  }
-
-  // Fetch from all (or filtered) providers
-  // NOTE: all provider implementations take 0 args (credential resolution is internal).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fetched = await Promise.allSettled(
-    providers.map((p) => (p as any).fetchQuotas()),
-  );
-
-  const errors: Record<string, string> = {};
-  const allData: QuotaData[] = [];
-
-  for (let i = 0; i < fetched.length; i++) {
-    const r = fetched[i];
-    if (r.status === "fulfilled") {
-      allData.push(...r.value);
-    } else {
-      errors[providers[i].id] = String(r.reason);
-    }
-  }
-
-  // Render all fetched data directly (no history → no prediction in Slice 9)
-  // Slice 10 will wire in history store + ETTL prediction.
-  if (allData.length === 0) {
-    return { rendered: "", errors };
-  }
-
-  const renderer = selectRenderer(mode);
-  const t = createI18nTranslator({});
-  const effectiveNoColor = noColor || process.env.NO_COLOR === "1";
-  const rendered = renderer.render(allData, {
-    mode,
-    noColor: effectiveNoColor,
-    progressBar: config.progressBar ? {
-      width: config.progressBar.width ?? 20,
-      filledChar: config.progressBar.filledChar ?? "█",
-      emptyChar: config.progressBar.emptyChar ?? "░",
-      color: config.progressBar.color ?? true,
-      gradients: config.progressBar.gradients ?? false,
-    } : undefined,
-    t,
-  });
-
-  return { rendered, errors };
+    // Delegate to shared pipeline
+    return pipeline(
+      { credentialResolver, httpClient: http, registry, historyStore: createNoopHistory(), config, logger: noopLogger },
+      { providerId, modelId, mode, now: Date.now() },
+    );
+  };
 }
+
+// Minimal no-op history store for CLI bootstrap (no persistence in CLI mode)
+function createNoopHistory() {
+  return {
+    append: async (_id: string, _point: { timestamp: number; used: number; limit: number | null }) => {},
+    getHistory: async (_id: string, _ms: number) => [] as { timestamp: number; used: number; limit: number | null }[],
+    prune: async (_ms: number) => {},
+    resetDetected: (_id: string, _prev: { timestamp: number; used: number; limit: number | null }, _used: number, _limit: number | null) => false,
+  };
+}
+
+// Default instance for CLI use
+const _reportQuotas = createReportQuotas();
 
 // ── run — testable entry point ────────────────────────────────────────────────
 
@@ -167,7 +130,7 @@ export async function run(argv: string[]): Promise<RunResult> {
       return { stdout: USAGE, exitCode: 0 };
     }
 
-    const result = await reportQuotas({
+    const result = await _reportQuotas({
       providerId: args.provider,
       modelId: args.model,
       mode: args.mode,
