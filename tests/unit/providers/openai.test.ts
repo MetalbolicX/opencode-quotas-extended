@@ -48,6 +48,13 @@ describe("openai-provider", () => {
     expect(qs[0]).toMatchObject({ id: "openai-api-usage", used: 142857, limit: 100000000, unit: "tokens" });
   });
 
+  // ── api: 401 → [ ] ───────────────────────────────────────────────────────
+  it("api: on 401 returns [] (no throw)", async () => {
+    const http = { request: vi.fn(async () => { const e = new Error(); (e as Error & { status?: number }).status = 401; throw e; }) } as unknown as HttpClient;
+    // Must not throw; should return [] for api-key variant on 401
+    await expect(createOpenAIProvider(makeSource(() => Promise.resolve(apiCred)), http).fetchQuotas({}, {})).resolves.toEqual([]);
+  });
+
   // ── 401 refresh ───────────────────────────────────────────────────────────
   it("on 401: refreshes once then retries → QuotaData[]", async () => {
     let callCount = 0;

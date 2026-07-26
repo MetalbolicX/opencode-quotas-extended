@@ -6,7 +6,7 @@ import type { QuotaData } from "../../domain/types.js";
 import { withOAuth } from "./oauth.js";
 
 const WHAM_URL = "https://chatgpt.com/backend-api/wham/usage";
-/** TODO(research): confirm exact URL before production use. */
+/** Confirmed: https://api.openai.com/v1/usage — requires API key (not OAuth token). */
 const PLATFORM_URL = "https://api.openai.com/v1/usage";
 
 function isObj(v: unknown): v is Record<string, unknown> {
