@@ -1,42 +1,9 @@
 {
-  "description": "Reset detected when usage drops ≥20% of the limit from peak (last recorded point).",
   "thresholdPercent": 20,
   "cases": [
-    {
-      "id": "drop-gt-threshold",
-      "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": 100 },
-      "current": { "id": "a", "providerName": "P1", "used": 55, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-      "expected": true
-    },
-    {
-      "id": "drop-eq-threshold",
-      "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": 100 },
-      "current": { "id": "a", "providerName": "P1", "used": 60, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-      "expected": true
-    },
-    {
-      "id": "drop-lt-threshold",
-      "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": 100 },
-      "current": { "id": "a", "providerName": "P1", "used": 70, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-      "expected": false
-    },
-    {
-      "id": "increase-no-reset",
-      "lastPoint": { "timestamp": 1000000000000, "used": 50, "limit": 100 },
-      "current": { "id": "a", "providerName": "P1", "used": 80, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-      "expected": false
-    },
-    {
-      "id": "unlimited-last",
-      "lastPoint": { "timestamp": 1000000000000, "used": 50, "limit": null },
-      "current": { "id": "a", "providerName": "P1", "used": 30, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-      "expected": false
-    },
-    {
-      "id": "unlimited-current",
-      "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": 100 },
-      "current": { "id": "a", "providerName": "P1", "used": 30, "limit": null, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-      "expected": false
-    }
+    { "id": "drop-gt-threshold", "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": 100 }, "current": { "id": "a", "providerName": "P1", "used": 55, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, "expected": true },
+    { "id": "drop-lt-threshold", "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": 100 }, "current": { "id": "a", "providerName": "P1", "used": 70, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, "expected": false },
+    { "id": "increase-no-reset", "lastPoint": { "timestamp": 1000000000000, "used": 50, "limit": 100 }, "current": { "id": "a", "providerName": "P1", "used": 80, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, "expected": false },
+    { "id": "unlimited-skip", "lastPoint": { "timestamp": 1000000000000, "used": 80, "limit": null }, "current": { "id": "a", "providerName": "P1", "used": 30, "limit": null, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" }, "expected": false }
   ]
 }

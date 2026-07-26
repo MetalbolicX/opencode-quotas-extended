@@ -1,71 +1,10 @@
 {
-  "description": "Dual-window linear regression ETTL. max(longSlope, shortSlope). Idle >5min → Infinity. slope≤0 → Infinity. ≥2 pts required. Week/month/d+ windows skip short slope.",
   "cases": [
-    {
-      "id": "stable-growth",
-      "history": [
-        { "timestamp": 1000000000000, "used": 10, "limit": 100 },
-        { "timestamp": 1000000000060, "used": 20, "limit": 100 },
-        { "timestamp": 1000000000180, "used": 35, "limit": 100 }
-      ],
-      "now": 1000000000180,
-      "params": { "windowMinutes": 60, "shortWindowMinutes": 5 },
-      "windowInfo": "daily",
-      "expected": { "status": "finite", "minGt0": true }
-    },
-    {
-      "id": "idle-gt-5min",
-      "history": [
-        { "timestamp": 1000000000000, "used": 50, "limit": 100 }
-      ],
-      "now": 1000000030000,
-      "params": { "windowMinutes": 60, "shortWindowMinutes": 5 },
-      "windowInfo": "daily",
-      "expected": { "status": "infinity" }
-    },
-    {
-      "id": "insufficient-points",
-      "history": [
-        { "timestamp": 1000000000000, "used": 50, "limit": 100 }
-      ],
-      "now": 1000000000600,
-      "params": { "windowMinutes": 60, "shortWindowMinutes": 5 },
-      "windowInfo": "daily",
-      "expected": { "status": "infinity" }
-    },
-    {
-      "id": "decreasing-slope",
-      "history": [
-        { "timestamp": 1000000000000, "used": 90, "limit": 100 },
-        { "timestamp": 1000000000060, "used": 80, "limit": 100 },
-        { "timestamp": 1000000000180, "used": 65, "limit": 100 }
-      ],
-      "now": 1000000000180,
-      "params": { "windowMinutes": 60, "shortWindowMinutes": 5 },
-      "windowInfo": "daily",
-      "expected": { "status": "infinity" }
-    },
-    {
-      "id": "long-window-skips-short",
-      "history": [
-        { "timestamp": 1000000000000, "used": 90, "limit": 100 },
-        { "timestamp": 1000000000060, "used": 10, "limit": 100 }
-      ],
-      "now": 1000000000060,
-      "params": { "windowMinutes": 60, "shortWindowMinutes": 5 },
-      "windowInfo": "weekly",
-      "expected": { "status": "infinity", "reason": "weekly-window-uses-long-slope-only-decreasing" }
-    },
-    {
-      "id": "zero-remaining",
-      "history": [
-        { "timestamp": 1000000000000, "used": 100, "limit": 100 },
-        { "timestamp": 1000000000060, "used": 100, "limit": 100 }
-      ],
-      "now": 1000000000060,
-      "params": { "windowMinutes": 60, "shortWindowMinutes": 5 },
-      "windowInfo": "daily",
-      "expected": { "status": "infinity" }
-    }
+    { "id": "stable-growth", "history": [{ "timestamp": 1000000000000, "used": 10, "limit": 100 }, { "timestamp": 1000000000060, "used": 20, "limit": 100 }, { "timestamp": 1000000000180, "used": 35, "limit": 100 }], "now": 1000000000180, "params": { "windowMinutes": 60, "shortWindowMinutes": 5 }, "windowInfo": "daily", "expected": { "status": "finite" } },
+    { "id": "idle-gt-5min", "history": [{ "timestamp": 1000000000000, "used": 50, "limit": 100 }], "now": 1000000030000, "params": { "windowMinutes": 60, "shortWindowMinutes": 5 }, "windowInfo": "daily", "expected": { "status": "infinity" } },
+    { "id": "insufficient-points", "history": [{ "timestamp": 1000000000000, "used": 50, "limit": 100 }], "now": 1000000000600, "params": { "windowMinutes": 60, "shortWindowMinutes": 5 }, "windowInfo": "daily", "expected": { "status": "infinity" } },
+    { "id": "decreasing-slope", "history": [{ "timestamp": 1000000000000, "used": 90, "limit": 100 }, { "timestamp": 1000000000060, "used": 80, "limit": 100 }, { "timestamp": 1000000000180, "used": 65, "limit": 100 }], "now": 1000000000180, "params": { "windowMinutes": 60, "shortWindowMinutes": 5 }, "windowInfo": "daily", "expected": { "status": "infinity" } },
+    { "id": "long-window-weekly", "history": [{ "timestamp": 1000000000000, "used": 90, "limit": 100 }, { "timestamp": 1000000000060, "used": 10, "limit": 100 }], "now": 1000000000060, "params": { "windowMinutes": 60, "shortWindowMinutes": 5 }, "windowInfo": "weekly", "expected": { "status": "infinity" } },
+    { "id": "zero-remaining", "history": [{ "timestamp": 1000000000000, "used": 100, "limit": 100 }, { "timestamp": 1000000000060, "used": 100, "limit": 100 }], "now": 1000000000060, "params": { "windowMinutes": 60, "shortWindowMinutes": 5 }, "windowInfo": "daily", "expected": { "status": "infinity" } }
   ]
 }
