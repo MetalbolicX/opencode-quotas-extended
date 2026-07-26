@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opencode.ai/schemas/quotas.json",
+  "title": "opencode-quotas configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "displayMode": {
+      "type": "string",
+      "enum": ["table", "json", "markdown"]
+    },
+    "progressBar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "filledChar": {
+          "type": "string",
+          "default": "█"
+        },
+        "emptyChar": {
+          "type": "string",
+          "default": "░"
+        },
+        "color": {
+          "type": "boolean",
+          "default": true
+        },
+        "gradients": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "tableConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["name", "used", "limit", "percent", "reset", "status", "bar"]
+          },
+          "default": ["name", "bar", "percent", "reset", "status"]
+        },
+        "header": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "footerConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "show": {
+          "type": "boolean",
+          "default": true
+        },
+        "compact": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "aggregationStrategy": {
+      "type": "string",
+      "enum": ["most_critical", "max", "min", "mean", "median"]
+    },
+    "aggregatedGroups": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["strategy", "members"],
+        "properties": {
+          "strategy": { "$ref": "#/definitions/aggregationStrategy" },
+          "members": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "credentialEntry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "key"],
+          "properties": {
+            "type": { "const": "api" },
+            "key": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "envVar"],
+          "properties": {
+            "type": { "const": "env" },
+            "envVar": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/credentialEntry" }
+    }
+  },
+  "properties": {
+    "displayMode": { "$ref": "#/definitions/displayMode" },
+    "progressBar": { "$ref": "#/definitions/progressBar" },
+    "table": { "$ref": "#/definitions/tableConfig" },
+    "footer": { "$ref": "#/definitions/footerConfig" },
+    "filterByCurrentModel": {
+      "type": "boolean",
+      "default": false
+    },
+    "disabled": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "credentials": { "$ref": "#/definitions/credentials" },
+    "aggregatedGroups": { "$ref": "#/definitions/aggregatedGroups" },
+    "historyMaxAgeHours": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 720,
+      "default": 24
+    },
+    "pollingInterval": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "predictionWindowMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1440,
+      "default": 60
+    },
+    "predictionShortWindowMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60,
+      "default": 5
+    },
+    "showUnaggregated": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
