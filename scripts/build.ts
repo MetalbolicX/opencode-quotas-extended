@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { rm, mkdir } from "node:fs/promises";
+import { chmod, rm, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 
@@ -42,6 +42,8 @@ async function main() {
       writeFileSync(cliPath, "#!/usr/bin/env bun\n" + src);
       console.log("[build] shebang prepended to dist/cli/index.js");
     }
+    await chmod(cliPath, 0o755);
+    console.log("[build] made dist/cli/index.js executable");
   }
 }
 

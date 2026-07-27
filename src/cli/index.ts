@@ -6,7 +6,7 @@
 // Slice 10: The inline pipeline has been extracted to src/application/report-pipeline.ts.
 // This CLI now delegates to the shared module for all surfaces.
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RenderMode } from "../domain/types.js";
@@ -84,7 +84,7 @@ export function createReportQuotas() {
     // Credentials
     const credentialResolver = createCredentialResolver(
       config,
-      { readFileSync: (p) => require("node:fs").readFileSync(p, "utf-8") },
+      { readFileSync: (p) => readFileSync(p, "utf-8") },
       process.env as Record<string, string | undefined>,
     );
 
@@ -162,7 +162,7 @@ export async function run(argv: string[]): Promise<RunResult> {
     // Credentials
     const credentialResolver = createCredentialResolver(
       config,
-      { readFileSync: (p) => require("node:fs").readFileSync(p, "utf-8") },
+      { readFileSync: (p) => readFileSync(p, "utf-8") },
       process.env as Record<string, string | undefined>,
     );
 

@@ -18,9 +18,21 @@ interface MinimaxRemainsEntry {
   current_weekly_remaining_percent: number;
 }
 
+function extractJson(out: string): string | null {
+  // mmx prints a human-readable table before the JSON blob; the first `[` is
+  // inside the progress bar. Locate the unique `"model_remains"` key and
+  // grab from the opening `{` before it.
+  const idx = out.indexOf('"model_remains"');
+  if (idx === -1) return null;
+  const start = out.lastIndexOf("{", idx);
+  return start === -1 ? null : out.slice(start);
+}
+
 function parseMinimaxCli(out: string, _key: string): QuotaData[] {
+  const jsonText = extractJson(out);
+  if (!jsonText) return [];
   let json: unknown;
-  try { json = JSON.parse(out); } catch { return []; }
+  try { json = JSON.parse(jsonText); } catch { return []; }
   if (!json || typeof json !== "object") return [];
   const obj = json as Record<string, unknown>;
   const remains = Array.isArray(obj.model_remains)
