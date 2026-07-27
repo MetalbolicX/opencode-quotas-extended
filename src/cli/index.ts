@@ -1,7 +1,7 @@
 // CLI entry — opencode-quotas.
-// Flags: --provider <id> --model <id> --mode <table|json|markdown> --no-color
+// Flags: -l/--list -p/--provider -c/--color -m/--mode -h/--help
 // Bootstrap: configLoader → credentialResolver → httpClient → registry → shared-pipeline → stdout.
-// Exit: 0 render success, 1 no providers / fatal.
+// Exit: 0 render success, 1 partial/diagnostic, 2 usage error.
 //
 // Slice 10: The inline pipeline has been extracted to src/application/report-pipeline.ts.
 // This CLI now delegates to the shared module for all surfaces.
@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RenderMode } from "../domain/types.js";
+import { parseArgs } from "./parse-args.js";
 import { DEFAULTS, loadConfig } from "../adapters/infra/config-loader.js";
 import { createCredentialResolver } from "../adapters/auth/credential-resolver.js";
 import { FetchHttpClient } from "../adapters/infra/fetch-http.js";
@@ -18,33 +19,10 @@ import { filterAvailableProviders } from "../adapters/providers/filter.js";
 import type { Logger } from "../ports/logger.js";
 import { reportQuotas as pipeline } from "../application/report-pipeline.js";
 import type { ReportResult } from "../application/report-pipeline.js";
+import { COLOR_MAP } from "../rendering/colors.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = join(__dirname, "..", "..");
-
-// ── Args parsing ──────────────────────────────────────────────────────────────
-
-export interface CliArgs {
-  provider?: string;
-  model?: string;
-  mode: RenderMode;
-  noColor: boolean;
-  /** When true, emit numbered availability table instead of fetching quota data. */
-  list: boolean;
-}
-
-export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { mode: "table", noColor: false, list: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--provider" && argv[i + 1]) args.provider = argv[++i];
-    else if (a === "--model" && argv[i + 1]) args.model = argv[++i];
-    else if (a === "--mode" && argv[i + 1]) args.mode = argv[++i] as RenderMode;
-    else if (a === "--no-color") args.noColor = true;
-    else if (a === "--list") args.list = true;
-  }
-  return args;
-}
 
 // ── No-op logger (CLI doesn't emit debug/info; errors surface via result) ─────
 
@@ -81,7 +59,7 @@ export interface ReportOptions {
   readonly providerId?: string;
   readonly modelId?: string;
   readonly mode: RenderMode;
-  readonly noColor: boolean;
+  readonly color?: string;
 }
 
 /**
@@ -90,7 +68,7 @@ export interface ReportOptions {
  */
 export function createReportQuotas() {
   return async function reportQuotas(opts: ReportOptions): Promise<ReportResult> {
-    const { providerId, modelId, mode, noColor } = opts;
+    const { providerId, modelId, mode, color } = opts;
 
     // Config
     const configPath = join(ROOT, ".opencode", "quotas.json");
@@ -110,7 +88,7 @@ export function createReportQuotas() {
     // Delegate to shared pipeline
     return pipeline(
       { credentialResolver, httpClient: http, registry, historyStore: createNoopHistory(), config, logger: noopLogger },
-      { providerId, modelId, mode, now: Date.now() },
+      { providerId, modelId, mode, color, now: Date.now() },
     );
   };
 }
@@ -128,42 +106,39 @@ function createNoopHistory() {
 // Default instance for CLI use
 const _reportQuotas = createReportQuotas();
 
-// ── run — testable entry point ────────────────────────────────────────────────
+// ── USAGE ────────────────────────────────────────────────────────────────────
 
-export interface RunResult {
-  readonly stdout: string;
-  readonly exitCode: number;
-}
+const VALID_COLORS = Object.keys(COLOR_MAP).join(", ");
 
 const USAGE = `opencode-quotas — display AI provider quota usage.
 
 Usage: opencode-quotas [flags]
 
 Flags:
-  --provider <id>   Filter to a single provider (e.g. openai, anthropic)
-  --model <id>      Filter to a specific model (reserved for future use)
-  --mode <mode>     Output format: table (default), json, markdown
-  --no-color        Strip ANSI color codes from output
-  --list            Show available providers as a numbered list (for picker)
-  --help            Show this usage information
+  -l, --list            Show available providers as a numbered list (default when no flags)
+  -p, --provider <id>   Filter to a single provider (e.g. openai, anthropic)
+  -c, --color <name>    Color for the usage bar: ${VALID_COLORS}
+  -m, --mode <mode>     Output format: table (default), json, markdown
+  -h, --help            Show this usage information
 `.trim();
 
+// ── run — testable entry point ────────────────────────────────────────────────
+
+export interface RunResult {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number;
+}
+
 export async function run(argv: string[]): Promise<RunResult> {
+  let stderr = "";
+
   try {
     const args = parseArgs(argv);
 
-    if (args.noColor) process.env.NO_COLOR = "1";
-
-    if (argv.includes("--help")) {
+    if (args.help) {
       process.stdout.write(USAGE + "\n");
-      return { stdout: USAGE, exitCode: 0 };
-    }
-
-    // REQ-LIST-3: --list and --provider are mutually exclusive
-    if (args.list && args.provider) {
-      const msg = "Cannot combine --list and --provider";
-      process.stdout.write(msg + "\n");
-      return { stdout: msg, exitCode: 1 };
+      return { stdout: USAGE + "\n", stderr: "", exitCode: 0 };
     }
 
     // Config
@@ -181,7 +156,7 @@ export async function run(argv: string[]): Promise<RunResult> {
     const http = new FetchHttpClient(noopLogger);
     const registry = buildDefaultRegistry({ get: (id) => credentialResolver.get(id) }, http);
 
-    // REQ-LIST: --list mode renders availability table
+    // REQ-CLI-1: --list mode renders availability table
     if (args.list) {
       const all = registry.list();
       // Filter to only available providers (no fetchQuotas in list mode)
@@ -189,33 +164,33 @@ export async function run(argv: string[]): Promise<RunResult> {
 
       // REQ-LIST-2: exit 1 when registry is empty
       if (available.length === 0) {
-        return { stdout: "", exitCode: 1 };
+        return { stdout: "", stderr: "", exitCode: 1 };
       }
 
       const rendered = renderListTable(
         available.map((p) => ({ id: p.id, displayName: p.displayName })),
       );
       process.stdout.write(rendered + "\n");
-      return { stdout: rendered, exitCode: 0 };
+      return { stdout: rendered + "\n", stderr: "", exitCode: 0 };
     }
 
     const result = await _reportQuotas({
       providerId: args.provider,
-      modelId: args.model,
       mode: args.mode,
-      noColor: args.noColor,
+      color: args.color,
     });
 
     if (result.errors["_"]) {
       process.stdout.write(result.errors["_"] + "\n");
-      return { stdout: result.errors["_"], exitCode: 1 };
+      return { stdout: result.errors["_"] + "\n", stderr: "", exitCode: 1 };
     }
 
     process.stdout.write(result.rendered + "\n");
-    return { stdout: result.rendered, exitCode: 0 };
+    return { stdout: result.rendered + "\n", stderr: "", exitCode: 0 };
   } catch (err) {
-    process.stderr.write(`Fatal: ${err instanceof Error ? err.message : String(err)}\n`);
-    return { stdout: "", exitCode: 1 };
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`${msg}\n${USAGE}\n`);
+    return { stdout: "", stderr: `${msg}\n${USAGE}\n`, exitCode: 2 };
   }
 }
 

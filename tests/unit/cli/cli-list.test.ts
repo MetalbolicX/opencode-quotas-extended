@@ -61,34 +61,33 @@ vi.mock("../../../src/adapters/infra/fetch-http.js", () => ({
 
 // ── Import after mocks are set up ───────────────────────────────────────────
 
-import { run, parseArgs } from "../../../src/cli/index.js";
+import { run } from "../../../src/cli/index.js";
+import { parseArgs } from "../../../src/cli/parse-args.js";
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe("CLI --list mode", () => {
   describe("parseArgs", () => {
     it("extends CliArgs with list: boolean", () => {
-      const args = parseArgs(["--list"]);
+      const args = parseArgs(["-l"]);
       expect(args).toHaveProperty("list", true);
     });
 
-    it("list defaults to false", () => {
+    it("list defaults to true (REQ-CLI-1)", () => {
       const args = parseArgs([]);
-      expect(args.list).toBe(false);
+      expect(args.list).toBe(true);
     });
 
-    it("rejects --list when --provider is also present (mutual exclusion)", async () => {
-      // REQ-LIST-3: Cannot combine --list and --provider
-      // The CLI must exit 1 with an exclusion message.
-      const result = await run(["--list", "--provider", "openai"]);
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout.toLowerCase()).toContain("cannot combine");
+    it("rejects -l when -p is also present (mutual exclusion, REQ-CLI-4)", async () => {
+      const result = await run(["-l", "-p", "openai"]);
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr.toLowerCase()).toContain("cannot combine");
     });
   });
 
   describe("run --list", () => {
     it("SCENARIO 1 — REQ-LIST-1: 2 available providers → 2 rows numbered 1-2, exit 0", async () => {
-      const result = await run(["--list"]);
+      const result = await run(["-l"]);
       expect(result.exitCode).toBe(0);
       // Numbered rows: "1" and "2" appear
       expect(result.stdout).toMatch(/\b1\b/);
@@ -107,12 +106,12 @@ describe("CLI --list mode", () => {
           get: () => undefined,
         }) as any,
       );
-      const result = await run(["--list"]);
+      const result = await run(["-l"]);
       expect(result.exitCode).toBe(1);
     });
 
-    it("SCENARIO 3 — REQ-LIST-5: --list --no-color emits zero ANSI escapes", async () => {
-      const result = await run(["--list", "--no-color"]);
+    it("SCENARIO 3 — REQ-LIST-5: list mode emits zero ANSI escapes (no-color removed)", async () => {
+      const result = await run(["-l"]);
       expect(result.exitCode).toBe(0);
       // No ANSI escape sequences (CSI + content + terminal char)
       expect(result.stdout).not.toMatch(/\x1b\[[0-9;]*m/);

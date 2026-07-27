@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { parseArgs, run } from "../../src/cli/index.js";
+import { run } from "../../src/cli/index.js";
+import { parseArgs } from "../../src/cli/parse-args.js";
 import type { QuotaData } from "../../src/domain/types.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -90,31 +91,36 @@ vi.mock("../../src/adapters/providers/registry.js", () => ({
 // ── SECTION 1: CLI (stashed Slice 9 tests) ────────────────────────────────────
 describe("CLI: parseArgs", () => {
   it.each([
-    { argv: [], exp: { mode: "table" as const, noColor: false, list: false } },
-    { argv: ["--mode", "json"], exp: { mode: "json" as const, noColor: false, list: false } },
-    { argv: ["--mode", "markdown"], exp: { mode: "markdown" as const, noColor: false, list: false } },
-    { argv: ["--no-color"], exp: { mode: "table" as const, noColor: true, list: false } },
-    { argv: ["--provider", "openai"], exp: { provider: "openai", mode: "table" as const, noColor: false, list: false } },
-    { argv: ["--provider", "anthropic", "--mode", "json"], exp: { provider: "anthropic", mode: "json" as const, noColor: false, list: false } },
-    { argv: ["--model", "gpt-4o"], exp: { model: "gpt-4o", mode: "table" as const, noColor: false, list: false } },
-    { argv: ["--provider", "openai", "--model", "gpt-4o", "--mode", "table", "--no-color"], exp: { provider: "openai", model: "gpt-4o", mode: "table" as const, noColor: true, list: false } },
-  ])("parseArgs($argv) → $exp", ({ argv, exp }) => { expect(parseArgs(argv)).toEqual(exp); });
+    { argv: [], exp: { mode: "table" as const, list: true, help: false, color: undefined, provider: undefined } },
+    { argv: ["--mode", "json"], exp: { mode: "json" as const, list: true, help: false } },
+    { argv: ["--mode", "markdown"], exp: { mode: "markdown" as const, list: true, help: false } },
+    { argv: ["-l"], exp: { mode: "table" as const, list: true, help: false } },
+    { argv: ["-p", "openai"], exp: { provider: "openai", mode: "table" as const, list: false, help: false } },
+    { argv: ["-p", "anthropic", "-m", "json"], exp: { provider: "anthropic", mode: "json" as const, list: false, help: false } },
+    { argv: ["-c", "green"], exp: { color: "green", mode: "table" as const, list: true, help: false } },
+    { argv: ["-p", "openai", "-c", "cyan", "-m", "markdown"], exp: { provider: "openai", color: "cyan", mode: "markdown" as const, list: false, help: false } },
+    { argv: ["-h"], exp: { help: true, mode: "table" as const, list: true } },
+    { argv: ["--help"], exp: { help: true, mode: "table" as const, list: true } },
+  ])("parseArgs($argv) → $exp", ({ argv, exp }) => { expect(parseArgs(argv)).toMatchObject(exp); });
 });
 
 describe("CLI: run", () => {
   it("default mode = table → exit 0", async () => { expect((await run([])).exitCode).toBe(0); expect(out().length).toBeGreaterThan(0); });
-  it("--mode json → JSON object", async () => { const r = await run(["--mode", "json"]); expect(r.exitCode).toBe(0); expect(out().trim()).toMatch(/^\{/); });
-  it("--mode markdown → markdown table", async () => { const r = await run(["--mode", "markdown"]); expect(r.exitCode).toBe(0); expect(out()).toContain("|"); });
-  it("--no-color → no ANSI codes", async () => { await run(["--no-color"]); expect(out()).not.toMatch(/\x1b\[/); });
+  it("-m json → JSON object (requires -p to avoid list mode)", async () => { const r = await run(["-p", "openai", "-m", "json"]); expect(r.exitCode).toBe(0); expect(out().trim()).toMatch(/^\{/); });
+  it("-m markdown → markdown table (requires -p to avoid list mode)", async () => { const r = await run(["-p", "openai", "-m", "markdown"]); expect(r.exitCode).toBe(0); expect(out()).toContain("|"); });
+  it("--no-color removed: unknown option → exit 2", async () => {
+    const r = await run(["--no-color"]);
+    expect(r.exitCode).toBe(2); // REQ-CLI-5: --no-color is gone
+  });
   it("--provider openai → exit 0", async () => { expect((await run(["--provider", "openai"])).exitCode).toBe(0); });
   it("--provider anthropic → exit 0 (empty data)", async () => { expect((await run(["--provider", "anthropic"])).exitCode).toBe(0); });
-  it("--help → usage printed", async () => { await run(["--help"]); expect(out().toLowerCase()).toMatch(/usage|help|--provider|--mode/); });
-  it("fatal error → exit 1 + stderr", async () => {
+  it("--help → usage printed", async () => { await run(["--help"]); expect(out().toLowerCase()).toMatch(/usage|help|--provider|--mode|-l|-c|-m|-h/); });
+  it("fatal error → exit 2 + stderr (buildDefaultRegistry throws)", async () => {
     const { buildDefaultRegistry } = await import("../../src/adapters/providers/registry.js");
     vi.mocked(buildDefaultRegistry).mockImplementationOnce(() => { throw new Error("boom"); });
-    const r = await run([]);
-    expect(r.exitCode).toBe(1);
-    expect(stderr.join("")).toMatch(/Fatal|FATAL/);
+    const r = await run(["-p", "openai"]);
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toMatch(/boom/);
   });
 });
 
