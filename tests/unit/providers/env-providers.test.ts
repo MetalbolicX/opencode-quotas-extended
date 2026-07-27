@@ -60,13 +60,18 @@ describe("env providers", () => {
     });
   });
 
-  // ── isAvailable — Gemini (still placeholder TODO) ────────────────────────────
-  describe.each(PROVIDERS_GEMINI)("isAvailable — $id", ({ create }) => {
-    it("returns true when env key is present", async () => {
-      const src = makeSource(() => Promise.resolve(apiKeyCred));
-      expect(await create(src, mockHttp()).isAvailable({}, {})).toBe(true);
+  // ── isAvailable — Gemini (Antigravity) ─────────────────────────────────────
+  // isAvailable returns true when antigravity-accounts.json exists AND oauth credential present.
+  // Tests for the OLD placeholder (env key) behavior removed — replaced by Antigravity.
+  describe.each(PROVIDERS_GEMINI)("isAvailable — $id (Antigravity)", ({ create }) => {
+    // No mock fs setup — antigravity-accounts.json not present
+    it("returns false when no credential files exist", async () => {
+      const src = makeSource(() => Promise.resolve(null));
+      expect(await create(src, mockHttp()).isAvailable({}, {})).toBe(false);
     });
-    it("returns false when credential is missing", async () => {
+    // credSrc returns null — no oauth credential even though file might exist
+    it("returns false when oauth credential is missing (file may exist)", async () => {
+      // Note: Without mock fs, loadAntigravityAccounts returns null
       const src = makeSource(() => Promise.resolve(null));
       expect(await create(src, mockHttp()).isAvailable({}, {})).toBe(false);
     });
