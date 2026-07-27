@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "usage": { "input_tokens": 300, "output_tokens": 150, "total_tokens": 450 },
+      "model": "claude-3-5-sonnet-20250620",
+      "workspace_id": "ws_****",
+      "time_bucket": "2026-07-24T00:00:00Z"
+    }
+  ],
+  "has_more": false,
+  "next_page": null
+}
