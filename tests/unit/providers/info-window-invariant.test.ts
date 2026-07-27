@@ -60,19 +60,27 @@ function clearMockFs() {
 
 // ── Mock node:child_process for minimax ───────────────────────────────────────
 vi.mock("node:child_process", () => {
-  const execSync = vi.fn((_cmd: string, _opts?: unknown) =>
-    Buffer.from(JSON.stringify({
-      model_remains: [{
-        model_name: "MiniMax",
-        current_interval_total_count: 1000,
-        current_interval_usage_count: 200,
-        current_interval_remaining_percent: 80,
-        current_weekly_total_count: 5000,
-        current_weekly_usage_count: 1000,
-        current_weekly_remaining_percent: 80,
-      }],
-    }), "utf-8")
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { execSync: realExecSync } = require("node:child_process") as any;
+  const execSync = vi.fn((cmd: string, opts?: unknown) => {
+    // WU-6: allow `which mmx` lookup to pass through to the real binary check.
+    // Only mock commands that contain "mmx" (the actual quota fetch chain).
+    if (typeof cmd === "string" && cmd.includes("mmx")) {
+      return Buffer.from(JSON.stringify({
+        model_remains: [{
+          model_name: "MiniMax",
+          current_interval_total_count: 1000,
+          current_interval_usage_count: 200,
+          current_interval_remaining_percent: 80,
+          current_weekly_total_count: 5000,
+          current_weekly_usage_count: 1000,
+          current_weekly_remaining_percent: 80,
+        }],
+      }), "utf-8");
+    }
+    // Pass through all other commands (e.g. `which mmx` pre-check).
+    return realExecSync(cmd, opts);
+  });
   return { execSync };
 });
 

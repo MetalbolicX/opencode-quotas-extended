@@ -25,6 +25,7 @@ import {
   formatMissingAuthJson,
   formatNoSubscriptions,
   formatNoCredentialsForProvider,
+  formatProviderFetchErrors,
 } from "./messages.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -216,6 +217,14 @@ export async function run(argv: string[]): Promise<RunResult> {
     if (result.errors["_"]) {
       process.stdout.write(result.errors["_"] + "\n");
       return { stdout: result.errors["_"] + "\n", stderr: "", exitCode: 1 };
+    }
+
+    // WU-6 option B: print partial-result provider errors to stderr, exit 0.
+    const providerErrors = Object.entries(result.errors).filter(([k]) => k !== "_");
+    if (providerErrors.length > 0) {
+      const errorRecord = Object.fromEntries(providerErrors);
+      process.stderr.write(formatProviderFetchErrors(errorRecord) + "\n");
+      // Partial results are still rendered — provider failure is non-fatal.
     }
 
     process.stdout.write(result.rendered + "\n");

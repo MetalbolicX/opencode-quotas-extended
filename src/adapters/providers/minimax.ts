@@ -1,5 +1,6 @@
 // Minimax Coding Plan provider — CLI-based (no HTTP endpoint).
 // Credentials: key stored in auth.json under "minimax-coding-plan".
+import { execSync } from "node:child_process";
 import type { CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
 import type { Logger } from "../../ports/logger.js";
@@ -56,6 +57,27 @@ function parseMinimaxCli(out: string, _key: string): QuotaData[] {
   return entries;
 }
 
+const MINIMAX_CLI_INSTALL_URL = "https://github.com/minimaxai/minimax-cli";
+
+/**
+ * Verifies `mmx` is present in PATH using the `which` lookup.
+ * Throws if the binary is not found so callers can handle gracefully.
+ */
+function assertMmxBinary(): void {
+  try {
+    // `which` exits 0 + prints path on success; throws ENOENT on failure.
+    execSync("which mmx", { stdio: "pipe" });
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === "ENOENT" || e.code === "127") {
+      const msg = `\`mmx\` CLI not found in PATH. Install from ${MINIMAX_CLI_INSTALL_URL}`;
+      throw new Error(msg);
+    }
+    // Rethrow unexpected child_process errors (e.g. EACCES, ENOTDIR).
+    throw err;
+  }
+}
+
 export function createMinimaxProvider(credSrc: CredentialSource, _http: HttpClient, _logger?: Logger): QuotaProvider {
   return {
     id: "minimax", displayName: "Minimax Coding Plan", category: "subscription", authStrategy: "oauth",
@@ -65,6 +87,16 @@ export function createMinimaxProvider(credSrc: CredentialSource, _http: HttpClie
       if (!cred) return [];
       const key = cred.variant === "api" ? cred.key : null;
       if (!key) return [];
+
+      // WU-6: pre-check mmx binary presence before attempting any subprocess call.
+      // If missing, log a friendly error and return [] instead of crashing.
+      try {
+        assertMmxBinary();
+      } catch (err) {
+        _logger?.error("minimax: mmx binary not found", { error: String(err) });
+        return [];
+      }
+
       try {
         // Spawn mmx CLI — authenticate then fetch quota JSON.
         // stdout is clean JSON; stderr is progress/spinner noise (discarded).
