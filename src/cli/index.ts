@@ -14,6 +14,7 @@ import { DEFAULTS, loadConfig } from "../adapters/infra/config-loader.js";
 import { createCredentialResolver } from "../adapters/auth/credential-resolver.js";
 import { FetchHttpClient } from "../adapters/infra/fetch-http.js";
 import { buildDefaultRegistry } from "../adapters/providers/registry.js";
+import { filterAvailableProviders } from "../adapters/providers/filter.js";
 import type { Logger } from "../ports/logger.js";
 import { reportQuotas as pipeline } from "../application/report-pipeline.js";
 import type { ReportResult } from "../application/report-pipeline.js";
@@ -184,18 +185,7 @@ export async function run(argv: string[]): Promise<RunResult> {
     if (args.list) {
       const all = registry.list();
       // Filter to only available providers (no fetchQuotas in list mode)
-      const settled = await Promise.allSettled(
-        all.map(async (p) => {
-          const available = await (p as unknown as { isAvailable(): Promise<boolean> }).isAvailable();
-          return { provider: p, available };
-        }),
-      );
-      const available = [];
-      for (const r of settled) {
-        if (r.status === "fulfilled" && r.value.available) {
-          available.push(r.value.provider);
-        }
-      }
+      const available = await filterAvailableProviders(all);
 
       // REQ-LIST-2: exit 1 when registry is empty
       if (available.length === 0) {
