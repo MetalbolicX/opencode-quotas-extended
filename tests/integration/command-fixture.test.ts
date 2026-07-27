@@ -4,9 +4,9 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const COMMAND_PATH = join(PROJECT_ROOT, "commands/quotas.md");
+const COMMAND_PATH = join(PROJECT_ROOT, "commands/check-quotas.md");
 
-describe("/quotas command", () => {
+describe("/check-quotas command", () => {
   it("command file must exist", () => {
     expect(() => readFileSync(COMMAND_PATH, "utf-8")).not.toThrow();
   });
