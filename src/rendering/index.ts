@@ -1,4 +1,5 @@
 // Renderer barrel + factory.
+export * from "./colors.js";
 export { getStatus, renderBar } from "./status-bar.js";
 export type { StatusResult, Gradient, BarOptions } from "./status-bar.js";
 export { TableRenderer, JsonRenderer, MarkdownRenderer } from "./renderers.js";
