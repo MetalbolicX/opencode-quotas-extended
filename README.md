@@ -19,7 +19,7 @@ surfaces → report-pipeline → domain (pure)
 - **Adapters** (`src/adapters/`): Concrete implementations — 8 provider adapters, auth/json-file sources, fetch HTTP client, config loader.
 - **Rendering** (`src/rendering/`): Table, JSON, and Markdown renderers with ANSI status bars.
 - **i18n** (`src/i18n/`): Translator port with English locale.
-- **Plugin** (`src/plugin/`): opencode plugin hook that appends a quota footer to assistant responses.
+- **Plugin** (`src/plugin/`): opencode plugin entry point. Returns empty Hooks — the `/check-quotas` command replaces the removed auto-footer.
 - **CLI** (`src/cli/`): Standalone `opencode-quotas` binary.
 
 ## Providers
@@ -50,19 +50,9 @@ Credentials are resolved in order: `auth.json` (XDG data dir) → environment va
 
 ## Commands
 
-- `/quotas` — Render the **full detailed quota report** (all 6 columns: status/name/bar/percent/reset/ETTL). Calls the same pipeline as the CLI.
-- **Footer hook**: After each assistant response, a **compact quota bar** is appended automatically. The footer shows the most critical provider's status, progress bar (█/░), and usage percent — narrow enough for a single terminal line. No live HTTP spam: a `QuotaCache` singleton is built at plugin load and shared across every hook fire (single-flight coalescing on concurrent calls, immediate cached return on subsequent calls).
+- `/check-quotas` — Render the **full detailed quota report** (all 6 columns: status/name/bar/percent/reset/ETTL). Calls the same pipeline as the CLI.
 
-### Footer behavior
-
-| Config | Behavior |
-|--------|----------|
-| `show: false` | Footer suppressed entirely — no pipeline call, no hook overhead |
-| `show: true` (default) | Compact footer appended after each assistant response |
-| `displayMode: table` (default) | ASCII bar chars (█/░) in the footer |
-| `displayMode: json\|markdown` | Footer uses the selected renderer format |
-
-The footer uses **compact rendering** (status/name/bar/percent — 4 columns) vs. `/quotas` which uses **full rendering** (6 columns including reset/ETTL).
+The auto-footer present in earlier versions has been removed. Use `/check-quotas` to view quota status on demand.
 
 ## CLI
 
@@ -107,7 +97,7 @@ bash scripts/check-secrets.sh  # CI secret-leak gate
 
 | Gate | Result |
 |------|--------|
-| `bun run test` | ✅ 466 tests pass |
+| `bun run test` | ✅ 434 tests pass |
 | `bun run typecheck` | ✅ 0 errors |
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |
 | `bun run build` | ✅ dist/ produced |
