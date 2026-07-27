@@ -105,6 +105,18 @@ describe("Pipeline: cache wiring", () => {
     expect(fetcherCalled).toBe(true);
   });
 
+  it("compact=true reaches renderer and omits reset/ettl columns", async () => {
+    // opts.compact must flow through reportQuotas → RenderContext → TableRenderer.
+    // When compact=true the table output must NOT contain Reset or ETTL column headers.
+    const { reportQuotas } = await import("../../../src/application/report-pipeline.js");
+    const deps = makeBaseDeps(MIXED);
+    const result = await reportQuotas({ ...deps }, { mode: "table", compact: true, now: Date.now() });
+    expect(result.rendered).not.toContain("Reset");
+    expect(result.rendered).not.toContain("ETTL");
+    // Bar chars (█/░) must still be present — they appear in both modes.
+    expect(result.rendered).toMatch(/[█░]/);
+  });
+
   it("ReportDeps accepts optional cache in type", async () => {
     // Type-level test: this file must compile without errors for the types to be correct.
     // If cache?: CacheSource is missing from ReportDeps, TypeScript will error here.

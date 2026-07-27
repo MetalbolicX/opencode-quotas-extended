@@ -50,8 +50,19 @@ Credentials are resolved in order: `auth.json` (XDG data dir) → environment va
 
 ## Commands
 
-- `/quotas` — Render the full quota report in your opencode session. Calls the same pipeline as the CLI.
-- **Footer hook**: After each assistant response, a compact quota status bar is appended automatically.
+- `/quotas` — Render the **full detailed quota report** (all 6 columns: status/name/bar/percent/reset/ETTL). Calls the same pipeline as the CLI.
+- **Footer hook**: After each assistant response, a **compact quota bar** is appended automatically. The footer shows the most critical provider's status, progress bar (█/░), and usage percent — narrow enough for a single terminal line. No live HTTP spam: a `QuotaCache` singleton is built at plugin load and shared across every hook fire (single-flight coalescing on concurrent calls, immediate cached return on subsequent calls).
+
+### Footer behavior
+
+| Config | Behavior |
+|--------|----------|
+| `show: false` | Footer suppressed entirely — no pipeline call, no hook overhead |
+| `show: true` (default) | Compact footer appended after each assistant response |
+| `displayMode: table` (default) | ASCII bar chars (█/░) in the footer |
+| `displayMode: json\|markdown` | Footer uses the selected renderer format |
+
+The footer uses **compact rendering** (status/name/bar/percent — 4 columns) vs. `/quotas` which uses **full rendering** (6 columns including reset/ETTL).
 
 ## CLI
 
@@ -75,7 +86,7 @@ bun run build        # Compiles TypeScript → dist/cli/index.js
 ## Development
 
 ```bash
-bun run test         # Run all tests (280 passing)
+bun run test         # Run all tests (466 passing)
 bun run test:watch   # Watch mode
 bun run test:coverage  # Coverage report
 bun run typecheck     # TypeScript type checking
@@ -96,7 +107,7 @@ bash scripts/check-secrets.sh  # CI secret-leak gate
 
 | Gate | Result |
 |------|--------|
-| `bun run test` | ✅ 280 tests pass |
+| `bun run test` | ✅ 466 tests pass |
 | `bun run typecheck` | ✅ 0 errors |
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |
 | `bun run build` | ✅ dist/ produced |

@@ -126,6 +126,43 @@ describe("table renderer", () => {
   });
 });
 
+// ── compact table renderer ─────────────────────────────────────────────────────
+
+describe("table renderer — compact mode", () => {
+  it("compact=true omits reset and ettl columns", () => {
+    // compact layout drops the two time-based columns to fit footer width.
+    // The six-column full table (status/name/bar/percent/reset/ettl) becomes
+    // four-column (status/name/bar/percent) in compact mode.
+    const r = selectRenderer("table");
+    const out = r.render(QUOTAS, { mode: "table", compact: true, t: EN_TRANSLATOR });
+    // These column headers must NOT appear in compact output
+    expect(out).not.toContain("Reset");
+    expect(out).not.toContain("ETTL");
+    // But name, bar, and percent must still be present
+    expect(out).toContain("OpenAI");
+    expect(out).toMatch(/[█░]/); // bar chars
+    expect(out).toMatch(/%/);    // percent
+  });
+
+  it("compact=false (full) retains all six columns including reset and ettl", () => {
+    // The full /quotas view shows all six columns so users see reset times and ETTL predictions.
+    const r = selectRenderer("table");
+    const out = r.render(QUOTAS, { mode: "table", compact: false, t: EN_TRANSLATOR });
+    expect(out).toContain("Reset");
+    expect(out).toContain("ETTL");
+    expect(out).toMatch(/[█░]/); // bar chars present in both modes
+  });
+
+  it("both compact and full contain bar characters (█ or ░)", () => {
+    // The progress bar is the primary visual signal and appears regardless of column count.
+    const r = selectRenderer("table");
+    const fullOut = r.render(QUOTAS, { mode: "table", compact: false, t: EN_TRANSLATOR });
+    const compactOut = r.render(QUOTAS, { mode: "table", compact: true, t: EN_TRANSLATOR });
+    expect(fullOut).toMatch(/[█░]/);
+    expect(compactOut).toMatch(/[█░]/);
+  });
+});
+
 // ── json renderer ─────────────────────────────────────────────────────────────
 
 describe("json renderer", () => {

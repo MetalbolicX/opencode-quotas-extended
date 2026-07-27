@@ -213,6 +213,7 @@ export async function reportQuotas(
   const rendered = renderer.render(filteredRows, {
     mode,
     noColor: effectiveNoColor,
+    compact: compact ?? false,
     progressBar: config.progressBar ? {
       width: config.progressBar.width ?? 20,
       filledChar: config.progressBar.filledChar ?? "█",
