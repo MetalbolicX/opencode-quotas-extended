@@ -9,7 +9,7 @@ import type { QuotaProvider } from "../ports/provider.js";
 import type { HistoryStore } from "../ports/history.js";
 import type { Renderer } from "../ports/renderer.js";
 import type { RenderMode } from "../domain/types.js";
-import type { CacheSource } from "../ports/cache.js";
+
 import { selectRenderer } from "../rendering/index.js";
 import { createI18nTranslator } from "../i18n/translator.js";
 import { aggregate, mergeAggregationGroups, type AggregationGroup } from "../domain/aggregation.js";
@@ -30,8 +30,7 @@ export interface ReportDeps {
   readonly httpClient: HttpClient;
   readonly registry: { list(): QuotaProvider[]; get(id: string): QuotaProvider | undefined };
   readonly historyStore: HistoryStore;
-  /** Optional polling cache. When provided, fetch goes through the cache; otherwise direct. */
-  readonly cache?: CacheSource;
+
   readonly config: {
     readonly displayMode: RenderMode;
     readonly disabled: readonly string[];
@@ -64,11 +63,11 @@ export interface ReportOptions {
 // ── pipeline ───────────────────────────────────────────────────────────────────
 
 /**
- * Shared pipeline: resolve → fetch(cache?) → history → aggregate(defaults+user) → predict → filter → render.
+ * Shared pipeline: resolve → fetch → history → aggregate(defaults+user) → predict → filter → render.
  * Failure-isolated per provider via Promise.allSettled when using direct fetch.
  *
  * Step 1 — resolve:     select providers by providerId filter (or all).
- * Step 2 — fetch:       use cache.get() when provided; otherwise Promise.allSettled across providers.
+ * Step 2 — fetch:       Promise.allSettled across providers (failure-isolated).
  * Step 3 — history:     append snapshots to history store for ETTL regression.
  * Step 4 — aggregate:   merge DEFAULT_AGGREGATION_GROUPS with user config; user wins on id collision.
  * Step 5 — predict:     compute ETTL for each quota using history regression.
@@ -83,7 +82,7 @@ export async function reportQuotas(
   deps: ReportDeps,
   opts: ReportOptions,
 ): Promise<ReportResult> {
-  const { registry, historyStore, config, logger, cache } = deps;
+  const { registry, historyStore, config, logger } = deps;
   const { providerId, modelId, mode, compact = false, now = Date.now() } = opts;
 
   // ── Step 1: resolve providers to query ────────────────────────────────────
@@ -94,36 +93,21 @@ export async function reportQuotas(
     return { rendered: "", errors: { _: "No providers found." } };
   }
 
-  // ── Step 2: fetch — use cache when provided, otherwise direct ──────────────
+  // ── Step 2: fetch — direct Promise.allSettled (failure isolation per provider) ─
   let allData: QuotaData[];
   const errors: Record<string, string> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fetched = await Promise.allSettled(providers.map((p) => (p as any).fetchQuotas()));
+  allData = [];
 
-  if (cache) {
-    // Cache path: one registry-wide fetch, no per-provider failure isolation needed
-    // at the cache layer (the cache itself handles coalescing; the fetcher inside
-    // it uses Promise.allSettled to isolate per-provider failures).
-    try {
-      allData = [...(await cache.get())];
-    } catch (err) {
-      logger.warn("cache-fetch-failed", { error: String(err) });
-      allData = [];
-      errors._ = String(err);
-    }
-  } else {
-    // Direct fetch path: Promise.allSettled = failure isolation per provider
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fetched = await Promise.allSettled(providers.map((p) => (p as any).fetchQuotas()));
-    allData = [];
-
-    for (let i = 0; i < fetched.length; i++) {
-      const r = fetched[i];
-      if (r.status === "fulfilled") {
-        const data = r.value as QuotaData[];
-        allData.push(...data);
-      } else {
-        errors[providers[i].id] = String(r.reason);
-        logger.warn("provider-fetch-failed", { provider: providers[i].id, error: String(r.reason) });
-      }
+  for (let i = 0; i < fetched.length; i++) {
+    const r = fetched[i];
+    if (r.status === "fulfilled") {
+      const data = r.value as QuotaData[];
+      allData.push(...data);
+    } else {
+      errors[providers[i].id] = String(r.reason);
+      logger.warn("provider-fetch-failed", { provider: providers[i].id, error: String(r.reason) });
     }
   }
 
