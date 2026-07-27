@@ -61,7 +61,7 @@ export function createOpenAIProvider(
               if (!w) continue;
               const used = toNum(w.used_percent);
               if (used === null) continue;
-              entries.push({ id, providerName: label, used: Math.max(0, Math.min(100, used)), limit: 100, unit: "%", window: win as "daily" | "rolling", reset: resetDate(toNum(w.reset_after_seconds), toNum(w.reset_at)), predictedReset: null });
+              entries.push({ id, providerName: label, used: Math.max(0, Math.min(100, used)), limit: 100, unit: "%", window: win as "daily" | "rolling", reset: resetDate(toNum(w.reset_after_seconds), toNum(w.reset_at)), predictedReset: null, info: label });
             }
             const credits = rl?.credits;
             if (credits) {
@@ -115,6 +115,7 @@ export function createOpenAIProvider(
               window: "rolling",
               reset: null,
               predictedReset: null,
+              info: model,
             });
           }
           // Defensive: treat malformed has_more/next_page as terminal.

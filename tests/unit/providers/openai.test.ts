@@ -39,6 +39,44 @@ describe("openai-provider", () => {
     expect(credits).toMatchObject({ used: 8.5, unit: "credits", limit: null });
   });
 
+  // ── Slice 12: info + window strict union assertions ─────────────────────
+  describe("openai — info + window strict union (slice 12)", () => {
+    it("oauth primary/secondary: window is strict union + info is non-empty string", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(whamUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(oauthCred)), http).fetchQuotas({}, {});
+      const primary = qs.find((q) => q.id === "openai-primary")!;
+      const secondary = qs.find((q) => q.id === "openai-secondary")!;
+      // window must be from strict union
+      expect(["daily", "monthly", "rolling"]).toContain(primary.window);
+      expect(["daily", "monthly", "rolling"]).toContain(secondary.window);
+      // info must be non-empty string
+      expect(typeof primary.info).toBe("string");
+      expect(primary.info!.length).toBeGreaterThan(0);
+      expect(typeof secondary.info).toBe("string");
+      expect(secondary.info!.length).toBeGreaterThan(0);
+    });
+
+    it("oauth credits: window is strict union + info is non-empty string", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(whamUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(oauthCred)), http).fetchQuotas({}, {});
+      const credits = qs.find((q) => q.id === "openai-credits")!;
+      expect(["daily", "monthly", "rolling"]).toContain(credits.window);
+      expect(typeof credits.info).toBe("string");
+      expect(credits.info!.length).toBeGreaterThan(0);
+    });
+
+    it("raw-key: window is strict union + info is non-empty string", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(platformUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(apiCred)), http).fetchQuotas({}, {});
+      expect(qs.length).toBeGreaterThan(0);
+      for (const q of qs) {
+        expect(["daily", "monthly", "rolling"]).toContain(q.window);
+        expect(typeof q.info).toBe("string");
+        expect(q.info!.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
   // ── api: platform usage ───────────────────────────────────────────────────
   it("api: parses platform usage and uses Bearer token", async () => {
     let capturedReq: unknown;
