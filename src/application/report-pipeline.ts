@@ -57,6 +57,7 @@ export interface ReportOptions {
   readonly modelId?: string;
   readonly mode: RenderMode;
   readonly compact?: boolean;
+  readonly color?: string;
   readonly now?: number;
 }
 
@@ -193,10 +194,9 @@ export async function reportQuotas(
     return { rendered: "", errors };
   }
 
-  const effectiveNoColor = process.env.NO_COLOR === "1";
   const rendered = renderer.render(filteredRows, {
     mode,
-    noColor: effectiveNoColor,
+    color: opts.color,
     compact: compact ?? false,
     progressBar: config.progressBar ? {
       width: config.progressBar.width ?? 20,

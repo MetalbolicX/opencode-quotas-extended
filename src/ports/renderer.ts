@@ -5,7 +5,8 @@ import type { RenderMode } from "../domain/types.js";
 
 export interface RenderContext {
   readonly mode: RenderMode;
-  readonly noColor?: boolean;
+  /** Static color name (e.g. "green", "brightRed") or undefined for no color. */
+  readonly color?: string;
   /** When true, renderer emits a compact layout (footer-friendly). */
   readonly compact?: boolean;
   readonly progressBar?: {

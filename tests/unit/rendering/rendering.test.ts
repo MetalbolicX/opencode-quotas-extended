@@ -26,7 +26,7 @@ const EN_TRANSLATOR: Translator = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let getStatus!: (used: number, limit: number | null, gradients?: {threshold: number; color: string}[]) => { code: string; ratio: number | null };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let renderBar!: (ratio: number, opts?: { width?: number; filledChar?: string; emptyChar?: string; color?: boolean }) => string;
+let renderBar!: (ratio: number, opts?: { width?: number; filledChar?: string; emptyChar?: string; colorName?: string }) => string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let selectRenderer!: (mode: "table" | "json" | "markdown") => Renderer;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,9 +92,39 @@ describe("bar rendering", () => {
     expect(bar).toContain("▒");
   });
 
-  it("no color strips ANSI", () => {
-    const bar = renderBar(0.5, { width: 10, color: false });
+  it("no colorName → plain bar, no ANSI codes", () => {
+    const bar = renderBar(0.5, { width: 10 });
     expect(bar).not.toMatch(/\x1b\[\d+m/);
+    expect(bar).toMatch(/^[█░]+$/);
+  });
+
+  it("colorName green → bar wrapped in green ANSI", () => {
+    const bar = renderBar(0.5, { width: 10, colorName: "green" });
+    // Green SGR open (\x1b[32m) and reset (\x1b[0m)
+    expect(bar).toMatch(/\x1b\[32m/);
+    expect(bar).toMatch(/\x1b\[0m/);
+    expect(bar).toContain("█");
+    expect(bar).toContain("░");
+  });
+
+  it("colorName yellow → bar wrapped in yellow ANSI", () => {
+    const bar = renderBar(0.5, { width: 10, colorName: "yellow" });
+    expect(bar).toMatch(/\x1b\[33m/);
+    expect(bar).toMatch(/\x1b\[0m/);
+  });
+
+  it("colorName brightRed → bar wrapped in bright-red ANSI", () => {
+    const bar = renderBar(0.5, { width: 10, colorName: "brightRed" });
+    expect(bar).toMatch(/\x1b\[91m/);
+    expect(bar).toMatch(/\x1b\[0m/);
+  });
+
+  it("colorName is STATIC — 0.9 ratio with green is GREEN, not red", () => {
+    // Static color means the color comes from the NAME, not the ratio.
+    // A bar at 0.9 with colorName="green" must be green, not red.
+    const bar = renderBar(0.9, { width: 10, colorName: "green" });
+    expect(bar).toMatch(/\x1b\[32m/);  // green, NOT red (31)
+    expect(bar).not.toMatch(/\x1b\[31m/); // no red
   });
 });
 
@@ -119,10 +149,21 @@ describe("table renderer", () => {
     expect(out).toContain("Gemini");
   });
 
-  it("no-color strips ANSI", () => {
+  it("color=undefined strips ANSI (plain bars)", () => {
     const r = selectRenderer("table");
-    const out = r.render(QUOTAS, { mode: "table", noColor: true, t: NOOP_TRANSLATOR });
+    const out = r.render(QUOTAS, { mode: "table", color: undefined, t: NOOP_TRANSLATOR });
     expect(out).not.toMatch(/\x1b\[\d+m/);
+  });
+
+  it("color=green produces green-wrapped bars", () => {
+    const r = selectRenderer("table");
+    const out = r.render(QUOTAS, { mode: "table", color: "green", t: NOOP_TRANSLATOR });
+    // All bars should be wrapped in green ANSI
+    expect(out).toMatch(/\x1b\[32m/);
+    expect(out).toMatch(/\x1b\[0m/);
+    expect(out).toContain("OpenAI");
+    expect(out).toContain("Anthropic");
+    expect(out).toContain("Gemini");
   });
 });
 

@@ -1,4 +1,5 @@
 // Status thresholds + progress bar. Defaults: OK < 0.5 | WRN [0.5, 0.8) | ERR [0.8, ∞). Unlimited → OK.
+import { ansiColor } from "./colors.js";
 
 export interface StatusResult {
   readonly code: "OK" | "WRN" | "ERR" | "UNK";
@@ -10,7 +11,8 @@ export interface BarOptions {
   readonly width?: number;
   readonly filledChar?: string;
   readonly emptyChar?: string;
-  readonly color?: boolean;
+  /** Static color name — when set, bar is wrapped in ANSI codes for that color. */
+  readonly colorName?: string;
 }
 
 const DEFAULT_GRADIENTS: Gradient[] = [
@@ -30,18 +32,10 @@ export function getStatus(used: number, limit: number | null, gradients: Gradien
   return { code: _C(gradients[gradients.length - 1].color), ratio };
 }
 
-function _color(): boolean {
-  if (process.env.NO_COLOR !== undefined) return false;
-  if (process.env.FORCE_COLOR !== undefined) return true;
-  return process.stdout.isTTY === true;
-}
-
 export function renderBar(ratio: number, opts: BarOptions = {}): string {
   const w = opts.width ?? 20, fc = opts.filledChar ?? "█", ec = opts.emptyChar ?? "░";
-  const use = opts.color ?? _color();
   const filled = Math.round(Math.min(Math.max(ratio, 0), 1) * w);
   const bar = fc.repeat(filled) + ec.repeat(w - filled);
-  if (!use) return bar;
-  const c = ratio >= 0.8 ? "31" : ratio >= 0.5 ? "33" : "32";
-  return `\x1b[${c}m${bar}\x1b[0m`;
+  if (!opts.colorName) return bar;
+  return ansiColor(opts.colorName, bar);
 }

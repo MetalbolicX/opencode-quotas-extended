@@ -27,7 +27,7 @@ const COLS_COMPACT: (keyof ReturnType<typeof _autoWidth>)[] = ["status", "name",
 
 export class TableRenderer implements Renderer {
   render(quotas: readonly QuotaData[], ctx: RenderContext): string {
-    const { t, noColor = false, compact = false } = ctx;
+    const { t, color = undefined, compact = false } = ctx;
     const barOpts = ctx.progressBar ?? {};
     const widths = _autoWidth(quotas);
     const pad = (s: string, col: string) => s.padEnd(widths[col]);
@@ -35,7 +35,7 @@ export class TableRenderer implements Renderer {
     const header = cols.map(c => pad(t.t(`header.${c}`), c)).join("   ").trimEnd();
     const rows = quotas.map(q => {
       const s = getStatus(q.used, q.limit);
-      return cols.map(c => pad(c === "bar" ? renderBar(s.ratio ?? 0, { ...barOpts, color: !noColor })
+      return cols.map(c => pad(c === "bar" ? renderBar(s.ratio ?? 0, { ...barOpts, colorName: color })
         : c === "percent" ? fmtPct(s.ratio)
         : c === "reset" ? fmtReset(q.reset)
         : c === "ettl" ? (q.predictedReset ? fmtReset(q.predictedReset) : "—")
