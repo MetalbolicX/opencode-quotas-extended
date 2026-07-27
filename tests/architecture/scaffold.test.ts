@@ -13,7 +13,6 @@ const EXPECTED_DIRS = [
   "src/adapters/providers",
   "src/rendering",
   "src/i18n/locales",
-  "src/plugin",
   "src/cli",
   "tests/unit/config",
   "tests/unit/domain",
@@ -25,7 +24,6 @@ const EXPECTED_DIRS = [
   "tests/architecture",
   "tests/fixtures/reference",
   "tests/fixtures/providers",
-  "commands",
   "schemas",
   "scripts",
 ] as const;
@@ -55,7 +53,6 @@ describe("scaffold", () => {
         "adapters",
         "rendering",
         "i18n",
-        "plugin",
         "cli",
       ];
       for (const folder of expected) {
