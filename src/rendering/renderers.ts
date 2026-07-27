@@ -20,18 +20,22 @@ function _autoWidth(quotas: readonly QuotaData[]): Record<string, number> {
   return w;
 }
 
-const COLS: (keyof ReturnType<typeof _autoWidth>)[] = ["status", "name", "bar", "percent", "reset", "ettl"];
+const COLS_FULL: (keyof ReturnType<typeof _autoWidth>)[] = ["status", "name", "bar", "percent", "reset", "ettl"];
+// Compact layout for footer: drops reset (time-to-reset) and ettl (predicted-reset)
+// to keep the bar narrow — footer must be readable on a single terminal line.
+const COLS_COMPACT: (keyof ReturnType<typeof _autoWidth>)[] = ["status", "name", "bar", "percent"];
 
 export class TableRenderer implements Renderer {
   render(quotas: readonly QuotaData[], ctx: RenderContext): string {
-    const { t, noColor = false } = ctx;
+    const { t, noColor = false, compact = false } = ctx;
     const barOpts = ctx.progressBar ?? {};
     const widths = _autoWidth(quotas);
     const pad = (s: string, col: string) => s.padEnd(widths[col]);
-    const header = COLS.map(c => pad(t.t(`header.${c}`), c)).join("   ").trimEnd();
+    const cols = compact ? COLS_COMPACT : COLS_FULL;
+    const header = cols.map(c => pad(t.t(`header.${c}`), c)).join("   ").trimEnd();
     const rows = quotas.map(q => {
       const s = getStatus(q.used, q.limit);
-      return COLS.map(c => pad(c === "bar" ? renderBar(s.ratio ?? 0, { ...barOpts, color: !noColor })
+      return cols.map(c => pad(c === "bar" ? renderBar(s.ratio ?? 0, { ...barOpts, color: !noColor })
         : c === "percent" ? fmtPct(s.ratio)
         : c === "reset" ? fmtReset(q.reset)
         : c === "ettl" ? (q.predictedReset ? fmtReset(q.predictedReset) : "—")
