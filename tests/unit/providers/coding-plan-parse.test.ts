@@ -165,7 +165,7 @@ describe("parseZaiLimits", () => {
     expect(parseZaiLimits({ data: { limits: [] } }, "zai", "z.ai")).toEqual([]);
   });
 
-  it("parses multiple limits into multiple entries", () => {
+  it("parses multiple limits into multiple entries using percentage as source of truth", () => {
     const input = {
       data: {
         limits: [
@@ -178,7 +178,10 @@ describe("parseZaiLimits", () => {
     expect(result).toHaveLength(2);
     expect(result[0].id).toContain("time_limit");
     expect(result[1].id).toContain("tokens_limit");
-    expect(result[1].used).toBe(12345);
+    // percentage is the source of truth → used = 2, limit = 100
+    expect(result[1].used).toBe(2);
+    expect(result[1].limit).toBe(100);
+    expect(result[1].window).toBe("rolling-tokens");
   });
 
   it("handles missing nextResetTime by leaving reset: null", () => {
@@ -187,5 +190,63 @@ describe("parseZaiLimits", () => {
     };
     const result = parseZaiLimits(input, "zai", "z.ai");
     expect(result[0].reset).toBeNull();
+  });
+});
+
+describe("parseZaiLimits — percentage + window identity", () => {
+  it("uses l.percentage as used and fixes limit=100 for a TIME_LIMIT 5h row", () => {
+    const input = {
+      code: 200, msg: "success",
+      data: { limits: [{
+        type: "TIME_LIMIT", unit: 5, number: 1,
+        usage: 100, currentValue: 0, remaining: 100,
+        percentage: 12, nextResetTime: 1750000000000, usageDetails: [],
+      }] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(1);
+    expect(result[0].used).toBe(12);
+    expect(result[0].limit).toBe(100);
+    expect(result[0].unit).toBe("%");
+  });
+
+  it("preserves a distinct window for the 5h TIME_LIMIT row", () => {
+    const input = {
+      data: { limits: [{
+        type: "TIME_LIMIT", unit: 5, number: 1,
+        usage: 100, currentValue: 0, percentage: 12,
+        nextResetTime: 1750000000000, usageDetails: [],
+      }] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    // window must NOT be the generic "rolling" — must reflect the 5h limit
+    expect(result[0].window).not.toBe("rolling");
+    // and the providerName must mention the 5h context
+    expect(result[0].providerName.toLowerCase()).toContain("5");
+  });
+
+  it("emits a separate row for MCP_LIMIT with its own window", () => {
+    const input = {
+      data: { limits: [
+        { type: "TIME_LIMIT", unit: 5, number: 1, usage: 100, currentValue: 0, percentage: 12, nextResetTime: 1750000000000, usageDetails: [] },
+        { type: "MCP_LIMIT", unit: 1, number: 1, usage: 1000, currentValue: 200, percentage: 20, nextResetTime: 1750000000000, usageDetails: [] },
+      ] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(2);
+    expect(result[0].providerName).not.toBe(result[1].providerName);
+    expect(result[1].used).toBe(20);
+  });
+
+  it("falls back to currentValue/usage*100 when percentage is missing", () => {
+    const input = {
+      data: { limits: [{
+        type: "TIME_LIMIT", unit: 5, number: 1,
+        usage: 100, currentValue: 25, remaining: 75,
+        percentage: null, nextResetTime: 1750000000000, usageDetails: [],
+      }] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result[0].used).toBeCloseTo(25, 1);
   });
 });

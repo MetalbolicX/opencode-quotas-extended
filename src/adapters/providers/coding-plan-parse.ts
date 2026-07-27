@@ -53,8 +53,29 @@ export function parseUsage(json: unknown, idPrefix: string, providerName: string
 export const parseMonitorLimits = parseUsage;
 
 /**
+ * Maps a z.ai limit type + unit to a window label.
+ * Uses a local mapping (not the global windowMap) to preserve per-limit-type identity.
+ * TIME_LIMIT unit:5 → "rolling-5h"
+ * TIME_LIMIT other units → "rolling-{unit}h"
+ * MCP_LIMIT → "rolling-mcp"
+ * TOKENS_LIMIT → "rolling-tokens"
+ * Fallback → "rolling"
+ */
+function zaiWindow(type: string, unit: number | null): string {
+  const t = type.toUpperCase();
+  if (t === "TIME_LIMIT") {
+    if (unit === 5) return "rolling-5h";
+    return `rolling-${unit ?? "?"}h`;
+  }
+  if (t === "MCP_LIMIT") return "rolling-mcp";
+  if (t === "TOKENS_LIMIT") return "rolling-tokens";
+  return "rolling";
+}
+
+/**
  * Parses the z.ai `/api/monitor/usage/quota/limit` envelope.
  * Shape: { code, msg, data: { limits: Array<{type, unit, number, usage, currentValue, remaining, percentage, nextResetTime, usageDetails}> } }
+ * usageDetails is not consumed yet.
  */
 export function parseZaiLimits(json: unknown, idPrefix: string, providerName: string): QuotaData[] {
   const data = (json as { data?: unknown })?.data;
@@ -65,24 +86,37 @@ export function parseZaiLimits(json: unknown, idPrefix: string, providerName: st
 
   const entries: QuotaData[] = [];
   for (const l of limits) {
-    const used = toNum(l.currentValue);
-    const limit = toNum(l.usage);
-    if (used === null && limit === null) continue;
-
-    const type = String(l.type ?? "LIMIT").toLowerCase();
+    const type = String(l.type ?? "LIMIT");
     const unit = toNum(l.unit);
     const num = toNum(l.number);
-    const id = `${idPrefix}-${type}-${unit ?? "u"}-${num ?? "n"}`;
-    const label = `${l.type ?? "Limit"}${unit !== null ? ` (${num ?? "?"}×${unit})` : ""}`;
     const resetMs = toNum(l.nextResetTime);
+
+    // Source of truth for usage percent is l.percentage (when finite).
+    // Fallback: derive from currentValue/usage when percentage is null or non-finite.
+    const pct = toNum(l.percentage);
+    let used: number;
+    let limit: number | null;
+    if (pct !== null) {
+      used = pct;
+      limit = 100;
+    } else {
+      const cv = toNum(l.currentValue);
+      const u = toNum(l.usage);
+      if (cv === null || u === null || u === 0) continue;
+      used = (cv / u) * 100;
+      limit = 100;
+    }
+
+    const id = `${idPrefix}-${type.toLowerCase()}-${unit ?? "u"}-${num ?? "n"}`;
+    const label = `${type}${unit !== null ? ` (${num ?? "?"}×${unit})` : ""}`;
 
     entries.push({
       id,
       providerName: `${providerName} ${label}`,
-      used: used ?? 0,
+      used,
       limit,
       unit: "%",
-      window: windowMap(type),
+      window: zaiWindow(type, unit) as QuotaData["window"],
       reset: resetMs ? new Date(resetMs) : null,
       predictedReset: null,
       info: `${providerName} ${label}`,

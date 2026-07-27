@@ -86,7 +86,7 @@ vi.mock("node:child_process", () => {
 
 // ── Invariant assertions ───────────────────────────────────────────────────────
 
-const STRICT_WINDOW_UNION = ["daily", "monthly", "rolling"] as const;
+const STRICT_WINDOW_UNION = ["daily", "monthly", "rolling", "rolling-5h", "rolling-mcp", "rolling-tokens"] as const;
 
 function assertInvariant(_label: string, quotas: Array<{ window: string; info?: string }>) {
   for (const q of quotas) {
@@ -178,18 +178,31 @@ describe("info + window strict-union invariant (all 8 providers)", () => {
       code: 200,
       msg: "success",
       data: {
-        limits: [{
-          type: "TIME_LIMIT", unit: 5, number: 1,
-          usage: 100, currentValue: 40, remaining: 60, percentage: 40,
-          nextResetTime: 1750000000000, usageDetails: [],
-        }],
+        limits: [
+          {
+            type: "TIME_LIMIT", unit: 5, number: 1,
+            usage: 100, currentValue: 0, remaining: 100, percentage: 40,
+            nextResetTime: 1750000000000, usageDetails: [],
+          },
+          {
+            type: "MCP_LIMIT", unit: 1, number: 1,
+            usage: 1000, currentValue: 200, remaining: 800, percentage: 20,
+            nextResetTime: 1750000000000, usageDetails: [],
+          },
+        ],
       },
     };
     const http = { request: vi.fn(() => Promise.resolve(fixture)) } as unknown as HttpClient;
     const p = createZaiProvider(makeSource(oauthCred), http);
     const qs = await p.fetchQuotas();
-    expect(qs.length).toBeGreaterThan(0);
+    expect(qs.length).toBeGreaterThan(1);
     assertInvariant("Zai", qs);
+    const timeLimitRow = qs.find((q) => q.id.includes("time_limit"));
+    const mcpLimitRow = qs.find((q) => q.id.includes("mcp_limit"));
+    expect(timeLimitRow).toBeDefined();
+    expect(mcpLimitRow).toBeDefined();
+    expect(timeLimitRow!.used).toBe(40);
+    expect(mcpLimitRow!.used).toBe(20);
   });
 
   it("Go: window via windowMap (strict union) + info non-empty", async () => {

@@ -9,8 +9,19 @@
         "number": 1,
         "usage": 100,
         "currentValue": 0,
-        "remaining": 100,
-        "percentage": 0,
+        "remaining": 88,
+        "percentage": 12,
+        "nextResetTime": 1750000000000,
+        "usageDetails": []
+      },
+      {
+        "type": "MCP_LIMIT",
+        "unit": 1,
+        "number": 1,
+        "usage": 1000,
+        "currentValue": 200,
+        "remaining": 800,
+        "percentage": 20,
         "nextResetTime": 1750000000000,
         "usageDetails": []
       }
