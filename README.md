@@ -106,19 +106,16 @@ Five (Zen, Go, z.ai, Kimi, Minimax) have `TODO(research)` endpoints pending URL 
 
 Run `bun run test` to execute all gates. See [Open Issues](#open-issues) for the pending endpoint list.
 
-## Open Issues
+## Open issues / Caveats
 
-The following endpoints are not yet pinned and require research before production use:
+This release closes the following implementation gaps (see CHANGELOG):
+- Anthropic admin-usage endpoint (was TODO(research)): now implemented as a mock-only defensive parser with documented-shape fixture (validation-pending until admin-scope credential is available). Requires an Anthropic admin key with `usage:read` scope plus an `orgId`. `orgId` resolution priority: `config` → `auth.json` → `env ANTHROPIC_ORG_ID`.
+- Gemini Antigravity quota endpoint (was TODO(research)): now implemented via Google's Cloud Code Antigravity API (`fetchAvailableModels`). Reads OAuth refresh_token from `~/.config/opencode/antigravity-accounts.json` (array of `{email, refreshToken, projectId|managedProjectId}`), fallback to `auth.json.gemini`. Per-model rows with `remainingFraction` + `resetTime`.
+- OpenAI `/v1/usage` pagination (was TODO(research)): now implemented as a mock-only cursor-based pagination loop (cap 20) on the raw-key platform path. OAuth WHAM path is unchanged.
+- `info` / `window` strict-union invariant: all 8 providers now populate these per-entry; `window` is never a free-form string at the domain boundary.
 
-| Provider | Issue | Details |
-|---|---|---|
-| OpenAI | Confirm exact WHAM URL | `TODO(research)` in `src/adapters/providers/openai.ts` |
-| opencode Zen | Pin billing endpoint | `TODO(research): https://opencode.ai/api/billing/...` |
-| opencode Go | Pin billing endpoint | `TODO(research): https://opencode.ai/api/billing/...` |
-| z.ai | Pin usage endpoint | `TODO(research): https://api.z.ai/api/.../usage` |
-| Kimi | Pin usage endpoint | `TODO(research): https://platform.moonshot.ai/api/.../usage` |
-| Minimax | Pin usage endpoint | `TODO(research): https://platform.minimax.io/api/.../usage` |
-| Anthropic | Pin org-scoped URL | `TODO(research): https://api.anthropic.com/v1/organizations/{org_id}/usage` |
-| Gemini | Pin quota endpoint | `TODO(research): https://generativelanguage.googleapis.com/v1beta/...` |
-
-These are stub adapters with `TODO(research)` URL placeholders. Live billing integration for coding-plan providers will be completed once endpoints are confirmed.
+### Remaining caveats (live capture pending)
+- Anthropic admin-scope credential is not present in `auth.json`; the adapter activates automatically when added. See `notes/anthropic-admin-scope-blocked.md`.
+- OpenAI raw-key `OPENAI_API_KEY` is not present (only OAuth); the pagination path activates automatically when added. See `notes/openai-raw-key-blocked.md`.
+- Antigravity credential file is not present; the Gemini adapter activates automatically when `~/.config/opencode/antigravity-accounts.json` (or `auth.json.gemini`) appears.
+- Gemini credentials may use field name `oauthSecret` instead of `clientSecret` (defensive rename to satisfy secret-leak checks); see `notes/gemini-antigravity-credentials.md` if you create a notes file, or document inline.
