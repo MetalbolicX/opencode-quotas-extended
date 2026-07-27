@@ -6,6 +6,7 @@ import addFormats from "ajv-formats";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { RenderMode } from "../../domain/types.js";
+import type { Logger } from "../../ports/logger.js";
 
 const ajv = new Ajv({ allErrors: true, verbose: true });
 addFormats(ajv);
@@ -67,10 +68,11 @@ export const DEFAULTS: QuotasConfig = {
 /**
  * Loads and validates a quotas config file.
  * @param configPath - absolute path to .opencode/quotas.json
+ * @param logger - optional logger to receive deprecation warnings
  * @returns the parsed and defaulted config
  * @throws ConfigValidationError on invalid config
  */
-export function loadConfig(configPath: string): QuotasConfig {
+export function loadConfig(configPath: string, logger?: Logger): QuotasConfig {
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(configPath, "utf-8"));
@@ -91,7 +93,33 @@ export function loadConfig(configPath: string): QuotasConfig {
     throw new ConfigValidationError(`Invalid quotas config: ${errors}`);
   }
 
-  return { ...DEFAULTS, ...(raw as Partial<QuotasConfig>) };
+  // Emit deprecation warnings for deprecated fields, then strip them so they don't propagate.
+  const rawObj = raw as Partial<QuotasConfig>;
+  const deprecatedKeys = ["show", "pollingInterval"] as const;
+  for (const field of deprecatedKeys) {
+    if (field in rawObj) {
+      const msg = `[opencode-quotas] config field '${field}' is deprecated and ignored`;
+      if (logger) {
+        logger.warn("config.deprecated-field", { field });
+      } else {
+        console.warn(msg);
+      }
+    }
+  }
+  // footer exists in the schema but was removed from the QuotasConfig interface — check raw only.
+  if ("footer" in (raw as object)) {
+    const msg = `[opencode-quotas] config field 'footer' is deprecated and ignored`;
+    if (logger) {
+      logger.warn("config.deprecated-field", { field: "footer" });
+    } else {
+      console.warn(msg);
+    }
+  }
+
+  // Strip deprecated keys so they don't flow into the returned config.
+  const { show: _show, pollingInterval: _pollingInterval, ...strippedRaw } = rawObj;
+
+  return { ...DEFAULTS, ...(strippedRaw as Partial<QuotasConfig>) };
 }
 
 export class ConfigValidationError extends Error {

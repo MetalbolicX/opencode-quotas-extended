@@ -36,13 +36,13 @@ describe("loadConfig", () => {
       displayMode: "json",
       disabled: ["openai"],
       historyMaxAgeHours: 48,
-      pollingInterval: 300,
+      predictionWindowMinutes: 120,
     }));
     const config = loadConfig(configPath);
     expect(config.displayMode).toBe("json");
     expect(config.disabled).toEqual(["openai"]);
     expect(config.historyMaxAgeHours).toBe(48);
-    expect(config.pollingInterval).toBe(300);
+    expect(config.predictionWindowMinutes).toBe(120);
   });
 
   it("throws ConfigValidationError for invalid config", () => {
