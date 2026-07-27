@@ -19,8 +19,7 @@ surfaces → report-pipeline → domain (pure)
 - **Adapters** (`src/adapters/`): Concrete implementations — 8 provider adapters, auth/json-file sources, fetch HTTP client, config loader.
 - **Rendering** (`src/rendering/`): Table, JSON, and Markdown renderers with ANSI status bars.
 - **i18n** (`src/i18n/`): Translator port with English locale.
-- **Plugin** (`src/plugin/`): opencode plugin entry point. Returns empty Hooks — the `/check-quotas` command replaces the removed auto-footer.
-- **CLI** (`src/cli/`): Standalone `opencode-quotas` binary.
+- **CLI** (`src/cli/`): Standalone `opencode-quotas` binary. No opencode plugin dependency.
 
 ## Providers
 
@@ -50,18 +49,17 @@ Credentials are resolved in order: `auth.json` (XDG data dir) → environment va
 
 ## Commands
 
-- `/check-quotas` — Render the **full detailed quota report** (all 6 columns: status/name/bar/percent/reset/ETTL). Calls the same pipeline as the CLI.
-
-The auto-footer present in earlier versions has been removed. Use `/check-quotas` to view quota status on demand.
+The standalone CLI is the sole interface. No slash commands.
 
 ## CLI
 
 ```bash
 opencode-quotas                        # Full table report
-opencode-quotas --mode json            # JSON output
-opencode-quotas --mode markdown        # Markdown table
-opencode-quotas --provider openai       # Single provider
-opencode-quotas --no-color             # Strip ANSI codes
+opencode-quotas --list               # List available providers
+opencode-quotas --provider openai     # Single provider report
+opencode-quotas --provider openai --color green  # With colored usage bar
+opencode-quotas --mode json           # JSON output
+opencode-quotas --mode markdown       # Markdown table
 opencode-quotas --help                # Show usage
 ```
 
@@ -76,7 +74,7 @@ bun run build        # Compiles TypeScript → dist/cli/index.js
 ## Development
 
 ```bash
-bun run test         # Run all tests (466 passing)
+bun run test         # Run all tests (482 passing)
 bun run test:watch   # Watch mode
 bun run test:coverage  # Coverage report
 bun run typecheck     # TypeScript type checking
@@ -93,14 +91,14 @@ bash scripts/check-secrets.sh  # CI secret-leak gate
 
 ## Status
 
-**10/10 slices complete.** All gates pass:
+All gates pass:
 
 | Gate | Result |
 |------|--------|
-| `bun run test` | ✅ 434 tests pass |
+| `bun run test` | ✅ 482 tests pass |
 | `bun run typecheck` | ✅ 0 errors |
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |
-| `bun run build` | ✅ dist/ produced |
+| `bun run build` | ✅ dist/cli/index.js produced |
 
 **8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
 Five (Zen, Go, z.ai, Kimi, Minimax) have `TODO(research)` endpoints pending URL pinning before production use.
