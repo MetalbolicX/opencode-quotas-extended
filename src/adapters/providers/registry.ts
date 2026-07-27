@@ -1,6 +1,7 @@
 // Provider registry — Map<providerId, QuotaProvider>.
 import type { CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
+import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import { createOpenAIProvider } from "./openai.js";
 import { createZenProvider } from "./zen.js";
@@ -27,19 +28,20 @@ export function createProviderRegistry(): ProviderRegistry {
 }
 
 // buildDefaultRegistry — registers all 8 providers.
+// logger is optional; when absent, factories use a silent noop internally.
 export function buildDefaultRegistry(
   credentialSource: CredentialSource,
   http: HttpClient,
-  _deps?: unknown,
+  logger?: Logger,
 ): ProviderRegistry {
   const registry = createProviderRegistry();
-  registry.register(createOpenAIProvider(credentialSource, http));
-  registry.register(createZenProvider(credentialSource, http));
-  registry.register(createGoProvider(credentialSource, http));
-  registry.register(createZaiProvider(credentialSource, http));
-  registry.register(createKimiProvider(credentialSource, http));
-  registry.register(createMinimaxProvider(credentialSource, http));
-  registry.register(createAnthropicProvider(credentialSource, http));
-  registry.register(createGeminiProvider(credentialSource, http));
+  registry.register(createOpenAIProvider(credentialSource, http, logger));
+  registry.register(createZenProvider(credentialSource, http, logger));
+  registry.register(createGoProvider(credentialSource, http, logger));
+  registry.register(createZaiProvider(credentialSource, http, logger));
+  registry.register(createKimiProvider(credentialSource, http, logger));
+  registry.register(createMinimaxProvider(credentialSource, http, logger));
+  registry.register(createAnthropicProvider(credentialSource, http, undefined, undefined, undefined, logger));
+  registry.register(createGeminiProvider(credentialSource, http, logger));
   return registry;
 }

@@ -2,6 +2,7 @@
 // Credentials: key stored in auth.json under "minimax-coding-plan".
 import type { CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
+import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 import { windowMap } from "./coding-plan-parse.js";
@@ -55,7 +56,7 @@ function parseMinimaxCli(out: string, _key: string): QuotaData[] {
   return entries;
 }
 
-export function createMinimaxProvider(credSrc: CredentialSource, _http: HttpClient): QuotaProvider {
+export function createMinimaxProvider(credSrc: CredentialSource, _http: HttpClient, _logger?: Logger): QuotaProvider {
   return {
     id: "minimax", displayName: "Minimax Coding Plan", category: "subscription", authStrategy: "oauth",
     async isAvailable() { return (await credSrc.get("minimax-coding-plan")) !== null; },

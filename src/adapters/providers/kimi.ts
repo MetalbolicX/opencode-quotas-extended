@@ -1,22 +1,18 @@
-// Kimi / Moonshot Coding Plan provider — oauth variant.
-// Endpoint: https://platform.moonshot.ai/api/v1/usage (probe returned 301 redirect → 404; key may lack scope).
+// Kimi / Moonshot — no public quota API available.
+// Moonshot/Kimi does not expose a public usage/quota endpoint.
+// The OpenAI-compatible API only serves chat completions.
 import type { CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
+import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
-import { withOAuth } from "./oauth.js";
-import { parseUsage } from "./coding-plan-parse.js";
 
-var USAGE_URL = "https://platform.moonshot.ai/api/v1/usage";
-
-export function createKimiProvider(credSrc: CredentialSource, http: HttpClient): QuotaProvider {
+export function createKimiProvider(_credSrc: CredentialSource, _http: HttpClient, _logger?: Logger): QuotaProvider {
   return {
     id: "kimi", displayName: "Kimi / Moonshot", category: "subscription", authStrategy: "oauth",
-    async isAvailable() { return (await credSrc.get("kimi-for-coding")) !== null; },
+    async isAvailable() { return (await _credSrc.get("kimi-for-coding")) !== null; },
     async fetchQuotas(): Promise<QuotaData[]> {
-      return withOAuth(credSrc, http, "kimi-for-coding", async (c) =>
-        parseUsage(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "kimi", "Kimi")
-      ).catch(() => [] as QuotaData[]);
+      return [];
     },
   };
 }

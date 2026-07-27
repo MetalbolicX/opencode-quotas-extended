@@ -6,6 +6,7 @@
 // Admin scope required: 401/403 surfaces as a clear actionable error (never silent []).
 import type { CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
+import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 import type { QuotasConfig } from "../infra/config-loader.js";
@@ -61,6 +62,7 @@ export function createAnthropicProvider(
   config?: QuotasConfig,
   auth?: Record<string, unknown>,
   env?: NodeJS.ProcessEnv,
+  _logger?: Logger,
 ): QuotaProvider {
   return {
     id: "anthropic",

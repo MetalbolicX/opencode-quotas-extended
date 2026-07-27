@@ -6,6 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Credential, CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
+import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 
@@ -62,7 +63,9 @@ function readJsonFile<T>(path: string): T | null {
  * Returns null if file absent or unparseable.
  * Each entry is validated — entries missing required fields are skipped with a redacted warning.
  */
-function loadAntigravityAccounts(): AntigravityAccount[] | null {
+function loadAntigravityAccounts(
+  warn: (event: string, meta?: unknown) => void,
+): AntigravityAccount[] | null {
   const path = join(getHomeDir(), ".config", "opencode", "antigravity-accounts.json");
   if (!fileExists(path)) return null;
   const raw = readJsonFile<unknown>(path);
@@ -89,7 +92,7 @@ function loadAntigravityAccounts(): AntigravityAccount[] | null {
         projectId: entry.projectId,
       } as AntigravityAccount);
     } else {
-      console.warn(`[gemini] Skipping invalid antigravity-accounts.json entry ${i}: ****`);
+      warn("gemini.invalid-account-entry", { entryIndex: i });
     }
   }
   return accounts.length > 0 ? accounts : null;
@@ -188,13 +191,14 @@ async function fetchQuotasForAccount(
   oauthSecret: string,
   refreshToken: string,
   projectId: string,
+  warn: (event: string, meta?: unknown) => void,
 ): Promise<QuotaData[]> {
   let accessToken: string;
   try {
     accessToken = await refreshAccessToken(http, clientId, oauthSecret, refreshToken);
   } catch (err) {
     const msg = err instanceof Error ? err.message.replace(/[^\x20-\x7E]/g, "?") : String(err);
-    console.warn(`[gemini] OAuth refresh failed for ${projectId}: ${msg.slice(0, 80)}`);
+    warn("gemini.oauth-refresh-failed", { projectId, error: msg.slice(0, 80) });
     return [];
   }
 
@@ -214,7 +218,7 @@ async function fetchQuotasForAccount(
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message.replace(/[^\x20-\x7E]/g, "?") : String(err);
-    console.warn(`[gemini] fetchAvailableModels failed for ${projectId}: ${msg.slice(0, 80)}`);
+    warn("gemini.fetch-available-models-failed", { projectId, error: msg.slice(0, 80) });
     return [];
   }
 
@@ -281,7 +285,11 @@ function parseQuotaResponse(response: FetchAvailableModelsResponse): QuotaData[]
 export function createGeminiProvider(
   credSrc: CredentialSource,
   http: HttpClient,
+  logger?: Logger,
 ): QuotaProvider {
+  // Route warnings through injected Logger (or noop if absent).
+  const warn = (event: string, meta?: unknown) => logger?.warn(event, meta);
+
   return {
     id: "gemini",
     displayName: "Google Gemini",
@@ -292,7 +300,7 @@ export function createGeminiProvider(
       // isAvailable returns true if:
       // 1. antigravity-accounts.json exists with at least one valid entry, AND
       // 2. oauth credential is present in the credential source
-      const accounts = loadAntigravityAccounts();
+      const accounts = loadAntigravityAccounts(warn);
       if (accounts && accounts.length > 0) {
         const cred = await credSrc.get("gemini");
         return cred !== null;
@@ -311,14 +319,14 @@ export function createGeminiProvider(
       // Gate on oauth credential presence — no point making HTTP calls without it.
       const cred = await credSrc.get("gemini");
       if (!cred) {
-        console.warn("[gemini] No oauth credential available.");
+        warn("gemini.no-credential", { reason: "no oauth credential available" });
         return [];
       }
 
       // Try primary: antigravity-accounts.json
-      const accounts = loadAntigravityAccounts();
+      const accounts = loadAntigravityAccounts(warn);
       if (accounts && accounts.length > 0) {
-        return fetchQuotasForAllAccounts(http, accounts);
+        return fetchQuotasForAllAccounts(http, accounts, warn);
       }
 
       // Try fallback: auth.json.gemini
@@ -330,11 +338,12 @@ export function createGeminiProvider(
           authJson.oauthSecret!, // validated non-null by loadAuthJsonGemini
           authJson.refresh,
           authJson.projectId,
+          warn,
         );
       }
 
       // No credential files found
-      console.warn("[gemini] No antigravity-accounts.json or auth.json.gemini found.");
+      warn("gemini.no-credential", { reason: "no antigravity-accounts.json or auth.json.gemini found" });
       return [];
     },
   };
@@ -347,6 +356,7 @@ export function createGeminiProvider(
 async function fetchQuotasForAllAccounts(
   http: HttpClient,
   accounts: AntigravityAccount[],
+  warn: (event: string, meta?: unknown) => void,
 ): Promise<QuotaData[]> {
   const results = await Promise.all(
     accounts.map((account) =>
@@ -356,9 +366,10 @@ async function fetchQuotasForAllAccounts(
         account.oauthSecret,
         account.refreshToken,
         account.projectId,
+        warn,
       ).catch((err) => {
         const msg = err instanceof Error ? err.message.replace(/[^\x20-\x7E]/g, "?") : String(err);
-        console.warn(`[gemini] Account ${account.email}: ${msg.slice(0, 80)}`);
+        warn("gemini.account-fetch-failed", { email: account.email, error: msg.slice(0, 80) });
         return [];
       }),
     ),

@@ -1,6 +1,7 @@
 // OpenAI provider — supports oauth (ChatGPT Plus/Pro) and api (platform key) variants.
 import type { Credential, CredentialSource } from "../../ports/credentials.js";
 import type { HttpClient } from "../../ports/http.js";
+import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 import { withOAuth } from "./oauth.js";
@@ -30,6 +31,7 @@ function resetDate(after: number | null, at: number | null): Date | null {
 export function createOpenAIProvider(
   credentialSource: CredentialSource,
   http: HttpClient,
+  _logger?: Logger,
 ): QuotaProvider {
   return {
     id: "openai",
