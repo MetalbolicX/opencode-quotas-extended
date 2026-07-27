@@ -28,16 +28,19 @@ export interface CliArgs {
   model?: string;
   mode: RenderMode;
   noColor: boolean;
+  /** When true, emit numbered availability table instead of fetching quota data. */
+  list: boolean;
 }
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { mode: "table", noColor: false };
+  const args: CliArgs = { mode: "table", noColor: false, list: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--provider" && argv[i + 1]) args.provider = argv[++i];
     else if (a === "--model" && argv[i + 1]) args.model = argv[++i];
     else if (a === "--mode" && argv[i + 1]) args.mode = argv[++i] as RenderMode;
     else if (a === "--no-color") args.noColor = true;
+    else if (a === "--list") args.list = true;
   }
   return args;
 }
@@ -45,6 +48,30 @@ export function parseArgs(argv: string[]): CliArgs {
 // ── No-op logger (CLI doesn't emit debug/info; errors surface via result) ─────
 
 const noopLogger: Logger = { debug() {}, info() {}, warn() {}, error() {} };
+
+// ── List mode renderer ────────────────────────────────────────────────────────
+
+/**
+ * Renders a numbered availability table for the --list picker.
+ * Columns: #, id, displayName, status, percent, availability
+ * Status/percent are "—" (synthetic) since no fetchQuotas is made in list mode.
+ */
+function renderListTable(
+  providers: Array<{ id: string; displayName: string }>,
+): string {
+  const rows = providers.map((p, i) => {
+    const num = `${i + 1}`;
+    const id = p.id;
+    const name = p.displayName;
+    // Status/percent are synthetic "—" in availability-only list mode
+    const status = "—";
+    const pct = "—";
+    const avail = "available";
+    return [num, id, name, status, pct, avail].join("  ");
+  });
+  const header = ["#", "id", "displayName", "status", "percent", "availability"].join("  ");
+  return [header, ...rows].join("\n");
+}
 
 // ── Shared reportQuotas (backward-compatible wrapper) ─────────────────────────
 // Re-exports the pipeline as a factory so tests can inject deps when needed.
@@ -116,6 +143,7 @@ Flags:
   --model <id>      Filter to a specific model (reserved for future use)
   --mode <mode>     Output format: table (default), json, markdown
   --no-color        Strip ANSI color codes from output
+  --list            Show available providers as a numbered list (for picker)
   --help            Show this usage information
 `.trim();
 
@@ -128,6 +156,57 @@ export async function run(argv: string[]): Promise<RunResult> {
     if (argv.includes("--help")) {
       process.stdout.write(USAGE + "\n");
       return { stdout: USAGE, exitCode: 0 };
+    }
+
+    // REQ-LIST-3: --list and --provider are mutually exclusive
+    if (args.list && args.provider) {
+      const msg = "Cannot combine --list and --provider";
+      process.stdout.write(msg + "\n");
+      return { stdout: msg, exitCode: 1 };
+    }
+
+    // Config
+    const configPath = join(ROOT, ".opencode", "quotas.json");
+    const config = existsSync(configPath) ? loadConfig(configPath) : DEFAULTS;
+
+    // Credentials
+    const credentialResolver = createCredentialResolver(
+      config,
+      { readFileSync: (p) => require("node:fs").readFileSync(p, "utf-8") },
+      process.env as Record<string, string | undefined>,
+    );
+
+    // HTTP + registry
+    const http = new FetchHttpClient(noopLogger);
+    const registry = buildDefaultRegistry({ get: (id) => credentialResolver.get(id) }, http);
+
+    // REQ-LIST: --list mode renders availability table
+    if (args.list) {
+      const all = registry.list();
+      // Filter to only available providers (no fetchQuotas in list mode)
+      const settled = await Promise.allSettled(
+        all.map(async (p) => {
+          const available = await (p as unknown as { isAvailable(): Promise<boolean> }).isAvailable();
+          return { provider: p, available };
+        }),
+      );
+      const available = [];
+      for (const r of settled) {
+        if (r.status === "fulfilled" && r.value.available) {
+          available.push(r.value.provider);
+        }
+      }
+
+      // REQ-LIST-2: exit 1 when registry is empty
+      if (available.length === 0) {
+        return { stdout: "", exitCode: 1 };
+      }
+
+      const rendered = renderListTable(
+        available.map((p) => ({ id: p.id, displayName: p.displayName })),
+      );
+      process.stdout.write(rendered + "\n");
+      return { stdout: rendered, exitCode: 0 };
     }
 
     const result = await _reportQuotas({

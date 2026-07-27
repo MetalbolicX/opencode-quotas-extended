@@ -90,14 +90,14 @@ vi.mock("../../src/adapters/providers/registry.js", () => ({
 // ── SECTION 1: CLI (stashed Slice 9 tests) ────────────────────────────────────
 describe("CLI: parseArgs", () => {
   it.each([
-    { argv: [], exp: { mode: "table" as const, noColor: false } },
-    { argv: ["--mode", "json"], exp: { mode: "json" as const, noColor: false } },
-    { argv: ["--mode", "markdown"], exp: { mode: "markdown" as const, noColor: false } },
-    { argv: ["--no-color"], exp: { mode: "table" as const, noColor: true } },
-    { argv: ["--provider", "openai"], exp: { provider: "openai", mode: "table" as const, noColor: false } },
-    { argv: ["--provider", "anthropic", "--mode", "json"], exp: { provider: "anthropic", mode: "json" as const, noColor: false } },
-    { argv: ["--model", "gpt-4o"], exp: { model: "gpt-4o", mode: "table" as const, noColor: false } },
-    { argv: ["--provider", "openai", "--model", "gpt-4o", "--mode", "table", "--no-color"], exp: { provider: "openai", model: "gpt-4o", mode: "table" as const, noColor: true } },
+    { argv: [], exp: { mode: "table" as const, noColor: false, list: false } },
+    { argv: ["--mode", "json"], exp: { mode: "json" as const, noColor: false, list: false } },
+    { argv: ["--mode", "markdown"], exp: { mode: "markdown" as const, noColor: false, list: false } },
+    { argv: ["--no-color"], exp: { mode: "table" as const, noColor: true, list: false } },
+    { argv: ["--provider", "openai"], exp: { provider: "openai", mode: "table" as const, noColor: false, list: false } },
+    { argv: ["--provider", "anthropic", "--mode", "json"], exp: { provider: "anthropic", mode: "json" as const, noColor: false, list: false } },
+    { argv: ["--model", "gpt-4o"], exp: { model: "gpt-4o", mode: "table" as const, noColor: false, list: false } },
+    { argv: ["--provider", "openai", "--model", "gpt-4o", "--mode", "table", "--no-color"], exp: { provider: "openai", model: "gpt-4o", mode: "table" as const, noColor: true, list: false } },
   ])("parseArgs($argv) → $exp", ({ argv, exp }) => { expect(parseArgs(argv)).toEqual(exp); });
 });
 
