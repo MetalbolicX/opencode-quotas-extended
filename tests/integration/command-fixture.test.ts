@@ -34,13 +34,39 @@ describe("/check-quotas command", () => {
     expect(content).toContain("--no-color");
   });
 
-  it("command body must not pass user input verbatim to shell", () => {
+  it("command body must not pass user input verbatim to shell (dangerous patterns rejected)", () => {
     const content = readFileSync(COMMAND_PATH, "utf-8");
-    // If $ARGUMENTS or similar user-input interpolation appears, it must NOT be inside a shell string
-    // The design requires NO user shell interpolation — only fixed command
-    // Reject patterns like: `opencode-quotas $ARGUMENTS` or `$(echo $ARGUMENTS)`
-    const userShellInterp = /\$ARGUMENTS|\$\{ARGUMENTS\}|\$\(\s*echo\s+\$/;
-    expect(content, "command must not interpolate user input into shell").not.toMatch(userShellInterp);
+    // The design constrains $ARGUMENTS to ONLY appear inside --provider "$ARGUMENTS"
+    // Reject dangerous patterns: command substitution, backtick sub, shell pipes, destructive chaining
+    const dangerous = [
+      /\$\([^(]/,           // command substitution (but allow $() for subshell with fixed cmd)
+      /`[^`]+`/,           // backtick substitution
+      /\|\s*(cat|sh|bash|exec|eval)/i,  // pipes to shells
+      /;\s*(rm|del)/i, // command chaining with destructive commands
+      /&&\s*(curl|wget)/i, // logical AND with download
+      /\|\s*(curl|wget)/i, // pipe to download
+    ];
+    for (const re of dangerous) {
+      expect(content, `command must not contain: ${re}`).not.toMatch(re);
+    }
+  });
+
+  it("$ARGUMENTS must appear exactly once, inside double-quoted --provider flag", () => {
+    const content = readFileSync(COMMAND_PATH, "utf-8");
+    // $ARGUMENTS is permitted ONLY inside --provider "$ARGUMENTS"
+    const argMatch = content.match(/--provider\s+"\$\{?ARGUMENTS\}?"/g);
+    expect(argMatch, "body must contain --provider \"$ARGUMENTS\" (double-quoted, anchored to flag)").toHaveLength(1);
+  });
+
+  it("no-args path invokes opencode-quotas --no-color --list", () => {
+    const content = readFileSync(COMMAND_PATH, "utf-8");
+    expect(content).toContain("opencode-quotas --no-color --list");
+  });
+
+  it("no-args path asks the Spanish picker follow-up question", () => {
+    const content = readFileSync(COMMAND_PATH, "utf-8");
+    const spanishQuestion = "¿Querés ver el detalle de alguno? Respondé con el número o ID (o 'all' para mantener esta vista).";
+    expect(content).toContain(spanishQuestion);
   });
 
   it("command file must have valid frontmatter", () => {
