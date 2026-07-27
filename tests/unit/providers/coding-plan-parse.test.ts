@@ -121,3 +121,71 @@ describe("parseUsage", () => {
     expect(result[0].id).toBe("my-prefix-daily");
   });
 });
+
+// ── parseZaiLimits: z.ai envelope { data: { limits: [...] } } ──────────────
+import { parseZaiLimits } from "../../../src/adapters/providers/coding-plan-parse.js";
+
+describe("parseZaiLimits", () => {
+  const timeLimitEntry = {
+    type: "TIME_LIMIT",
+    unit: 5,
+    number: 1,
+    usage: 100,
+    currentValue: 0,
+    remaining: 100,
+    percentage: 0,
+    nextResetTime: 1750000000000,
+    usageDetails: [],
+  };
+
+  it("parses a real z.ai envelope with one TIME_LIMIT entry", () => {
+    const input = {
+      code: 200,
+      msg: "success",
+      data: { limits: [timeLimitEntry] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(1);
+    expect(result[0].used).toBe(0);
+    expect(result[0].limit).toBe(100);
+    expect(result[0].unit).toBe("%");
+    expect(result[0].reset).toBeInstanceOf(Date);
+    expect(result[0].id).toContain("time_limit");
+  });
+
+  it("returns [] when data is missing", () => {
+    expect(parseZaiLimits({}, "zai", "z.ai")).toEqual([]);
+  });
+
+  it("returns [] when data.limits is not an array", () => {
+    expect(parseZaiLimits({ data: { limits: "nope" } }, "zai", "z.ai")).toEqual([]);
+  });
+
+  it("returns [] when data.limits is empty", () => {
+    expect(parseZaiLimits({ data: { limits: [] } }, "zai", "z.ai")).toEqual([]);
+  });
+
+  it("parses multiple limits into multiple entries", () => {
+    const input = {
+      data: {
+        limits: [
+          timeLimitEntry,
+          { type: "TOKENS_LIMIT", unit: 1, number: 1, usage: 500000, currentValue: 12345, remaining: 487655, percentage: 2, nextResetTime: null, usageDetails: [] },
+        ],
+      },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toContain("time_limit");
+    expect(result[1].id).toContain("tokens_limit");
+    expect(result[1].used).toBe(12345);
+  });
+
+  it("handles missing nextResetTime by leaving reset: null", () => {
+    const input = {
+      data: { limits: [{ ...timeLimitEntry, nextResetTime: null }] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result[0].reset).toBeNull();
+  });
+});

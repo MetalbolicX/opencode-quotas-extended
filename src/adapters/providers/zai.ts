@@ -6,7 +6,7 @@ import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 import { withOAuth } from "./oauth.js";
-import { parseMonitorLimits } from "./coding-plan-parse.js";
+import { parseZaiLimits } from "./coding-plan-parse.js";
 
 var USAGE_URL = "https://api.z.ai/api/monitor/usage/quota/limit";
 
@@ -16,8 +16,11 @@ export function createZaiProvider(credSrc: CredentialSource, http: HttpClient, _
     async isAvailable() { return (await credSrc.get("zai-coding-plan")) !== null; },
     async fetchQuotas(): Promise<QuotaData[]> {
       return withOAuth(credSrc, http, "zai-coding-plan", async (c) =>
-        parseMonitorLimits(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "zai", "z.ai")
-      ).catch(() => [] as QuotaData[]);
+        parseZaiLimits(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "zai", "z.ai")
+      ).catch((err) => {
+        _logger?.error("zai: fetch failed", { error: String(err) });
+        return [] as QuotaData[];
+      });
     },
   };
 }

@@ -51,3 +51,42 @@ export function parseUsage(json: unknown, idPrefix: string, providerName: string
 
 /** Alias for API parity — parseMonitorLimits and parseUsage are semantically identical. */
 export const parseMonitorLimits = parseUsage;
+
+/**
+ * Parses the z.ai `/api/monitor/usage/quota/limit` envelope.
+ * Shape: { code, msg, data: { limits: Array<{type, unit, number, usage, currentValue, remaining, percentage, nextResetTime, usageDetails}> } }
+ */
+export function parseZaiLimits(json: unknown, idPrefix: string, providerName: string): QuotaData[] {
+  const data = (json as { data?: unknown })?.data;
+  const limits = Array.isArray((data as { limits?: unknown })?.limits)
+    ? (data as { limits: Array<Record<string, unknown>> }).limits
+    : [];
+  if (limits.length === 0) return [];
+
+  const entries: QuotaData[] = [];
+  for (const l of limits) {
+    const used = toNum(l.currentValue);
+    const limit = toNum(l.usage);
+    if (used === null && limit === null) continue;
+
+    const type = String(l.type ?? "LIMIT").toLowerCase();
+    const unit = toNum(l.unit);
+    const num = toNum(l.number);
+    const id = `${idPrefix}-${type}-${unit ?? "u"}-${num ?? "n"}`;
+    const label = `${l.type ?? "Limit"}${unit !== null ? ` (${num ?? "?"}×${unit})` : ""}`;
+    const resetMs = toNum(l.nextResetTime);
+
+    entries.push({
+      id,
+      providerName: `${providerName} ${label}`,
+      used: used ?? 0,
+      limit,
+      unit: "%",
+      window: windowMap(type),
+      reset: resetMs ? new Date(resetMs) : null,
+      predictedReset: null,
+      info: `${providerName} ${label}`,
+    });
+  }
+  return entries;
+}

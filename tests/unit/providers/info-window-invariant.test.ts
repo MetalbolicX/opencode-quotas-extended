@@ -175,8 +175,15 @@ describe("info + window strict-union invariant (all 8 providers)", () => {
 
   it("Zai: window via windowMap (strict union) + info non-empty", async () => {
     const fixture = {
-      windows: [{ label: "Daily", used: 40, limit: 100 }],
-      credits: { balance: "10.00" },
+      code: 200,
+      msg: "success",
+      data: {
+        limits: [{
+          type: "TIME_LIMIT", unit: 5, number: 1,
+          usage: 100, currentValue: 40, remaining: 60, percentage: 40,
+          nextResetTime: 1750000000000, usageDetails: [],
+        }],
+      },
     };
     const http = { request: vi.fn(() => Promise.resolve(fixture)) } as unknown as HttpClient;
     const p = createZaiProvider(makeSource(oauthCred), http);
