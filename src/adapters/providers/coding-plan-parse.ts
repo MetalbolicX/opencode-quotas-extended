@@ -48,3 +48,6 @@ export function parseUsage(json: unknown, idPrefix: string, providerName: string
   }
   return entries;
 }
+
+/** Alias for API parity — parseMonitorLimits and parseUsage are semantically identical. */
+export const parseMonitorLimits = parseUsage;
