@@ -456,3 +456,25 @@ describe("TableRenderer — ASCII frame", () => {
     }
   });
 });
+
+// ── REQ-r5 regression: no literal header.* leakage ─────────────────────────────
+
+describe("renderer — no literal header.* leakage (REQ-r5)", () => {
+  it("table output never contains 'header.' strings", () => {
+    const r = selectRenderer("table");
+    const out = r.render(QUOTAS, { mode: "table", t: EN_TRANSLATOR });
+    expect(out).not.toMatch(/header\./);
+  });
+
+  it("JSON output never contains 'header.' strings", () => {
+    const r = selectRenderer("json");
+    const out = r.render(QUOTAS, { mode: "json", t: EN_TRANSLATOR });
+    expect(out).not.toMatch(/header\./);
+  });
+
+  it("markdown output never contains 'header.' strings", () => {
+    const r = selectRenderer("markdown");
+    const out = r.render(QUOTAS, { mode: "markdown", t: EN_TRANSLATOR });
+    expect(out).not.toMatch(/header\./);
+  });
+});

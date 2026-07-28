@@ -145,11 +145,15 @@ export class JsonRenderer implements Renderer {
 }
 
 export class MarkdownRenderer implements Renderer {
-  render(quotas: readonly QuotaData[], _ctx: RenderContext): string {
+  render(quotas: readonly QuotaData[], ctx: RenderContext): string {
     const rows = quotas.map(q => {
       const s = getStatus(q.used, q.limit);
       return `| ${q.providerName} | ${s.code} | ${fmtPct(s.ratio)} | ${fmtReset(q.reset)} | ${q.predictedReset ? fmtReset(q.predictedReset) : "—"} |`;
     });
-    return ["| Name | Status | % | Reset | ETTL |", "|------|--------|-------|-------|-------|", ...rows].join("\n");
+    return [
+      `| ${ctx.t.t("header.name")} | ${ctx.t.t("header.status")} | ${ctx.t.t("header.percent")} | ${ctx.t.t("header.reset")} | ${ctx.t.t("header.ettl")} |`,
+      `|------|--------|-------|-------|-------|`,
+      ...rows,
+    ].join("\n");
   }
 }

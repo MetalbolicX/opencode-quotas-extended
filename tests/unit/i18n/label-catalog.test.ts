@@ -21,6 +21,20 @@ const ALL_CONCEPTS: QuotaConcept[] = [
   "gemini-model-quota",
 ];
 
+describe("i18n catalog — header.* keys present", () => {
+  it("every header.* key used by the renderer is in en.json", () => {
+    const headerKeys = [
+      "header.status", "header.name", "header.bar", "header.percent",
+      "header.reset", "header.ettl", "header.used", "header.limit",
+    ];
+    for (const key of headerKeys) {
+      expect(enCatalog, `catalog missing key: ${key}`).toHaveProperty(key);
+      expect(typeof (enCatalog as Record<string, unknown>)[key]).toBe("string");
+      expect(((enCatalog as Record<string, unknown>)[key] as string).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("i18n label catalog — every concept has a translation key", () => {
   for (const concept of ALL_CONCEPTS) {
     it(`has a concept.* key for "${concept}"`, () => {
