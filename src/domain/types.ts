@@ -13,7 +13,7 @@ export interface QuotaData {
   readonly unit: string;
   readonly reset: Date | null;
   readonly predictedReset: Date | null;
-  readonly window: "daily" | "monthly" | "rolling" | "rolling-5h" | "rolling-mcp" | "rolling-tokens";
+  readonly window: "daily" | "monthly" | "rolling" | "rolling-5h" | "rolling-mcp" | "rolling-tokens" | "rolling-weekly";
   readonly info?: string;
 }
 

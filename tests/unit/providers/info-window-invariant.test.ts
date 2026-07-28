@@ -86,7 +86,7 @@ vi.mock("node:child_process", () => {
 
 // ── Invariant assertions ───────────────────────────────────────────────────────
 
-const STRICT_WINDOW_UNION = ["daily", "monthly", "rolling", "rolling-5h", "rolling-mcp", "rolling-tokens"] as const;
+const STRICT_WINDOW_UNION = ["daily", "monthly", "rolling", "rolling-5h", "rolling-mcp", "rolling-tokens", "rolling-weekly"] as const;
 
 function assertInvariant(_label: string, quotas: Array<{ window: string; info?: string }>) {
   for (const q of quotas) {
@@ -235,6 +235,23 @@ describe("info + window strict-union invariant (all 8 providers)", () => {
     const qs = await p.fetchQuotas();
     expect(qs.length).toBeGreaterThan(0);
     assertInvariant("Minimax", qs);
+  });
+
+  describe("QuotaData.window — rolling-weekly", () => {
+    it("accepts 'rolling-weekly' in the strict union", () => {
+      const sample: import("../../../src/domain/types.js").QuotaData = {
+        id: "minimax-general-weekly",
+        providerName: "Minimax · Weekly request quota",
+        used: 5,
+        limit: 100,
+        unit: "requests",
+        reset: null,
+        predictedReset: null,
+        window: "rolling-weekly",
+      };
+      expect(STRICT_WINDOW_UNION).toContain("rolling-weekly");
+      expect(sample.window).toBe("rolling-weekly");
+    });
   });
 
 });
