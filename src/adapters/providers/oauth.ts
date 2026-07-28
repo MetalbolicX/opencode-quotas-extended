@@ -8,7 +8,7 @@ import type { HttpClient, HttpRequest } from "../../ports/http.js";
  * oauth credential → Bearer {access}
  * api credential   → Bearer {key}
  */
-function withAuth(client: HttpClient, cred: Credential): HttpClient {
+const withAuth = (client: HttpClient, cred: Credential): HttpClient => {
   const auth = cred.variant === "oauth"
     ? `Bearer ${cred.access}`
     : cred.variant === "api"
@@ -61,13 +61,13 @@ const _inflight = new Map<string, Promise<unknown>>();
  *  - After the refresh cycle completes, in-flight entries are deleted so the next
  *    401 starts a completely fresh (non-stale) cycle
  */
-export async function withOAuth<T>(
+export const withOAuth = async <T>(
   source: CredentialSource,
   http: HttpClient,
   providerId: string,
   fn: (client: HttpClient) => Promise<T>,
   timeoutMs = 15_000,
-): Promise<T | []> {
+): Promise<T | []> => {
   // ── Phase 1: single-flight initial request ───────────────────────────────
   // Check before starting; concurrent callers for the same providerId all
   // receive the same promise and therefore share ONE fn() execution.

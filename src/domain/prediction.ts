@@ -13,7 +13,7 @@ const SHORT_WINDOW_MINUTES_DEFAULT = 5;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const SHORT_WINDOW_FALLBACK_RATIO = 0.15;
 
-function slope(history: HistoryPoint[]): number {
+const slope = (history: HistoryPoint[]): number => {
   if (history.length < 2) return 0;
   const n = history.length;
   const firstTs = history[0].timestamp;
@@ -28,14 +28,14 @@ function slope(history: HistoryPoint[]): number {
   return (n * sumXY - sumX * sumY) / denom;
 }
 
-function isLongTermWindow(windowInfo: string | undefined): boolean {
+const isLongTermWindow = (windowInfo: string | undefined): boolean => {
   return Boolean(windowInfo && /week|month|\d+d/i.test(windowInfo));
 }
 
-export function predictTimeToLimit(
+export const predictTimeToLimit = (
   history: readonly HistoryPoint[],
   params: PredictionParams = {}
-): number {
+): number => {
   const longWindowMs = (params.windowMinutes ?? LONG_WINDOW_MINUTES_DEFAULT) * 60 * 1000;
   const shortWindowMs = (params.shortWindowMinutes ?? SHORT_WINDOW_MINUTES_DEFAULT) * 60 * 1000;
   const now = params.now ?? Date.now();

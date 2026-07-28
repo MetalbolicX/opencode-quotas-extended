@@ -42,9 +42,9 @@ const noopLogger: Logger = { debug() {}, info() {}, warn() {}, error() {} };
  * Columns: #, id, displayName, status, percent, availability
  * Status/percent are "—" (synthetic) since no fetchQuotas is made in list mode.
  */
-function renderListTable(
+const renderListTable = (
   providers: Array<{ id: string; displayName: string }>,
-): string {
+): string => {
   const rows = providers.map((p, i) => {
     const num = `${i + 1}`;
     const id = p.id;
@@ -73,8 +73,8 @@ export interface ReportOptions {
  * Creates a reportQuotas function bound to the CLI's filesystem/bootstrap context.
  * The underlying call goes through src/application/report-pipeline.ts.
  */
-export function createReportQuotas() {
-  return async function reportQuotas(opts: ReportOptions): Promise<ReportResult> {
+export const createReportQuotas = () => {
+  return async (opts: ReportOptions): Promise<ReportResult> => {
     const { providerId, modelId, mode, color } = opts;
 
     // Config
@@ -101,14 +101,12 @@ export function createReportQuotas() {
 }
 
 // Minimal no-op history store for CLI bootstrap (no persistence in CLI mode)
-function createNoopHistory() {
-  return {
+const createNoopHistory = () => ({
     append: async (_id: string, _point: { timestamp: number; used: number; limit: number | null }) => {},
     getHistory: async (_id: string, _ms: number) => [] as { timestamp: number; used: number; limit: number | null }[],
     prune: async (_ms: number) => {},
     resetDetected: (_id: string, _prev: { timestamp: number; used: number; limit: number | null }, _used: number, _limit: number | null) => false,
-  };
-}
+  });
 
 // Default instance for CLI use
 const _reportQuotas = createReportQuotas();
@@ -137,7 +135,7 @@ export interface RunResult {
   readonly exitCode: number;
 }
 
-export async function run(argv: string[]): Promise<RunResult> {
+export const run = async (argv: string[]): Promise<RunResult> => {
   let stderr = "";
 
   try {

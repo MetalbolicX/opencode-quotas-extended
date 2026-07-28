@@ -6,16 +6,16 @@ import { detectReset } from "../../domain/reset.js";
 interface HFile { history: Record<string, HistoryPoint[]>; }
 interface Deps { readFileSync: (p: string) => string; writeFileSync: (p: string, d: string) => void; existsSync: (p: string) => boolean; now?: () => number; }
 
-function load(path: string, d: Deps): HFile {
+const load = (path: string, d: Deps): HFile => {
   if (!d.existsSync(path)) return { history: {} };
   try { return JSON.parse(d.readFileSync(path)) as HFile; } catch { return { history: {} }; }
 }
-function save(path: string, data: HFile, d: Deps): void { d.writeFileSync(path, JSON.stringify(data, null, 2)); }
+const save = (path: string, data: HFile, d: Deps): void => { d.writeFileSync(path, JSON.stringify(data, null, 2)); }
 
 export function createHistoryStore(filePath: string, deps: Deps): HistoryStore {
   let pending: ReturnType<typeof setTimeout> | null = null;
   const DEBOUNCE_MS = 5000;
-  function sched(path: string, data: HFile): void {
+  const sched = (path: string, data: HFile): void => {
     if (pending) clearTimeout(pending);
     pending = setTimeout(() => { save(path, data, deps); pending = null; }, DEBOUNCE_MS);
   }

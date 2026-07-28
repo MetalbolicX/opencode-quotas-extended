@@ -15,21 +15,21 @@ import { resolveAnthropicOrgId } from "../infra/config-loader.js";
 const USAGE_URL = "https://api.anthropic.com/v1/organizations/{org_id}/usage";
 const MAX_PAGES = 20;
 
-function toNum(v: unknown): number | null {
+const toNum = (v: unknown): number | null => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") { const p = Number.parseFloat(v); if (Number.isFinite(p)) return p; }
   return null;
-}
+};
 
-function isObj(v: unknown): v is Record<string, unknown> {
+const isObj = (v: unknown): v is Record<string, unknown> => {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
-}
+};
 
 /** Maps an Anthropic admin-usage row to a QuotaData entry.
  * Token totals (input + output) are summed as the used value.
  * Window is inferred from time_bucket granularity (daily for YYYY-MM-DD prefixes).
  * Unknown fields are tolerated — defensive parse never throws. */
-function mapRow(row: Record<string, unknown>, idx: number): QuotaData | null {
+const mapRow = (row: Record<string, unknown>, idx: number): QuotaData | null => {
   const usage = isObj(row.usage) ? row.usage as Record<string, unknown> : {};
   const inputTokens = toNum(usage.input_tokens ?? usage.prompt_tokens);
   const outputTokens = toNum(usage.output_tokens ?? usage.completion_tokens);

@@ -12,13 +12,13 @@ const ajv = new Ajv({ allErrors: true, verbose: true });
 addFormats(ajv);
 
 // Dynamically load the schema at runtime (avoids build-time coupling)
-function loadSchema() {
+const loadSchema = () => {
   const schemaPath = join(import.meta.dirname, "../../../schemas/quotas.schema.json");
   return JSON.parse(readFileSync(schemaPath, "utf-8"));
 }
 
 let _validate: ReturnType<typeof ajv.compile> | null = null;
-function getValidate() {
+const getValidate = () => {
   if (!_validate) {
     _validate = ajv.compile(loadSchema());
   }
@@ -79,7 +79,7 @@ export const DEFAULTS: QuotasConfig = {
  * @returns the parsed and defaulted config
  * @throws ConfigValidationError on invalid config
  */
-export function loadConfig(configPath: string, logger?: Logger): QuotasConfig {
+export const loadConfig = (configPath: string, logger?: Logger): QuotasConfig => {
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(configPath, "utf-8"));
@@ -164,11 +164,11 @@ export class ConfigValidationError extends Error {
  * @param env  — process.env
  * @throws Error with a clear, actionable message if no orgId is found in any source.
  */
-export function resolveAnthropicOrgId(
+export const resolveAnthropicOrgId = (
   cfg: QuotasConfig,
   auth: Record<string, unknown> | undefined,
   env: NodeJS.ProcessEnv,
-): string {
+): string => {
   const fromCfg = cfg.anthropic?.orgId;
   if (typeof fromCfg === "string" && fromCfg.trim().length > 0) return fromCfg.trim();
   const anthropicAuth = auth?.anthropic as { org?: string; orgId?: string } | undefined;

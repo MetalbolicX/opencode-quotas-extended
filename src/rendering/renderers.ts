@@ -3,8 +3,8 @@ import type { Renderer, RenderContext } from "../ports/renderer.js";
 import type { QuotaData } from "../domain/types.js";
 import { getStatus, renderBar } from "./status-bar.js";
 
-function fmtPct(r: number | null): string { return r === null ? "∞" : `${Math.round(r * 100)}%`; }
-function fmtReset(d: Date | null): string {
+const fmtPct = (r: number | null): string => { return r === null ? "∞" : `${Math.round(r * 100)}%`; }
+const fmtReset = (d: Date | null): string => {
   if (!d) return "—";
   const diff = d.getTime() - Date.now();
   if (diff <= 0) return "now";
@@ -14,13 +14,13 @@ function fmtReset(d: Date | null): string {
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
-function humanize(n: number): string {
+const humanize = (n: number): string => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return String(n);
 }
 
-function usageText(q: QuotaData, ratio: number | null): string {
+const usageText = (q: QuotaData, ratio: number | null): string => {
   if (q.unit === "%") {
     if (q.limit === null) return "unlimited";
     const pct = Math.round((ratio ?? 0) * 100);
@@ -44,7 +44,7 @@ function usageText(q: QuotaData, ratio: number | null): string {
 }
 
 /** Frame total width clamped [60, 80]; falls back to 80 in non-TTY (piped/CI). */
-function frameWidth(terminalWidth?: number): number {
+const frameWidth = (terminalWidth?: number): number => {
   // Frame total width = inner content + 4. Inner clamped [60, 80].
   // When terminalWidth is out of range, add 2 for the frame border overhead.
   const inner = terminalWidth !== undefined
@@ -56,11 +56,11 @@ function frameWidth(terminalWidth?: number): number {
   return inner + (outOfRange ? 2 : 4);
 }
 
-function padRight(s: string, len: number): string {
+const padRight = (s: string, len: number): string => {
   return s.padEnd(len);
 }
 
-function padLeft(s: string, len: number): string {
+const padLeft = (s: string, len: number): string => {
   return s.padStart(len);
 }
 

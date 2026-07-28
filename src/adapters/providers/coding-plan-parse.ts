@@ -2,14 +2,14 @@
 import type { QuotaData } from "../../domain/types.js";
 import { enrichQuotaLabel, buildProviderName } from "../../rendering/semantic-labels.js";
 
-export function toNum(v: unknown): number | null {
+export const toNum = (v: unknown): number | null => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") { const p = Number.parseFloat(v); if (Number.isFinite(p)) return p; }
   return null;
-}
+};
 
 /** Normalizes free-form window labels to the strict domain union. */
-export function windowMap(label: string | undefined): "daily" | "monthly" | "rolling" {
+export const windowMap = (label: string | undefined): "daily" | "monthly" | "rolling" => {
   if (!label) return "rolling";
   const l = label.toLowerCase().trim();
   if (l.includes("daily")) return "daily";
@@ -19,7 +19,7 @@ export function windowMap(label: string | undefined): "daily" | "monthly" | "rol
   return "rolling";
 }
 
-export function parseUsage(json: unknown, idPrefix: string, providerName: string): QuotaData[] {
+export const parseUsage = (json: unknown, idPrefix: string, providerName: string): QuotaData[] => {
   if (!json || typeof json !== "object") return [];
   const obj = json as Record<string, unknown>;
   const windows = Array.isArray(obj.windows) ? obj.windows as { label: string; used: unknown; limit: unknown }[] : [];
@@ -62,7 +62,7 @@ export const parseMonitorLimits = parseUsage;
  * TOKENS_LIMIT → "rolling-tokens"
  * Fallback → "rolling"
  */
-function zaiWindow(type: string, unit: number | null): string {
+const zaiWindow = (type: string, unit: number | null): string => {
   const t = type.toUpperCase();
   if (t === "TIME_LIMIT") {
     if (unit === 5) return "rolling-5h";
@@ -78,7 +78,7 @@ function zaiWindow(type: string, unit: number | null): string {
  * Shape: { code, msg, data: { limits: Array<{type, unit, number, usage, currentValue, remaining, percentage, nextResetTime, usageDetails}> } }
  * usageDetails is not consumed yet.
  */
-export function parseZaiLimits(json: unknown, idPrefix: string, providerName: string): QuotaData[] {
+export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: string): QuotaData[] => {
   const data = (json as { data?: unknown })?.data;
   const limits = Array.isArray((data as { limits?: unknown })?.limits)
     ? (data as { limits: Array<Record<string, unknown>> }).limits

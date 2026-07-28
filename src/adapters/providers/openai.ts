@@ -13,21 +13,21 @@ const PLATFORM_URL = "https://api.openai.com/v1/usage";
 /** Pagination cap: prevents runaway loops on a misbehaving OpenAI API response. */
 const MAX_PAGES = 20;
 
-function isObj(v: unknown): v is Record<string, unknown> {
+const isObj = (v: unknown): v is Record<string, unknown> => {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
-}
+};
 
-function toNum(v: unknown): number | null {
+const toNum = (v: unknown): number | null => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") { const p = Number.parseFloat(v); if (Number.isFinite(p)) return p; }
   return null;
-}
+};
 
-function resetDate(after: number | null, at: number | null): Date | null {
+const resetDate = (after: number | null, at: number | null): Date | null => {
   if (at !== null) return new Date(at * 1000);
   if (after !== null) return new Date(Date.now() + after * 1000);
   return null;
-}
+};
 
 export function createOpenAIProvider(
   credentialSource: CredentialSource,

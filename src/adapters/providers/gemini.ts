@@ -37,25 +37,25 @@ interface AuthJsonGemini {
 
 // ── File system helpers (mocked in tests) ──────────────────────────────────────
 
-function getHomeDir(): string {
+const getHomeDir = (): string => {
   return process.env.HOME ?? process.env.USERPROFILE ?? "/home";
-}
+};
 
-function fileExists(path: string): boolean {
+const fileExists = (path: string): boolean => {
   try {
     return existsSync(path);
   } catch {
     return false;
   }
-}
+};
 
-function readJsonFile<T>(path: string): T | null {
+const readJsonFile = <T>(path: string): T | null => {
   try {
     return JSON.parse(readFileSync(path, "utf-8")) as T;
   } catch {
     return null;
   }
-}
+};
 
 // ── Credential loading ─────────────────────────────────────────────────────────
 
@@ -64,9 +64,9 @@ function readJsonFile<T>(path: string): T | null {
  * Returns null if file absent or unparseable.
  * Each entry is validated — entries missing required fields are skipped with a redacted warning.
  */
-function loadAntigravityAccounts(
+const loadAntigravityAccounts = async (
   warn: (event: string, meta?: unknown) => void,
-): AntigravityAccount[] | null {
+): Promise<AntigravityAccount[] | null> => {
   const path = join(getHomeDir(), ".config", "opencode", "antigravity-accounts.json");
   if (!fileExists(path)) return null;
   const raw = readJsonFile<unknown>(path);
@@ -103,7 +103,7 @@ function loadAntigravityAccounts(
  * Loads the auth.json.gemini fallback (~/.config/opencode/auth.json.gemini).
  * Returns null if file absent or unparseable.
  */
-function loadAuthJsonGemini(): AuthJsonGemini | null {
+const loadAuthJsonGemini = async (): Promise<AuthJsonGemini | null> => {
   const path = join(getHomeDir(), ".config", "opencode", "auth.json.gemini");
   if (!fileExists(path)) return null;
   const raw = readJsonFile<Record<string, unknown>>(path);
@@ -133,12 +133,12 @@ interface OAuthTokenResponse {
  * Exchanges a refresh token for a new access token via form-encoded POST.
  * Antigravity uses a separate oauth2 endpoint with form-encoded body (not the shared oauth.ts helper).
  */
-async function refreshAccessToken(
+const refreshAccessToken = async (
   http: HttpClient,
   clientId: string,
   oauthSecret: string,
   refreshToken: string,
-): Promise<string> {
+): Promise<string> => {
   // Build form body manually to avoid check-secrets.sh flagging the snake_case parameter.
   // Google OAuth requires: client_id, snake_case_secret, refresh_token, grant_type.
   const params = [
@@ -178,22 +178,22 @@ interface FetchAvailableModelsResponse {
   readonly models?: Record<string, { quotaInfo?: QuotaInfo | null }> | null;
 }
 
-function isObj(v: unknown): v is Record<string, unknown> {
+const isObj = (v: unknown): v is Record<string, unknown> => {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
-}
+};
 
 /**
  * Fetches quotas for a single account via OAuth refresh + fetchAvailableModels.
  * Returns QuotaData[] on success, [] on error (error is logged and isolated per-account).
  */
-async function fetchQuotasForAccount(
+const fetchQuotasForAccount = async (
   http: HttpClient,
   clientId: string,
   oauthSecret: string,
   refreshToken: string,
   projectId: string,
   warn: (event: string, meta?: unknown) => void,
-): Promise<QuotaData[]> {
+): Promise<QuotaData[]> => {
   let accessToken: string;
   try {
     accessToken = await refreshAccessToken(http, clientId, oauthSecret, refreshToken);
@@ -231,7 +231,7 @@ async function fetchQuotasForAccount(
  * Only tracked models with quotaInfo are included.
  * Defensive: malformed input is skipped silently.
  */
-function parseQuotaResponse(response: FetchAvailableModelsResponse): QuotaData[] {
+const parseQuotaResponse = (response: FetchAvailableModelsResponse): QuotaData[] => {
   if (!isObj(response)) return [];
   const models = response.models;
   if (!isObj(models)) return [];
@@ -278,15 +278,15 @@ function parseQuotaResponse(response: FetchAvailableModelsResponse): QuotaData[]
   }
 
   return rows;
-}
+};
 
 // ── Provider factory ───────────────────────────────────────────────────────────
 
-export function createGeminiProvider(
+export const createGeminiProvider = (
   credSrc: CredentialSource,
   http: HttpClient,
   logger?: Logger,
-): QuotaProvider {
+): QuotaProvider => {
   // Route warnings through injected Logger (or noop if absent).
   const warn = (event: string, meta?: unknown) => logger?.warn(event, meta);
 
@@ -300,13 +300,13 @@ export function createGeminiProvider(
       // isAvailable returns true if:
       // 1. antigravity-accounts.json exists with at least one valid entry, AND
       // 2. oauth credential is present in the credential source
-      const accounts = loadAntigravityAccounts(warn);
+      const accounts = await loadAntigravityAccounts(warn);
       if (accounts && accounts.length > 0) {
         const cred = await credSrc.get("gemini");
         return cred !== null;
       }
 
-      const authJson = loadAuthJsonGemini();
+      const authJson = await loadAuthJsonGemini();
       if (authJson) {
         const cred = await credSrc.get("gemini");
         return cred !== null;
@@ -324,13 +324,13 @@ export function createGeminiProvider(
       }
 
       // Try primary: antigravity-accounts.json
-      const accounts = loadAntigravityAccounts(warn);
+      const accounts = await loadAntigravityAccounts(warn);
       if (accounts && accounts.length > 0) {
         return fetchQuotasForAllAccounts(http, accounts, warn);
       }
 
       // Try fallback: auth.json.gemini
-      const authJson = loadAuthJsonGemini();
+      const authJson = await loadAuthJsonGemini();
       if (authJson) {
         return fetchQuotasForAccount(
           http,
@@ -353,11 +353,11 @@ export function createGeminiProvider(
  * Fetches quotas for all accounts concurrently via Promise.all.
  * Per-account errors are isolated — one failing account does not block others.
  */
-async function fetchQuotasForAllAccounts(
+const fetchQuotasForAllAccounts = async (
   http: HttpClient,
   accounts: AntigravityAccount[],
   warn: (event: string, meta?: unknown) => void,
-): Promise<QuotaData[]> {
+): Promise<QuotaData[]> => {
   const results = await Promise.all(
     accounts.map((account) =>
       fetchQuotasForAccount(

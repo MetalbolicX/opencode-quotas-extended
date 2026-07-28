@@ -19,7 +19,7 @@ interface MinimaxRemainsEntry {
   current_weekly_remaining_percent: number;
 }
 
-function extractJson(out: string): string | null {
+const extractJson = (out: string): string | null => {
   // mmx prints a human-readable table before the JSON blob; the first `[` is
   // inside the progress bar. Locate the unique `"model_remains"` key and
   // grab from the opening `{` before it.
@@ -27,9 +27,9 @@ function extractJson(out: string): string | null {
   if (idx === -1) return null;
   const start = out.lastIndexOf("{", idx);
   return start === -1 ? null : out.slice(start);
-}
+};
 
-function parseMinimaxCli(out: string, _key: string): QuotaData[] {
+const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
   const jsonText = extractJson(out);
   if (!jsonText) return [];
   let json: unknown;
@@ -70,7 +70,7 @@ function parseMinimaxCli(out: string, _key: string): QuotaData[] {
     }
   }
   return entries;
-}
+};
 
 const MINIMAX_CLI_INSTALL_URL = "https://github.com/minimaxai/minimax-cli";
 
@@ -78,7 +78,7 @@ const MINIMAX_CLI_INSTALL_URL = "https://github.com/minimaxai/minimax-cli";
  * Verifies `mmx` is present in PATH using the `which` lookup.
  * Throws if the binary is not found so callers can handle gracefully.
  */
-function assertMmxBinary(): void {
+const assertMmxBinary = (): void => {
   try {
     // `which` exits 0 + prints path on success; throws ENOENT on failure.
     execSync("which mmx", { stdio: "pipe" });
@@ -91,7 +91,7 @@ function assertMmxBinary(): void {
     // Rethrow unexpected child_process errors (e.g. EACCES, ENOTDIR).
     throw err;
   }
-}
+};
 
 export function createMinimaxProvider(credSrc: CredentialSource, _http: HttpClient, _logger?: Logger): QuotaProvider {
   return {
