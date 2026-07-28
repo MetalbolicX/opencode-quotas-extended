@@ -175,4 +175,27 @@ describe("8-provider pipeline (integration)", () => {
     ALL8.forEach((q) => { expect(result.rendered).toContain(q.providerName); });
   });
 
+  // ── WU-7: i18n catalog must be loaded so renderer never prints literal header.* strings ─
+
+  it("SCENARIO 7 — pipeline loads i18n catalog: markdown output has no literal 'header.*' keys", async () => {
+    // RED: when pipeline passes a real (non-empty) translator, MarkdownRenderer must NOT emit
+    // literal "header.name", "header.status", "header.percent", "header.reset", "header.ettl".
+    // The fix: report-pipeline.ts must call loadCatalog("en") and pass the catalog to createI18nTranslator.
+    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const result = await reportQuotas(makeDeps(ALL8), { mode: "markdown", now: Date.now() });
+    // Pipeline must not leak literal i18n key names — this was the WU-6 regression.
+    expect(result.rendered).not.toMatch(/header\./);
+    // The translated header "Name" (from header.name catalog key) SHOULD appear as the column header.
+    // This assertion verifies the catalog was loaded: "Name" is the translation, not the key.
+    expect(result.rendered).toMatch(/^\s*\|\s*Name\s*\|/m);
+  });
+
+  it("SCENARIO 8 — pipeline loads i18n catalog: JSON mode has no header.* keys", async () => {
+    // RED: JSON renderer doesn't use translator keys, but the pipeline should still
+    // load the catalog correctly (no crashes, no literal header.* in any intermediate output).
+    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const result = await reportQuotas(makeDeps(ALL8), { mode: "json", now: Date.now() });
+    expect(result.rendered).not.toMatch(/header\./);
+  });
+
 });

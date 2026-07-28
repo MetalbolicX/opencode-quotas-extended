@@ -11,7 +11,7 @@ import type { Renderer } from "../ports/renderer.js";
 import type { RenderMode } from "../domain/types.js";
 
 import { selectRenderer } from "../rendering/index.js";
-import { createI18nTranslator } from "../i18n/translator.js";
+import { createI18nTranslator, loadCatalog } from "../i18n/translator.js";
 import { aggregate, mergeAggregationGroups, type AggregationGroup } from "../domain/aggregation.js";
 import { DEFAULT_AGGREGATION_GROUPS } from "../domain/aggregation-defaults.js";
 
@@ -62,6 +62,20 @@ export interface ReportOptions {
 }
 
 // ── pipeline ───────────────────────────────────────────────────────────────────
+
+/**
+ * Loads the English i18n catalog and creates a translator.
+ * Falls back to an empty catalog (→ key-as-value) if loading fails,
+ * so the pipeline remains robust when locale files are missing.
+ */
+async function createDefaultTranslator() {
+  try {
+    const catalog = await loadCatalog("en");
+    return createI18nTranslator(catalog);
+  } catch {
+    return createI18nTranslator({});
+  }
+}
 
 /**
  * Shared pipeline: resolve → fetch → history → aggregate(defaults+user) → predict → filter → render.
@@ -188,7 +202,7 @@ export async function reportQuotas(
 
   // ── Step 7: select renderer and render ──────────────────────────────────────
   const renderer: Renderer = selectRenderer(mode);
-  const t = createI18nTranslator({});
+  const t = await createDefaultTranslator();
 
   if (filteredRows.length === 0) {
     return { rendered: "", errors };
