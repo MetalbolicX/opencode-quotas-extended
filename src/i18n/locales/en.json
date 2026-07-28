@@ -15,5 +15,15 @@
   "unit.req": "req",
   "unit.credits": "credits",
   "unit.calls": "calls",
-  "unit.%": "%"
+  "unit.%": "%",
+  "concept.z.ai-5-hour-rolling": "5-hour rolling limit",
+  "concept.z.ai-mcp": "MCP quota",
+  "concept.z.ai-token": "Token quota",
+  "concept.minimax-daily-request": "Daily request quota",
+  "concept.minimax-weekly-request": "Weekly request quota",
+  "concept.openai-primary-rate": "Primary rate limit",
+  "concept.openai-secondary-rate": "Secondary rate limit",
+  "concept.openai-credits": "Credit balance",
+  "concept.openai-token-usage": "Token usage",
+  "concept.gemini-model-quota": "Model quota"
 }
