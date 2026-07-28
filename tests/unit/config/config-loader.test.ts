@@ -83,6 +83,56 @@ describe("loadConfig", () => {
   });
 });
 
+describe("loadConfig — progressBar mmx-style defaults", () => {
+  // Helper: minimal valid config with optional progressBar override
+  function makeConfig(overrides?: { progressBar?: Record<string, unknown> }) {
+    const base = { displayMode: "table" };
+    if (!overrides) return base;
+    return { ...base, ...overrides };
+  }
+
+  it("defaults width to 10 when progressBar is omitted", () => {
+    const configPath = join(FIXTURE_DIR, "quotas.json");
+    writeFileSync(configPath, JSON.stringify(makeConfig()));
+    const config = loadConfig(configPath);
+    expect(config.progressBar).toBeDefined();
+    expect(config.progressBar!.width).toBe(10);
+  });
+
+  it("defaults filledChar to '█'", () => {
+    const configPath = join(FIXTURE_DIR, "quotas.json");
+    writeFileSync(configPath, JSON.stringify(makeConfig()));
+    const config = loadConfig(configPath);
+    expect(config.progressBar).toBeDefined();
+    expect(config.progressBar!.filledChar).toBe("█");
+  });
+
+  it("defaults emptyChar to '.'", () => {
+    const configPath = join(FIXTURE_DIR, "quotas.json");
+    writeFileSync(configPath, JSON.stringify(makeConfig()));
+    const config = loadConfig(configPath);
+    expect(config.progressBar).toBeDefined();
+    expect(config.progressBar!.emptyChar).toBe(".");
+  });
+
+  it("user override for width is honored", () => {
+    const configPath = join(FIXTURE_DIR, "quotas.json");
+    writeFileSync(configPath, JSON.stringify(makeConfig({ progressBar: { width: 30 } })));
+    const config = loadConfig(configPath);
+    expect(config.progressBar!.width).toBe(30);
+    expect(config.progressBar!.filledChar).toBe("█");   // other defaults retained
+    expect(config.progressBar!.emptyChar).toBe(".");   // other defaults retained
+  });
+
+  it("user override for emptyChar is honored", () => {
+    const configPath = join(FIXTURE_DIR, "quotas.json");
+    writeFileSync(configPath, JSON.stringify(makeConfig({ progressBar: { emptyChar: "-" } })));
+    const config = loadConfig(configPath);
+    expect(config.progressBar!.emptyChar).toBe("-");
+    expect(config.progressBar!.width).toBe(10);         // other defaults retained
+  });
+});
+
 describe("resolveAnthropicOrgId", () => {
   const baseConfig = { displayMode: "table" as const, disabled: [] as readonly string[], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false };
   const baseAuth = {};

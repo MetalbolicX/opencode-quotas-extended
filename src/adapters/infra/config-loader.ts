@@ -63,6 +63,13 @@ export const DEFAULTS: QuotasConfig = {
   predictionShortWindowMinutes: 5,
   showUnaggregated: false,
   show: true,
+  progressBar: {
+    width: 10,
+    filledChar: "█",
+    emptyChar: ".",
+    color: true,
+    gradients: false,
+  },
 };
 
 /**
@@ -117,9 +124,24 @@ export function loadConfig(configPath: string, logger?: Logger): QuotasConfig {
   }
 
   // Strip deprecated keys so they don't flow into the returned config.
+  // Capture userProgressBar BEFORE stripping progressBar out of strippedRaw.
+  const userProgressBar = (rawObj as Partial<QuotasConfig>).progressBar;
   const { show: _show, pollingInterval: _pollingInterval, ...strippedRaw } = rawObj;
 
-  return { ...DEFAULTS, ...(strippedRaw as Partial<QuotasConfig>) };
+  // Deep-merge progressBar so partial user overrides don't wipe out other defaults.
+  // User provides e.g. { width: 30 } → keep DEFAULTS.filledChar/emptyChar/color/gradients.
+  const mergedProgressBar = userProgressBar
+    ? { ...DEFAULTS.progressBar, ...userProgressBar }
+    : DEFAULTS.progressBar;
+
+  // Strip progressBar from shallow spread so it doesn't override mergedProgressBar.
+  const { progressBar: _pb, ...restWithoutProgressBar } = strippedRaw as Partial<QuotasConfig>;
+
+  return {
+    ...DEFAULTS,
+    ...restWithoutProgressBar,
+    progressBar: mergedProgressBar,
+  };
 }
 
 export class ConfigValidationError extends Error {

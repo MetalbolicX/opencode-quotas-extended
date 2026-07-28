@@ -198,13 +198,13 @@ export async function reportQuotas(
     mode,
     color: opts.color,
     compact: compact ?? false,
-    progressBar: config.progressBar ? {
-      width: config.progressBar.width ?? 20,
-      filledChar: config.progressBar.filledChar ?? "█",
-      emptyChar: config.progressBar.emptyChar ?? "░",
-      color: config.progressBar.color ?? true,
-      gradients: config.progressBar.gradients ?? false,
-    } : undefined,
+    progressBar: {
+      width: config.progressBar?.width ?? 10,
+      filledChar: config.progressBar?.filledChar ?? "█",
+      emptyChar: config.progressBar?.emptyChar ?? ".",
+      color: config.progressBar?.color ?? true,
+      gradients: config.progressBar?.gradients ?? false,
+    },
     t,
   });
 
