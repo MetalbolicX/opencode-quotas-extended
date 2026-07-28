@@ -8,10 +8,10 @@ import type { Translator } from "../../../src/ports/translator.js";
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
 const F = {
-  openai: { id: "openai", providerName: "OpenAI", used: 75, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const },
-  anthropic: { id: "anthropic", providerName: "Anthropic", used: 45, limit: 50, unit: "req", reset: null, predictedReset: null, window: "daily" as const },
-  gemini: { id: "gemini", providerName: "Gemini", used: 120, limit: 100, unit: "req", reset: null, predictedReset: null, window: "monthly" as const },
-  unlimited: { id: "zen", providerName: "opencode-zen", used: 99, limit: null, unit: "req", reset: null, predictedReset: null, window: "rolling" as const },
+  openai: { id: "openai", providerName: "OpenAI", used: 75, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const, info: "OpenAI" },
+  anthropic: { id: "anthropic", providerName: "Anthropic", used: 45, limit: 50, unit: "req", reset: null, predictedReset: null, window: "daily" as const, info: "Anthropic" },
+  gemini: { id: "gemini", providerName: "Gemini", used: 120, limit: 100, unit: "req", reset: null, predictedReset: null, window: "monthly" as const, info: "Gemini" },
+  unlimited: { id: "zen", providerName: "opencode-zen", used: 99, limit: null, unit: "req", reset: null, predictedReset: null, window: "rolling" as const, info: "opencode-zen" },
 } as const;
 
 const QUOTAS: QuotaData[] = [F.openai, F.anthropic, F.gemini, F.unlimited];
@@ -334,19 +334,22 @@ describe("TableRenderer — unit-aware formatting", () => {
     used: 12, limit: 100, unit: "%",
     reset: new Date(Date.now() + 7 * 3600 * 1000), predictedReset: null,
     window: "rolling-5h",
+    info: "5-hour rolling limit",
   };
 
   it("renders percentage rows with bar + 'X% used'", () => {
     const out = new TableRenderer().render([pctRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     expect(out).toContain("[█");
     expect(out).toMatch(/12%\s*used/);
-    expect(out).toContain("z.ai · 5-hour rolling limit");
+    // Data row uses info (clipped), not providerName; header carries brand/plan
+    expect(out).toContain("5-hour rolling limit");
   });
 
   const tokenRow: QuotaData = {
     id: "x", providerName: "OpenAI · Token usage",
     used: 2_400_000, limit: 10_000_000, unit: "tokens",
     reset: null, predictedReset: null, window: "rolling",
+    info: "Token usage",
   };
 
   it("renders token rows as text-only (no bar), humanized numbers", () => {
@@ -360,6 +363,7 @@ describe("TableRenderer — unit-aware formatting", () => {
     id: "x", providerName: "OpenAI · Credit balance",
     used: 12.5, limit: null, unit: "credits",
     reset: null, predictedReset: null, window: "rolling",
+    info: "Credit balance",
   };
 
   it("renders credits as 'balance: X'", () => {
@@ -372,6 +376,7 @@ describe("TableRenderer — unit-aware formatting", () => {
     id: "x", providerName: "Anthropic · Token usage",
     used: 100, limit: null, unit: "tokens",
     reset: null, predictedReset: null, window: "daily",
+    info: "Token usage",
   };
 
   it("renders unlimited as 'no limit'", () => {
@@ -383,6 +388,7 @@ describe("TableRenderer — unit-aware formatting", () => {
     id: "x", providerName: "Minimax · Daily request quota",
     used: 850, limit: 1000, unit: "requests",
     reset: null, predictedReset: null, window: "daily",
+    info: "Daily request quota",
   };
 
   it("renders requests as 'used / limit requests'", () => {
@@ -395,6 +401,7 @@ describe("TableRenderer — unit-aware formatting", () => {
       id: "y", providerName: "Zen · Requests",
       used: 50, limit: null, unit: "requests",
       reset: null, predictedReset: null, window: "rolling",
+      info: "Requests",
     };
     const out = new TableRenderer().render([unlimitedReq], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     expect(out).toContain("no limit");
@@ -416,6 +423,7 @@ describe("TableRenderer — ASCII frame", () => {
     id: "z-1", providerName: "z.ai · 5-hour rolling limit",
     used: 12, limit: 100, unit: "%",
     reset: null, predictedReset: null, window: "rolling-5h",
+    info: "5-hour rolling limit",
   };
 
   it("wraps rows in +---+ / | | frame", () => {
@@ -476,5 +484,168 @@ describe("renderer — no literal header.* leakage (REQ-r5)", () => {
     const r = selectRenderer("markdown");
     const out = r.render(QUOTAS, { mode: "markdown", t: EN_TRANSLATOR });
     expect(out).not.toMatch(/header\./);
+  });
+});
+
+// ── PR1: stable geometry — REQ-GEOM-NO-OVERFLOW ──────────────────────────────
+
+describe("table renderer — stable geometry (PR1)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let TableRenderer!: new () => any;
+
+  beforeAll(async () => {
+    const mod = await import("../../../src/rendering/index.js");
+    TableRenderer = mod.TableRenderer;
+  });
+
+  it("28-char providerName → body width equals 6-char provider case", () => {
+    const short: QuotaData = {
+      id: "s", providerName: "OpenAI", used: 50, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const long: QuotaData = {
+      id: "l", providerName: "Minimax · Daily request quota", used: 50, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const shortOut = new TableRenderer().render([short], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    const longOut = new TableRenderer().render([long], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    const shortBody = shortOut.split("\n").find(l => l.includes("50%"))!;
+    const longBody = longOut.split("\n").find(l => l.includes("50%"))!;
+    expect(longBody.length).toBe(shortBody.length);
+  });
+
+  it("40-char providerName → body width equals 28-char case", () => {
+    const a: QuotaData = {
+      id: "a", providerName: "Minimax · Daily request quota", used: 50, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const b: QuotaData = {
+      id: "b", providerName: "ProviderNameWithExactlyFortyCharactersLong!!", used: 50, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const aOut = new TableRenderer().render([a], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    const bOut = new TableRenderer().render([b], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    const aBody = aOut.split("\n").find(l => l.includes("50%"))!;
+    const bBody = bOut.split("\n").find(l => l.includes("50%"))!;
+    expect(bBody.length).toBe(aBody.length);
+  });
+});
+
+// ── PR1: provider identity — REQ-GEOM-DROP-PROVIDER-COL ──────────────────────
+
+describe("table renderer — provider identity header-only (PR1)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let TableRenderer!: new () => any;
+
+  beforeAll(async () => {
+    const mod = await import("../../../src/rendering/index.js");
+    TableRenderer = mod.TableRenderer;
+  });
+
+  it("providerName absent from data rows but present in header", () => {
+    const row: QuotaData = {
+      id: "x", providerName: "z.ai · 5-hour rolling limit", used: 12, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "rolling-5h",
+    };
+    const out = new TableRenderer().render([row], {
+      terminalWidth: 80,
+      t: NOOP_TRANSLATOR,
+      header: { brand: "z.ai", plan: "Coding Plan" },
+    });
+    // Header should contain the brand
+    expect(out).toContain("z.ai");
+    // But data row (not header line) should NOT contain the full branded name
+    const lines = out.split("\n");
+    const dataLine = lines.find(l => l.includes("12%"))!;
+    expect(dataLine).not.toContain("z.ai · 5-hour rolling limit");
+  });
+
+  it("multiple providers — only one header row each, no provider column in data rows", () => {
+    const rows: QuotaData[] = [
+      { id: "a", providerName: "Provider A · First concept", used: 10, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" },
+      { id: "b", providerName: "Provider B · Second concept", used: 20, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" },
+    ];
+    const out = new TableRenderer().render(rows, { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    const lines = out.split("\n");
+    // Count lines that contain the branded name pattern
+    const brandedLines = lines.filter(l => l.includes("Provider A") || l.includes("Provider B"));
+    // Should be at most 1 header line each, not in every data row
+    expect(brandedLines.length).toBeLessThanOrEqual(2);
+  });
+});
+
+// ── PR1: status — REQ-GEOM-DROP-STATUS ───────────────────────────────────────
+
+describe("table renderer — no status column (PR1)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let TableRenderer!: new () => any;
+
+  beforeAll(async () => {
+    const mod = await import("../../../src/rendering/index.js");
+    TableRenderer = mod.TableRenderer;
+  });
+
+  it("percentage rows have no separate status cell", () => {
+    const row: QuotaData = {
+      id: "x", providerName: "Test", used: 60, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    // Status text OK/WRN/ERR must not appear as standalone text in the row
+    expect(out).not.toMatch(/\bOK\b/);
+    expect(out).not.toMatch(/\bWRN\b/);
+    expect(out).not.toMatch(/\bERR\b/);
+  });
+
+  it("non-token rows show no inline status glyph", () => {
+    const row: QuotaData = {
+      id: "x", providerName: "Test", used: 85, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    // No ✓ / ! / ✕ / ? glyphs in non-token rows
+    expect(out).not.toContain("✓");
+    expect(out).not.toContain("!");
+    expect(out).not.toContain("✕");
+    expect(out).not.toContain("?");
+  });
+});
+
+// ── PR1: token rows — REQ-GEOM-TOKEN-ROW-EXCEPTION ───────────────────────────
+
+describe("table renderer — token row inline glyph (PR1)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let TableRenderer!: new () => any;
+
+  beforeAll(async () => {
+    const mod = await import("../../../src/rendering/index.js");
+    TableRenderer = mod.TableRenderer;
+  });
+
+  it("token row shows inline status glyph and no bar", () => {
+    const row: QuotaData = {
+      id: "x", providerName: "OpenAI · Token usage", used: 12000, limit: 50000, unit: "tokens",
+      reset: null, predictedReset: null, window: "rolling",
+    };
+    const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    // Must show humanized token numbers
+    expect(out).toMatch(/12K\s*\/\s*50K\s*tokens/);
+    // No [ bar brackets for token rows
+    expect(out).not.toContain("[");
+    expect(out).not.toContain("]");
+    // Must show one of the status glyphs
+    const hasGlyph = out.includes("✓") || out.includes("!") || out.includes("✕") || out.includes("?");
+    expect(hasGlyph).toBe(true);
+  });
+
+  it("non-token row never shows status glyph", () => {
+    const row: QuotaData = {
+      id: "x", providerName: "OpenAI", used: 75, limit: 100, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    // No glyphs in percent rows (bar conveys status)
+    expect(out).not.toContain("✓");
+    expect(out).not.toContain("✕");
   });
 });

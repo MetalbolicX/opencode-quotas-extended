@@ -91,7 +91,7 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
     expect(weeklyRow.info).not.toContain("(100×42)");
   });
 
-  it("daily row → info contains 'Daily request quota' and window is daily", async () => {
+  it("general interval row → info contains '5-hour rolling limit' and window is rolling-5h", async () => {
     vi.mocked(execSync).mockImplementation(() => {
       const out = [
         '{"model_remains":[{"model_name":"general",',
@@ -109,9 +109,9 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
     const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
     const quotas = await provider.fetchQuotas();
 
-    const dailyRow = quotas.find((q) => q.id.includes("daily"))!;
-    expect(dailyRow.info).toContain("Daily request quota");
-    expect(dailyRow.window).toBe("daily");
+    const generalIntervalRow = quotas.find((q) => q.id === "minimax-general-5h")!;
+    expect(generalIntervalRow.info).toContain("5-hour rolling limit");
+    expect(generalIntervalRow.window).toBe("rolling-5h");
   });
 
   it("fetchQuotas returns [] when there are no credentials (already covered but belt-and-suspenders)", async () => {
@@ -121,6 +121,142 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
     const quotas = await provider.fetchQuotas();
 
     expect(quotas).toEqual([]);
+  });
+});
+
+// ── PR3: Three rows — general 5h, general weekly, video interval ──────────────
+// The adapter MUST emit exactly 3 ordered rows: general 5h window, general
+// weekly request, video interval. The video-weekly row MUST NOT be emitted.
+describe("minimax provider — three rows: general 5h, general weekly, video interval (PR3)", () => {
+  let mockLogger: Logger;
+
+  beforeEach(() => {
+    mockLogger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    vi.clearAllMocks();
+  });
+
+  it("emits exactly 3 rows: general 5h, general weekly, video interval", async () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      // general: has 5h interval data + weekly data
+      // video: has interval data + weekly data (but video-weekly must NOT appear)
+      const out = JSON.stringify({
+        model_remains: [
+          {
+            model_name: "general",
+            current_interval_total_count: 100,
+            current_interval_usage_count: 11,
+            current_interval_remaining_percent: 89,
+            current_weekly_total_count: 100,
+            current_weekly_usage_count: 42,
+            current_weekly_remaining_percent: 58,
+          },
+          {
+            model_name: "video",
+            current_interval_total_count: 3,
+            current_interval_usage_count: 0,
+            current_interval_remaining_percent: 100,
+            current_weekly_total_count: 21,
+            current_weekly_usage_count: 5,
+            current_weekly_remaining_percent: 76,
+          },
+        ],
+      });
+      return Buffer.from(out);
+    });
+
+    const http = {} as unknown as HttpClient;
+    const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
+    const quotas = await provider.fetchQuotas();
+
+    // Exactly 3 rows
+    expect(quotas).toHaveLength(3);
+
+    // Row 1: general 5h window
+    expect(quotas[0].id).toBe("minimax-general-5h");
+    expect(quotas[0].info).toContain("5-hour rolling limit");
+    expect(quotas[0].window).toBe("rolling-5h");
+
+    // Row 2: general weekly
+    expect(quotas[1].id).toBe("minimax-general-weekly");
+    expect(quotas[1].info).toContain("Weekly request quota");
+    expect(quotas[1].window).toBe("rolling-weekly");
+
+    // Row 3: video interval
+    expect(quotas[2].id).toBe("minimax-video-interval");
+    expect(quotas[2].info).toContain("Video generation quota");
+    expect(quotas[2].window).toBe("daily");
+
+    // Distinct labels
+    const infos = quotas.map((q) => q.info);
+    const unique = [...new Set(infos)];
+    expect(unique).toHaveLength(3);
+  });
+
+  it("never emits a video row with window rolling-weekly", async () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      const out = JSON.stringify({
+        model_remains: [
+          {
+            model_name: "video",
+            current_interval_total_count: 3,
+            current_interval_usage_count: 0,
+            current_interval_remaining_percent: 100,
+            current_weekly_total_count: 21,
+            current_weekly_usage_count: 5,
+            current_weekly_remaining_percent: 76,
+          },
+        ],
+      });
+      return Buffer.from(out);
+    });
+
+    const http = {} as unknown as HttpClient;
+    const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
+    const quotas = await provider.fetchQuotas();
+
+    // Only the video interval row — NO weekly row for video
+    expect(quotas).toHaveLength(1);
+    expect(quotas[0].id).toBe("minimax-video-interval");
+    expect(quotas[0].window).toBe("daily");
+
+    // No row with video model AND weekly window
+    const videoWeekly = quotas.find(
+      (q) => q.id.includes("video") && q.window === "rolling-weekly",
+    );
+    expect(videoWeekly).toBeUndefined();
+  });
+
+  it("general with weekly_total_count=0 emits only 5h row (no weekly)", async () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      const out = JSON.stringify({
+        model_remains: [
+          {
+            model_name: "general",
+            current_interval_total_count: 100,
+            current_interval_usage_count: 11,
+            current_interval_remaining_percent: 89,
+            current_weekly_total_count: 0,
+            current_weekly_usage_count: 0,
+            current_weekly_remaining_percent: 0,
+          },
+        ],
+      });
+      return Buffer.from(out);
+    });
+
+    const http = {} as unknown as HttpClient;
+    const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
+    const quotas = await provider.fetchQuotas();
+
+    // Only general 5h — no weekly since total is 0
+    expect(quotas).toHaveLength(1);
+    expect(quotas[0].id).toBe("minimax-general-5h");
+    expect(quotas[0].window).toBe("rolling-5h");
   });
 });
 

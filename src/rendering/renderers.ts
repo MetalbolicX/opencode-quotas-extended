@@ -2,6 +2,7 @@
 import type { Renderer, RenderContext } from "../ports/renderer.js";
 import type { QuotaData } from "../domain/types.js";
 import { getStatus, renderBar } from "./status-bar.js";
+import { clip } from "./text/clip.js";
 
 const fmtPct = (r: number | null): string => { return r === null ? "∞" : `${Math.round(r * 100)}%`; }
 const fmtReset = (d: Date | null): string => {
@@ -80,37 +81,56 @@ export class TableRenderer implements Renderer {
     if (hdr) {
       const windowLabel = this._windowLabel(quotas[0]);
       const headerText = [hdr.brand, hdr.plan, windowLabel].filter(Boolean).join(" · ");
-      headerRow = `| ${padRight(headerText, innerW)} |`;
+      headerRow = `| ${clip(headerText, innerW)} |`;
     }
 
     const useColor = color !== undefined;
     const colorSplit: "filled" | "none" = useColor ? "filled" : "none";
     const barColorName = color;
 
+    // Default geometry: info=24, bar=13 ([10 chars] + trailing space), usage=20, reset=6, ettl=6
+    const INFO_W = 24;
+    const BAR_W = 13;   // [10 chars] + trailing space
+    const USAGE_W = 20;
+    const RESET_W = 6;
+    const ETTL_W = 6;
+
+    // Status glyph map for token rows (REQ-GEOM-TOKEN-ROW-EXCEPTION)
+    const STATUS_GLYPH: Record<string, string> = {
+      OK: "✓",
+      WRN: "!",
+      ERR: "✕",
+      UNK: "?",
+    };
+
     const rows = quotas.map(q => {
       const s = getStatus(q.used, q.limit);
-      const statusCode = s.code;
 
-      // Status column width is 4 chars (OK/WRN/ERR/UNK + trailing space)
-      const statusCell = `${padRight(statusCode, 4)}`;
-      // providerName cell
-      const nameCell = `${padRight(q.providerName, 24)}`;
-      // bar: tokens have no bar (text-only per design); % uses bar
-      const showBar = q.unit !== "tokens";
-      const barCell = showBar
-        ? (useColor
+      // infoCell: clipped concept label, never overflows
+      const infoCell = clip(q.info ?? "", INFO_W);
+
+      // bar: tokens have no bar (text-only); % uses framed bar
+      const isToken = q.unit === "tokens";
+      const barCell = isToken
+        ? " ".repeat(BAR_W)  // 13 spaces placeholder for alignment
+        : (useColor
             ? renderBar(s.ratio ?? 0, { ...barOpts, framed: true, colorName: barColorName, colorSplit, width: 10 })
-            : renderBar(s.ratio ?? 0, { ...barOpts, framed: true, width: 10 }))
-        : padRight("", 12); // 12-char placeholder for alignment when no bar
-      // usage text cell
-      const usageCell = padRight(usageText(q, s.ratio), 20);
-      // reset cell
-      const resetCell = padRight(fmtReset(q.reset), 6);
-      // ettl cell (compact drops it)
-      const ettlCell = compact ? "" : padRight(q.predictedReset ? fmtReset(q.predictedReset) : "—", 6);
+            : renderBar(s.ratio ?? 0, { ...barOpts, framed: true, width: 10 }));
 
-      const rowText = `${statusCell} ${nameCell} ${barCell} ${usageCell} ${resetCell}${ettlCell}`;
-      return `| ${padRight(rowText, innerW)} |`;
+      // usage text cell: prepend token glyph for token rows; always 20 visible chars
+      const rawUsage = usageText(q, s.ratio);
+      const usageWithGlyph = isToken ? (STATUS_GLYPH[s.code] ?? "?") + " " + rawUsage : rawUsage;
+      const usageCell = clip(usageWithGlyph, USAGE_W);
+
+      // reset cell
+      const resetCell = clip(fmtReset(q.reset), RESET_W);
+      // ettl cell (compact drops it)
+      const ettlCell = compact ? "" : clip(q.predictedReset ? fmtReset(q.predictedReset) : "—", ETTL_W);
+
+      const rowText = compact
+        ? `${infoCell} ${barCell} ${usageCell}`
+        : `${infoCell} ${barCell} ${usageCell} ${resetCell} ${ettlCell}`;
+      return `| ${rowText} |`;
     });
 
     const lines = [topBot];

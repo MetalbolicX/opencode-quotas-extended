@@ -6,7 +6,6 @@ import type { HttpClient } from "../../ports/http.js";
 import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
-import { windowMap } from "./coding-plan-parse.js";
 import { enrichQuotaLabel, buildProviderName } from "../../rendering/semantic-labels.js";
 
 interface MinimaxRemainsEntry {
@@ -39,25 +38,35 @@ const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
   const remains = Array.isArray(obj.model_remains)
     ? (obj.model_remains as MinimaxRemainsEntry[])
     : [];
+
+  // Select entries deterministically: general first, video second.
+  // Never emit a row for video + weekly.
+  const general = remains.filter((m) => m.model_name === "general");
+  const video = remains.filter((m) => m.model_name === "video");
+
   const entries: QuotaData[] = [];
-  for (const m of remains) {
-    const pct = m.current_interval_remaining_percent ?? 0;
-    const dailyConcept = enrichQuotaLabel("minimax", { modelName: m.model_name, weekly: false });
+
+  for (const m of general) {
+    // 5h interval row
+    const intervalPct = m.current_interval_remaining_percent ?? 0;
+    const intervalConcept = enrichQuotaLabel("minimax", { modelName: "general", weekly: false });
     entries.push({
-      id: `minimax-${m.model_name.toLowerCase()}-daily`,
-      providerName: buildProviderName("Minimax", dailyConcept.concept),
-      used: 100 - pct,
+      id: `minimax-general-5h`,
+      providerName: buildProviderName("Minimax", intervalConcept.concept),
+      used: 100 - intervalPct,
       limit: 100,
       unit: "%",
-      window: "daily",
+      window: "rolling-5h",
       reset: null,
       predictedReset: null,
-      info: dailyConcept.label,
+      info: intervalConcept.label,
     });
+
+    // Weekly row (only if general has quota)
     if (m.current_weekly_total_count > 0) {
-      const weeklyConcept = enrichQuotaLabel("minimax", { modelName: m.model_name, weekly: true });
+      const weeklyConcept = enrichQuotaLabel("minimax", { modelName: "general", weekly: true });
       entries.push({
-        id: `minimax-${m.model_name.toLowerCase()}-weekly`,
+        id: `minimax-general-weekly`,
         providerName: buildProviderName("Minimax", weeklyConcept.concept),
         used: m.current_weekly_usage_count,
         limit: m.current_weekly_total_count,
@@ -69,6 +78,24 @@ const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
       });
     }
   }
+
+  for (const m of video) {
+    // Video interval row — NEVER a video weekly row
+    const intervalPct = m.current_interval_remaining_percent ?? 0;
+    const intervalConcept = enrichQuotaLabel("minimax", { modelName: "video", weekly: false });
+    entries.push({
+      id: `minimax-video-interval`,
+      providerName: buildProviderName("Minimax", intervalConcept.concept),
+      used: 100 - intervalPct,
+      limit: 100,
+      unit: "%",
+      window: "daily",
+      reset: null,
+      predictedReset: null,
+      info: intervalConcept.label,
+    });
+  }
+
   return entries;
 };
 

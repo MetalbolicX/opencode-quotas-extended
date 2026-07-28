@@ -24,6 +24,17 @@
         "percentage": 20,
         "nextResetTime": 1750000000000,
         "usageDetails": []
+      },
+      {
+        "type": "TIME_LIMIT",
+        "unit": 168,
+        "number": 1,
+        "usage": 100,
+        "currentValue": 87,
+        "remaining": 13,
+        "percentage": 13,
+        "nextResetTime": 1750000000000,
+        "usageDetails": []
       }
     ]
   }

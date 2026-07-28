@@ -67,15 +67,28 @@ vi.mock("node:child_process", () => {
     // Only mock commands that contain "mmx" (the actual quota fetch chain).
     if (typeof cmd === "string" && cmd.includes("mmx")) {
       return Buffer.from(JSON.stringify({
-        model_remains: [{
-          model_name: "MiniMax",
-          current_interval_total_count: 1000,
-          current_interval_usage_count: 200,
-          current_interval_remaining_percent: 80,
-          current_weekly_total_count: 5000,
-          current_weekly_usage_count: 1000,
-          current_weekly_remaining_percent: 80,
-        }],
+        model_remains: [
+          // general — interval with quota + weekly with quota
+          {
+            model_name: "general",
+            current_interval_total_count: 100,
+            current_interval_usage_count: 5,
+            current_interval_remaining_percent: 95,
+            current_weekly_total_count: 100,
+            current_weekly_usage_count: 5,
+            current_weekly_remaining_percent: 95,
+          },
+          // video — interval with quota; weekly counts are 0 so no weekly row emitted
+          {
+            model_name: "video",
+            current_interval_total_count: 3,
+            current_interval_usage_count: 0,
+            current_interval_remaining_percent: 100,
+            current_weekly_total_count: 0,
+            current_weekly_usage_count: 0,
+            current_weekly_remaining_percent: 100,
+          },
+        ],
       }), "utf-8");
     }
     // Pass through all other commands (e.g. `which mmx` pre-check).

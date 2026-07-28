@@ -6,6 +6,10 @@ export type QuotaConcept =
   | "z.ai-token"
   | "minimax-daily-request"
   | "minimax-weekly-request"
+  | "minimax-5h-window"
+  | "minimax-video"
+  | "z.ai-weekly-rolling"
+  | "z.ai-generic-rolling"
   | "openai-primary-rate"
   | "openai-secondary-rate"
   | "openai-credits"
@@ -13,11 +17,11 @@ export type QuotaConcept =
   | "gemini-model-quota";
 
 export interface ProviderPayloadHints {
-  readonly type?: string;        // z.ai row type
-  readonly unit?: number | null;  // z.ai row unit
-  readonly number?: number | null; // z.ai row count
-  readonly modelName?: string;   // minimax model name
-  readonly weekly?: boolean;     // minimax row context
+  readonly type?: string;              // z.ai row type
+  readonly unit?: number | string | null; // z.ai row unit (number or "weekly")
+  readonly number?: number | null;     // z.ai row count
+  readonly modelName?: string;         // minimax model name
+  readonly weekly?: boolean;           // minimax row context
   readonly openaiVariant?: "primary" | "secondary" | "credits" | "api";
   readonly geminiModel?: string;
 }
@@ -29,6 +33,10 @@ const LABEL_MAP: Record<QuotaConcept, string> = {
   "z.ai-token": "Token quota",
   "minimax-daily-request": "Daily request quota",
   "minimax-weekly-request": "Weekly request quota",
+  "minimax-5h-window": "5-hour rolling limit",
+  "minimax-video": "Video generation quota",
+  "z.ai-weekly-rolling": "Weekly rolling limit",
+  "z.ai-generic-rolling": "Generic rolling limit",
   "openai-primary-rate": "Primary rate limit",
   "openai-secondary-rate": "Secondary rate limit",
   "openai-credits": "Credit balance",
@@ -44,17 +52,38 @@ export function enrichQuotaLabel(
   _providerId: string,
   hints: ProviderPayloadHints,
 ): { label: string; concept: QuotaConcept } {
-  // z.ai concepts
+  // z.ai TIME_LIMIT — unit branching
   if (hints.type === "TIME_LIMIT") {
-    if (hints.unit === 5) return { label: LABEL_MAP["z.ai-5-hour-rolling"], concept: "z.ai-5-hour-rolling" };
-    return { label: LABEL_MAP["z.ai-5-hour-rolling"], concept: "z.ai-5-hour-rolling" };
+    const u = hints.unit;
+    if (u === 5) {
+      return { label: LABEL_MAP["z.ai-5-hour-rolling"], concept: "z.ai-5-hour-rolling" };
+    }
+    if (u === "weekly" || (typeof u === "number" && u >= 168)) {
+      return { label: LABEL_MAP["z.ai-weekly-rolling"], concept: "z.ai-weekly-rolling" };
+    }
+    // Generic fallback: dynamic "{unit}-hour rolling limit"
+    const unitVal = typeof u === "number" ? String(u) : "?";
+    const concept: QuotaConcept = "z.ai-generic-rolling";
+    const label = `${unitVal}-hour rolling limit`;
+    return { label, concept };
   }
   if (hints.type === "MCP_LIMIT") return { label: LABEL_MAP["z.ai-mcp"], concept: "z.ai-mcp" };
   if (hints.type === "TOKENS_LIMIT") return { label: LABEL_MAP["z.ai-token"], concept: "z.ai-token" };
 
-  // minimax concepts
-  if (hints.weekly) return { label: LABEL_MAP["minimax-weekly-request"], concept: "minimax-weekly-request" };
-  if (hints.modelName !== undefined) return { label: LABEL_MAP["minimax-daily-request"], concept: "minimax-daily-request" };
+  // minimax concepts — weekly wins
+  if (hints.weekly) {
+    return { label: LABEL_MAP["minimax-weekly-request"], concept: "minimax-weekly-request" };
+  }
+  // Normalize modelName precedence: general→5h, video→video, default→legacy daily
+  if (hints.modelName !== undefined) {
+    if (hints.modelName === "general") {
+      return { label: LABEL_MAP["minimax-5h-window"], concept: "minimax-5h-window" };
+    }
+    if (hints.modelName === "video") {
+      return { label: LABEL_MAP["minimax-video"], concept: "minimax-video" };
+    }
+    return { label: LABEL_MAP["minimax-daily-request"], concept: "minimax-daily-request" };
+  }
 
   // openai concepts
   if (hints.openaiVariant === "primary") return { label: LABEL_MAP["openai-primary-rate"], concept: "openai-primary-rate" };
@@ -72,9 +101,16 @@ export function enrichQuotaLabel(
 /**
  * Builds a branded provider name: "<brand> · <label>".
  * Separator uses non-breaking space (U+00A0) around the middle dot.
+ * @param labelOverride - When provided, uses this label instead of the LABEL_MAP entry
+ *                       (enables dynamic fallback text for non-cached concepts).
  */
-export function buildProviderName(brand: string, concept: QuotaConcept, model?: string): string {
-  const label = LABEL_MAP[concept];
+export function buildProviderName(
+  brand: string,
+  concept: QuotaConcept,
+  model?: string,
+  labelOverride?: string,
+): string {
+  const label = labelOverride ?? LABEL_MAP[concept];
   if (concept === "gemini-model-quota" && model) {
     return `${brand}\u00A0·\u00A0${label} (${model})`;
   }

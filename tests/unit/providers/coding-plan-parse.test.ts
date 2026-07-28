@@ -122,6 +122,146 @@ describe("parseUsage", () => {
   });
 });
 
+// ── PR4 RED tests: Z.Ai three-row ordering, unit branching, percentage, fallback ──────────────
+
+/**
+ * RED 4.1.1 — scrambled input.
+ * parseZaiLimits MUST sort output as: rolling-5h → rolling-mcp → rolling-weekly.
+ * Input order is [weekly, 5h, MCP]; expected output order must be sorted.
+ */
+describe("parseZaiLimits — PR4 row order (5h → MCP → weekly)", () => {
+  const weeklyEntry = {
+    type: "TIME_LIMIT", unit: 168, number: 1,
+    usage: 100, currentValue: 87, remaining: 13,
+    percentage: 13, nextResetTime: 1750000000000, usageDetails: [],
+  };
+  const fiveHEntry = {
+    type: "TIME_LIMIT", unit: 5, number: 1,
+    usage: 100, currentValue: 88, remaining: 12,
+    percentage: 12, nextResetTime: 1750000000000, usageDetails: [],
+  };
+  const mcpEntry = {
+    type: "MCP_LIMIT", unit: 1, number: 1,
+    usage: 1000, currentValue: 800, remaining: 200,
+    percentage: 20, nextResetTime: 1750000000000, usageDetails: [],
+  };
+
+  it("sorts rows as 5h → MCP → weekly regardless of payload order", () => {
+    // Scrambled: weekly first, then 5h, then MCP
+    const input = { code: 200, msg: "success", data: { limits: [weeklyEntry, fiveHEntry, mcpEntry] } };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(3);
+    // Must be sorted: rolling-5h first, rolling-mcp second, rolling-weekly third
+    expect(result[0].window).toBe("rolling-5h");
+    expect(result[1].window).toBe("rolling-mcp");
+    expect(result[2].window).toBe("rolling-weekly");
+  });
+
+  it("wrong row count: only 2 rows → those 2 rows are still sorted correctly", () => {
+    // When only 2 rows present, they should still be sorted: 5h first, MCP second (no weekly)
+    const input = { code: 200, msg: "success", data: { limits: [weeklyEntry, fiveHEntry, mcpEntry].slice(1) } };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(2);
+    expect(result[0].window).toBe("rolling-5h");
+    expect(result[1].window).toBe("rolling-mcp");
+  });
+
+  it("4 rows (extra non-standard unit) → canonical 3 are sorted + 1 fallback", () => {
+    const extraEntry = {
+      type: "TIME_LIMIT", unit: 10, number: 1,
+      usage: 100, currentValue: 90, remaining: 10,
+      percentage: 10, nextResetTime: 1750000000000, usageDetails: [],
+    };
+    const input = { code: 200, msg: "success", data: { limits: [fiveHEntry, mcpEntry, weeklyEntry, extraEntry] } };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    // Expect 4: 3 canonical sorted + 1 non-standard fallback
+    expect(result).toHaveLength(4);
+    expect(result[0].window).toBe("rolling-5h");
+    expect(result[1].window).toBe("rolling-mcp");
+    expect(result[2].window).toBe("rolling-weekly");
+    expect(result[3].window).toBe("rolling"); // unit=10 fallback
+    expect(result[3].info).toMatch(/10-hour rolling limit/);
+  });
+});
+
+/**
+ * RED 4.1.2 — unit branching: 5h and weekly TIME_LIMIT must NOT collapse.
+ */
+describe("parseZaiLimits — PR4 unit branching (5h ≠ weekly)", () => {
+  it("5h TIME_LIMIT and weekly TIME_LIMIT produce distinct info labels", () => {
+    const input = {
+      code: 200, msg: "success",
+      data: { limits: [
+        { type: "TIME_LIMIT", unit: 5, number: 1, usage: 100, currentValue: 88, remaining: 12, percentage: 12, nextResetTime: 1750000000000, usageDetails: [] },
+        { type: "TIME_LIMIT", unit: 168, number: 1, usage: 100, currentValue: 87, remaining: 13, percentage: 13, nextResetTime: 1750000000000, usageDetails: [] },
+      ] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    const fiveh = result.find(q => q.window === "rolling-5h");
+    const weekly = result.find(q => q.window === "rolling-weekly");
+    expect(fiveh).toBeDefined();
+    expect(weekly).toBeDefined();
+    expect(fiveh!.info).not.toBe(weekly!.info);
+    expect(fiveh!.info.toLowerCase()).toContain("5");
+    expect(weekly!.info.toLowerCase()).toContain("week");
+  });
+
+  it("unit=168 maps to rolling-weekly window (not rolling-168h)", () => {
+    const input = {
+      code: 200, msg: "success",
+      data: { limits: [{
+        type: "TIME_LIMIT", unit: 168, number: 1,
+        usage: 100, currentValue: 87, remaining: 13,
+        percentage: 13, nextResetTime: 1750000000000, usageDetails: [],
+      }] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result[0].window).toBe("rolling-weekly");
+  });
+});
+
+/**
+ * RED 4.1.3 — weekly ~13% percentage must be preserved.
+ */
+describe("parseZaiLimits — PR4 weekly ~13% preserved", () => {
+  it("weekly row used equals input percentage (~13)", () => {
+    const input = {
+      code: 200, msg: "success",
+      data: { limits: [
+        { type: "TIME_LIMIT", unit: 5, number: 1, usage: 100, currentValue: 88, remaining: 12, percentage: 12, nextResetTime: 1750000000000, usageDetails: [] },
+        { type: "MCP_LIMIT", unit: 1, number: 1, usage: 1000, currentValue: 800, remaining: 200, percentage: 20, nextResetTime: 1750000000000, usageDetails: [] },
+        { type: "TIME_LIMIT", unit: 168, number: 1, usage: 100, currentValue: 87, remaining: 13, percentage: 13, nextResetTime: 1750000000000, usageDetails: [] },
+      ] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    const weekly = result.find(q => q.window === "rolling-weekly");
+    expect(weekly).toBeDefined();
+    expect(weekly!.used).toBe(13);
+    expect(weekly!.limit).toBe(100);
+  });
+});
+
+/**
+ * RED 4.1.4 — non-standard unit fallback.
+ */
+describe("parseZaiLimits — PR4 non-standard unit fallback", () => {
+  it("unit=10 falls back to generic label with unit in info", () => {
+    const input = {
+      code: 200, msg: "success",
+      data: { limits: [{
+        type: "TIME_LIMIT", unit: 10, number: 1,
+        usage: 100, currentValue: 90, remaining: 10,
+        percentage: 10, nextResetTime: 1750000000000, usageDetails: [],
+      }] },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(1);
+    // Must use generic fallback, NOT rolling-10h window
+    expect(result[0].window).toBe("rolling");
+    expect(result[0].info).toMatch(/10-hour rolling limit/);
+  });
+});
+
 // ── parseZaiLimits: z.ai envelope { data: { limits: [...] } } ──────────────
 import { parseZaiLimits } from "../../../src/adapters/providers/coding-plan-parse.js";
 

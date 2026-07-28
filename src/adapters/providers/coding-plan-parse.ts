@@ -66,12 +66,23 @@ const zaiWindow = (type: string, unit: number | null): string => {
   const t = type.toUpperCase();
   if (t === "TIME_LIMIT") {
     if (unit === 5) return "rolling-5h";
-    return `rolling-${unit ?? "?"}h`;
+    // weekly window: numeric 168 or any unit >= 168 (hours in a week)
+    if (typeof unit === "number" && unit >= 168) return "rolling-weekly";
+    return "rolling"; // non-standard unit → generic fallback
   }
   if (t === "MCP_LIMIT") return "rolling-mcp";
   if (t === "TOKENS_LIMIT") return "rolling-tokens";
   return "rolling";
 }
+
+// Sort key for deterministic Z.Ai output order: 5h → MCP → weekly → fallback
+const ZAI_WINDOW_ORDER: Record<string, number> = {
+  "rolling-5h": 0,
+  "rolling-mcp": 1,
+  "rolling-weekly": 2,
+};
+const sortZaiEntry = (a: QuotaData, b: QuotaData): number =>
+  (ZAI_WINDOW_ORDER[a.window] ?? 3) - (ZAI_WINDOW_ORDER[b.window] ?? 3);
 
 /**
  * Parses the z.ai `/api/monitor/usage/quota/limit` envelope.
@@ -125,5 +136,6 @@ export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: st
       info: concept.label,
     });
   }
-  return entries;
+  // Stable sort: rolling-5h → rolling-mcp → rolling-weekly → fallback rows
+  return [...entries].sort(sortZaiEntry);
 }

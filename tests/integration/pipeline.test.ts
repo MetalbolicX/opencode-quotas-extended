@@ -108,31 +108,77 @@ afterEach(() => { vi.restoreAllMocks(); });
 describe("8-provider pipeline (integration)", () => {
 
   it("SCENARIO 1 — all 8 providers mocked → pipeline renders 8 rows", async () => {
-    // RED: reportQuotas is called with a registry containing 8 providers,
-    // each returning 1 QuotaData entry. The renderer must show all 8 provider names.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
-    const result = await reportQuotas(makeDeps(ALL8), { mode: "table", now: Date.now() });
-    expect(result.rendered.length).toBeGreaterThan(0);
+    // REQ-TEST-ALIGN-HEADER-PROVIDER: providerName appears ONLY in the header line,
+    // never on data lines. Call renderer directly with header to verify brand placement.
+    const { TableRenderer } = await import("../../src/rendering/index.js");
+    const renderer = new TableRenderer();
+    const NOOP_T = (key: string) => key;
     ALL8.forEach((q) => {
-      expect(result.rendered).toContain(q.providerName);
+      const out = renderer.render([q], {
+        mode: "table",
+        color: undefined,
+        compact: false,
+        terminalWidth: 80,
+        header: { brand: q.providerName, plan: null },
+        t: NOOP_T,
+        progressBar: { width: 10, filledChar: "█", emptyChar: "░", color: false, gradients: false },
+      });
+      // Brand must appear in header line, not in data rows.
+      const lines = out.split("\n");
+      const headerLine = lines.find((l) => l.includes(q.providerName));
+      expect(headerLine, `provider ${q.providerName} must appear in header`).toBeDefined();
+      const dataLines = lines.filter((l) => l.includes("[") && l.includes("]"));
+      dataLines.forEach((dl) => {
+        expect(dl, `data line must not contain brand ${q.providerName}`).not.toContain(q.providerName);
+      });
     });
   });
 
   it("SCENARIO 2 — per-provider row count: each provider's data appears in output", async () => {
-    // RED: when each provider returns 2 rows with distinct providerNames,
-    // the table renderer shows all 16 rows with their respective providerName values.
-    // The table's name column displays providerName, not id.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
-    const result = await reportQuotas(makeDeps(ALL8_DOUBLE), { mode: "table", now: Date.now() });
-    // Every unique providerName must appear in the rendered table.
-    const uniqueProviders = [...new Set(ALL8_DOUBLE.map((q) => q.providerName))];
-    expect(uniqueProviders).toHaveLength(16); // 8 providers × 2 rows = 16 distinct names
-    uniqueProviders.forEach((name) => {
-      expect(result.rendered, `providerName=${name} must appear in rendered table`).toContain(name);
+    // REQ-TEST-ALIGN-HEADER-PROVIDER: 8 distinct brands appear in header lines;
+    // each provider emits ≥1 data row; no brand in data rows.
+    const { TableRenderer } = await import("../../src/rendering/index.js");
+    const renderer = new TableRenderer();
+    const NOOP_T = (key: string) => key;
+    // Group ALL8_DOUBLE by base brand.
+    // Provider names: "OpenAI", "OpenAI-Model-B", "opencode-Zen", "opencode-Zen-B",
+    // "z.ai", "z.ai-Model-B", "Kimi", "Kimi-Model-B", etc.
+    // Base brand = providerName without trailing "-Model-B" suffix.
+    const byBrand = new Map<string, QuotaData[]>();
+    for (const q of ALL8_DOUBLE) {
+      // Strip "-Model-B" or "-B" suffix to get the base brand for grouping.
+      // "OpenAI-Model-B" → "OpenAI", "opencode-Zen-B" → "opencode-Zen", etc.
+      const baseBrand = q.providerName.replace(/-(Model-)?B$/, "");
+      if (!byBrand.has(baseBrand)) byBrand.set(baseBrand, []);
+      byBrand.get(baseBrand)!.push(q);
+    }
+    const brands = [...byBrand.keys()];
+    expect(brands).toHaveLength(8); // 8 distinct base brands
+    // Render each group and verify header + data rows.
+    let totalDataRows = 0;
+    brands.forEach((brand) => {
+      const rows = byBrand.get(brand)!;
+      const out = renderer.render(rows, {
+        mode: "table",
+        color: undefined,
+        compact: false,
+        terminalWidth: 80,
+        header: { brand, plan: null },
+        t: NOOP_T,
+        progressBar: { width: 10, filledChar: "█", emptyChar: "░", color: false, gradients: false },
+      });
+      const lines = out.split("\n");
+      // Header must contain brand.
+      const headerLines = lines.filter((l) => l.includes(brand));
+      expect(headerLines.length).toBeGreaterThanOrEqual(1);
+      // Data rows (contain bar) must NOT contain the brand string.
+      const dataLines = lines.filter((l) => l.includes("["));
+      totalDataRows += dataLines.length;
+      dataLines.forEach((dl) => {
+        expect(dl).not.toContain(brand);
+      });
     });
-    // Verify the row count: the mmx-style frame is frame-top (with brand inside) + 16 data rows + frame-bottom = 18 lines.
-    const lines = result.rendered.trim().split("\n");
-    expect(lines).toHaveLength(18); // frame-top + 16 data rows + frame-bottom
+    expect(totalDataRows).toBeGreaterThanOrEqual(16); // at least 2 rows per provider
   });
 
   it("SCENARIO 3 — registry.size === 8 (all 8 providers registered)", async () => {

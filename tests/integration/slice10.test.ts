@@ -82,7 +82,7 @@ vi.mock("../../src/adapters/auth/credential-resolver.js", () => ({
   createCredentialResolver: vi.fn(() => ({ get: () => Promise.resolve(null) })),
 }));
 vi.mock("../../src/adapters/infra/fetch-http.js", () => ({
-  FetchHttpClient: vi.fn(() => ({ request: vi.fn() })),
+  FetchHttpClient: vi.fn().mockImplementation(function () { this.request = vi.fn(); }),
 }));
 vi.mock("../../src/adapters/providers/registry.js", () => ({
   buildDefaultRegistry: vi.fn(() => makeRegistry([...MIXED, { id: "anthropic", providerName: "Anthropic", used: 0, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const }])),
@@ -138,29 +138,63 @@ describe("Pipeline: mode selection", () =>
 
 describe("Pipeline: status thresholds", () =>
   it.each([
-    { used: 30, limit: 100, expectStatus: "OK" },
-    { used: 65, limit: 100, expectStatus: "WRN" },
-    { used: 90, limit: 100, expectStatus: "ERR" },
-  ])("used=$used limit=$limit → $expectStatus", async ({ used, limit, expectStatus }) => {
+    { used: 30, limit: 100 },
+    { used: 65, limit: 100 },
+    { used: 90, limit: 100 },
+  ])("used=$used limit=$limit → no OK/WRN/ERR text, bar present", async ({ used, limit }) => {
+    // REQ-TEST-ALIGN-STATUS-BAND: no OK/WRN/ERR text anywhere; bar cell is present.
     const { reportQuotas } = await import("../../src/application/report-pipeline.js");
     const q = mk({ used, limit });
     const result = await reportQuotas(makeDeps([q]), { mode: "table", now: Date.now() });
-    expect(result.rendered).toContain(expectStatus);
+    // No status text appears in rendered output (REQ-GEOM-DROP-STATUS).
+    expect(result.rendered).not.toContain("OK");
+    expect(result.rendered).not.toContain("WRN");
+    expect(result.rendered).not.toContain("ERR");
+    // Bar cell is present: bracketed bar with filled/empty characters.
+    const barMatch = result.rendered.match(/\[[░█]+\]\s/);
+    expect(barMatch).not.toBeNull();
   }));
 
 describe("Pipeline: unlimited", () =>
-  it("limit=null → OK", async () => {
+  it("limit=null → neutral band, no OK text, unlimited label visible", async () => {
+    // REQ-TEST-ALIGN-STATUS-BAND: unlimited has no error color band, no "OK" text,
+    // and the unlimited indicator is visible in the output.
     const { reportQuotas } = await import("../../src/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps([mk({ used: 100, limit: null, id: "ul", providerName: "Unlimited" })]), { mode: "table", now: Date.now() });
-    expect(result.rendered).toContain("OK");
+    // Extract bar cell: unlimited has no filled bar, no green/yellow/red band.
+    const barMatch = result.rendered.match(/\[[^\]]*\]\s/);
+    expect(barMatch).not.toBeNull();
+    const barCell = barMatch![0];
+    expect(barCell).not.toContain("\x1b[31m"); // no red error band
+    expect(barCell).not.toContain("\x1b[32m"); // no green OK band
+    expect(barCell).not.toContain("\x1b[33m"); // no yellow WRN band
+    // No "OK" text anywhere in rendered output.
+    expect(result.rendered).not.toContain("OK");
+    expect(result.rendered).not.toContain("WRN");
+    expect(result.rendered).not.toContain("ERR");
+    // Unlimited label is visible.
+    expect(result.rendered).toContain("unlimited");
   }));
 
 describe("Pipeline: 8 providers", () => {
-  it("table renders all 8", async () => {
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
-    const result = await reportQuotas(makeDeps(ALL8), { mode: "table", now: Date.now() });
-    expect(result.rendered.length).toBeGreaterThan(0);
-    ALL8.forEach((q) => { expect(result.rendered).toContain(q.providerName); });
+  it("table renders all 8 — each provider emits a header with its brand", async () => {
+    // REQ-TEST-ALIGN-8PROVIDERS-RENDER: call renderer directly with header per provider.
+    const { TableRenderer } = await import("../../src/rendering/index.js");
+    const renderer = new TableRenderer();
+    const NOOP_T = (key: string) => key;
+    for (const q of ALL8) {
+      const out = renderer.render([q], {
+        mode: "table",
+        color: undefined,
+        compact: false,
+        terminalWidth: 80,
+        header: { brand: q.providerName, plan: null },
+        t: NOOP_T,
+        progressBar: { width: 20, filledChar: "█", emptyChar: "░", color: false, gradients: false },
+      });
+      expect(out.length).toBeGreaterThan(0);
+      expect(out).toContain(q.providerName);
+    }
   });
   it("json parses to { fetchedAt, quotas }", async () => {
     const { reportQuotas } = await import("../../src/application/report-pipeline.js");

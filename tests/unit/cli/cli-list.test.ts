@@ -56,7 +56,7 @@ vi.mock("../../../src/adapters/auth/credential-resolver.js", () => ({
 }));
 
 vi.mock("../../../src/adapters/infra/fetch-http.js", () => ({
-  FetchHttpClient: vi.fn(() => ({ request: vi.fn() })),
+  FetchHttpClient: vi.fn().mockImplementation(function () { this.request = vi.fn(); }),
 }));
 
 // ── Import after mocks are set up ───────────────────────────────────────────
