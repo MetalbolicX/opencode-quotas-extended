@@ -1,6 +1,7 @@
 // WU-6 RED: Minimax provider — missing mmx binary returns []{+logs error}.
 // REQ-CRED-5: friendly error when mmx CLI is absent from PATH.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { execSync } from "node:child_process";
 import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
 import type { HttpClient } from "../../../src/ports/http.js";
 import type { Logger } from "../../../src/ports/logger.js";
@@ -58,6 +59,59 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
       (call) => String(call[0] ?? "").includes("mmx") || String(call[1] ?? "").includes("mmx"),
     );
     expect(errorCall).toBeDefined();
+  });
+
+  // ── WU-2: semantic labels for minimax ────────────────────────────────────────
+  it("weekly row → info contains 'Weekly request quota' and window is rolling-weekly", async () => {
+    // Mock execSync to succeed (mmx binary present) and return a fixture with weekly data.
+    vi.mocked(execSync).mockImplementation(() => {
+      const out = [
+        '{"model_remains":[{"model_name":"general",',
+        '"current_interval_total_count":0,',
+        '"current_interval_usage_count":0,',
+        '"current_interval_remaining_percent":89,',
+        '"current_weekly_total_count":100,',
+        '"current_weekly_usage_count":42,',
+        '"current_weekly_remaining_percent":58}]}',
+      ].join("");
+      return Buffer.from(out);
+    });
+
+    const http = {} as unknown as HttpClient;
+    const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
+    const quotas = await provider.fetchQuotas();
+
+    const weeklyRow = quotas.find((q) => q.id.includes("weekly"))!;
+    expect(weeklyRow.info).toContain("Weekly request quota");
+    // providerName must use the · separator
+    expect(weeklyRow.providerName).toContain("\u00A0·\u00A0");
+    // window must be rolling-weekly (not generic rolling)
+    expect(weeklyRow.window).toBe("rolling-weekly");
+    // Must NOT leak raw numeric tuple
+    expect(weeklyRow.info).not.toContain("(100×42)");
+  });
+
+  it("daily row → info contains 'Daily request quota' and window is daily", async () => {
+    vi.mocked(execSync).mockImplementation(() => {
+      const out = [
+        '{"model_remains":[{"model_name":"general",',
+        '"current_interval_total_count":0,',
+        '"current_interval_usage_count":0,',
+        '"current_interval_remaining_percent":60,',
+        '"current_weekly_total_count":0,',
+        '"current_weekly_usage_count":0,',
+        '"current_weekly_remaining_percent":0}]}',
+      ].join("");
+      return Buffer.from(out);
+    });
+
+    const http = {} as unknown as HttpClient;
+    const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
+    const quotas = await provider.fetchQuotas();
+
+    const dailyRow = quotas.find((q) => q.id.includes("daily"))!;
+    expect(dailyRow.info).toContain("Daily request quota");
+    expect(dailyRow.window).toBe("daily");
   });
 
   it("fetchQuotas returns [] when there are no credentials (already covered but belt-and-suspenders)", async () => {

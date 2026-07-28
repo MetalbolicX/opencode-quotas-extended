@@ -9,6 +9,7 @@ import type { HttpClient } from "../../ports/http.js";
 import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
+import { buildProviderName } from "../../rendering/semantic-labels.js";
 
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const QUOTA_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
@@ -261,7 +262,6 @@ function parseQuotaResponse(response: FetchAvailableModelsResponse): QuotaData[]
     const resetDate = resetTimeStr ? new Date(resetTimeStr) : null;
 
     const pct = (remainingFraction * 100).toFixed(0);
-    const resetStr = resetDate ? resetDate.toISOString() : "unknown";
     const displayName = modelName;
 
     rows.push({
@@ -273,7 +273,7 @@ function parseQuotaResponse(response: FetchAvailableModelsResponse): QuotaData[]
       window: "rolling",
       reset: resetDate,
       predictedReset: null,
-      info: `${displayName}: ${pct}% remaining until ${resetStr}`,
+      info: buildProviderName("Google Gemini", "gemini-model-quota", displayName),
     });
   }
 

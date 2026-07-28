@@ -1,5 +1,6 @@
 // Shared parsing helpers for coding-plan providers.
 import type { QuotaData } from "../../domain/types.js";
+import { enrichQuotaLabel, buildProviderName } from "../../rendering/semantic-labels.js";
 
 export function toNum(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -108,18 +109,20 @@ export function parseZaiLimits(json: unknown, idPrefix: string, providerName: st
     }
 
     const id = `${idPrefix}-${type.toLowerCase()}-${unit ?? "u"}-${num ?? "n"}`;
-    const label = `${type}${unit !== null ? ` (${num ?? "?"}×${unit})` : ""}`;
+
+    const concept = enrichQuotaLabel(providerName, { type, unit, number: num });
+    const providerBranded = buildProviderName(providerName, concept.concept);
 
     entries.push({
       id,
-      providerName: `${providerName} ${label}`,
+      providerName: providerBranded,
       used,
       limit,
       unit: "%",
       window: zaiWindow(type, unit) as QuotaData["window"],
       reset: resetMs ? new Date(resetMs) : null,
       predictedReset: null,
-      info: `${providerName} ${label}`,
+      info: concept.label,
     });
   }
   return entries;

@@ -39,6 +39,44 @@ describe("openai-provider", () => {
     expect(credits).toMatchObject({ used: 8.5, unit: "credits", limit: null });
   });
 
+  // ── WU-2: semantic labels — no raw type leakage, · separator ──────────────────
+  describe("openai — WU-2 semantic label enrichment", () => {
+    it("oauth primary row: info = 'Primary rate limit', uses · separator, no raw 'primary'", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(whamUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(oauthCred)), http).fetchQuotas({}, {});
+      const primary = qs.find((q) => q.id === "openai-primary")!;
+      expect(primary.info).toBe("Primary rate limit");
+      expect(primary.providerName).toContain("\u00A0·\u00A0");
+      expect(primary.info).not.toContain("primary");
+    });
+
+    it("oauth secondary row: info = 'Secondary rate limit', no raw 'secondary'", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(whamUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(oauthCred)), http).fetchQuotas({}, {});
+      const secondary = qs.find((q) => q.id === "openai-secondary")!;
+      expect(secondary.info).toBe("Secondary rate limit");
+      expect(secondary.info).not.toContain("secondary");
+    });
+
+    it("oauth credits row: info = 'Credit balance', no raw 'unlimited' or 'balance'", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(whamUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(oauthCred)), http).fetchQuotas({}, {});
+      const credits = qs.find((q) => q.id === "openai-credits")!;
+      expect(credits.info).toBe("Credit balance");
+      expect(credits.info).not.toContain("unlimited");
+    });
+
+    it("api per-model row: info = 'Token usage', window is rolling, no model leakage in info", async () => {
+      const http = { request: vi.fn(() => Promise.resolve(platformUsageFIXTURE)) } as unknown as HttpClient;
+      const qs = await createOpenAIProvider(makeSource(() => Promise.resolve(apiCred)), http).fetchQuotas({}, {});
+      expect(qs.length).toBeGreaterThan(0);
+      for (const q of qs) {
+        expect(q.info).toBe("Token usage");
+        expect(q.window).toBe("rolling");
+      }
+    });
+  });
+
   // ── Slice 12: info + window strict union assertions ─────────────────────
   describe("openai — info + window strict union (slice 12)", () => {
     it("oauth primary/secondary: window is strict union + info is non-empty string", async () => {

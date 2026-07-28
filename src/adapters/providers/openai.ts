@@ -5,6 +5,7 @@ import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 import { withOAuth } from "./oauth.js";
+import { enrichQuotaLabel, buildProviderName } from "../../rendering/semantic-labels.js";
 
 const WHAM_URL = "https://chatgpt.com/backend-api/wham/usage";
 /** Confirmed: https://api.openai.com/v1/usage — requires API key (not OAuth token). */
@@ -58,17 +59,26 @@ export function createOpenAIProvider(
             )) as { rate_limit?: { primary_window?: Record<string, unknown>; secondary_window?: Record<string, unknown> }; credits?: { unlimited?: boolean; balance?: string | null } };
 
             const entries: QuotaData[] = [];
-            for (const [id, label, win] of [["openai-primary", "OpenAI Primary", "daily"], ["openai-secondary", "OpenAI Secondary", "rolling"]] as [string, string, string][]) {
+            for (const [id, variant, win] of [["openai-primary", "primary", "daily"], ["openai-secondary", "secondary", "rolling"]] as [string, "primary" | "secondary", string][]) {
               const w = rl?.rate_limit?.[id === "openai-primary" ? "primary_window" : "secondary_window"];
               if (!w) continue;
               const used = toNum(w.used_percent);
               if (used === null) continue;
-              entries.push({ id, providerName: label, used: Math.max(0, Math.min(100, used)), limit: 100, unit: "%", window: win as "daily" | "rolling", reset: resetDate(toNum(w.reset_after_seconds), toNum(w.reset_at)), predictedReset: null, info: label });
+              const concept = enrichQuotaLabel("openai", { openaiVariant: variant });
+              entries.push({ id, providerName: buildProviderName("OpenAI", concept.concept), used: Math.max(0, Math.min(100, used)), limit: 100, unit: "%", window: win as "daily" | "rolling", reset: resetDate(toNum(w.reset_after_seconds), toNum(w.reset_at)), predictedReset: null, info: concept.label });
             }
             const credits = rl?.credits;
             if (credits) {
-              if (credits.unlimited) entries.push({ id: "openai-credits", providerName: "OpenAI Credits", used: 0, limit: null, unit: "credits", window: "rolling", reset: null, predictedReset: null, info: "unlimited" });
-              else { const bal = toNum(credits.balance ?? null); if (bal !== null) entries.push({ id: "openai-credits", providerName: "OpenAI Credits", used: bal, limit: null, unit: "credits", window: "rolling", reset: null, predictedReset: null, info: "balance" }); }
+              if (credits.unlimited) {
+                const concept = enrichQuotaLabel("openai", { openaiVariant: "credits" });
+                entries.push({ id: "openai-credits", providerName: buildProviderName("OpenAI", concept.concept), used: 0, limit: null, unit: "credits", window: "rolling", reset: null, predictedReset: null, info: concept.label });
+              } else {
+                const bal = toNum(credits.balance ?? null);
+                if (bal !== null) {
+                  const concept = enrichQuotaLabel("openai", { openaiVariant: "credits" });
+                  entries.push({ id: "openai-credits", providerName: buildProviderName("OpenAI", concept.concept), used: bal, limit: null, unit: "credits", window: "rolling", reset: null, predictedReset: null, info: concept.label });
+                }
+              }
             }
             return entries;
           }) as QuotaData[];
@@ -108,16 +118,17 @@ export function createOpenAIProvider(
             const used = toNum(e.generated);
             if (used === null) continue;
             const model = typeof e.model === "string" ? e.model : "openai-api";
+            const concept = enrichQuotaLabel("openai", { openaiVariant: "api" });
             allEntries.push({
               id: `openai-api-${id ?? model}`,
-              providerName: `OpenAI ${model}`,
+              providerName: buildProviderName("OpenAI", concept.concept),
               used,
               limit: toNum(resp.limit_user) ?? null,
               unit: "tokens",
               window: "rolling",
               reset: null,
               predictedReset: null,
-              info: model,
+              info: concept.label,
             });
           }
           // Defensive: treat malformed has_more/next_page as terminal.

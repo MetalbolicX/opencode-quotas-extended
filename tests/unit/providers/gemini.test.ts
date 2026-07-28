@@ -218,17 +218,20 @@ describe("gemini Antigravity quota adapter", () => {
         expect(q.window).toBe("rolling");
         expect(q.predictedReset).toBeNull();
         expect(q.reset).toBeInstanceOf(Date);
-        expect(q.info).toMatch(/\% remaining until/);
+        // WU-2: info uses branded semantic label (Model quota) with model in parentheses
+        expect(q.info).toContain("Model quota");
+        expect(q.info).toContain("\u00A0·\u00A0");
+        expect(q.info).not.toContain("remainingFraction");
       }
 
-      // Verify specific mappings
+      // Verify specific mappings — model name appears in info (parenthetical)
       const proHigh = quotas.find(q => q.id.includes("pro-high"));
       expect(proHigh?.info).toContain("gemini-3-pro-high");
-      expect(proHigh?.info).toContain("72% remaining");
+      expect(proHigh?.info).toContain("Model quota");
 
       const flash = quotas.find(q => q.id.includes("flash"));
       expect(flash?.info).toContain("gemini-3-flash");
-      expect(flash?.info).toContain("95% remaining");
+      expect(flash?.info).toContain("Model quota");
     });
   });
 
@@ -467,6 +470,44 @@ describe("gemini Antigravity quota adapter", () => {
       expect(quotas.length).toBe(1);
       expect(quotas[0].id).toContain("gemini-3-pro-high");
     });
+  });
+
+  // ── WU-2: semantic label — Gemini model quota ──────────────────────────────────
+  it("gemini row: info = 'Google Gemini · Model quota (model)', providerName includes · separator, no raw remainingFraction leakage", async () => {
+    const http = {
+      request: vi.fn((r: unknown) => {
+        const req = r as { url?: string };
+        if (req.url?.includes("oauth")) return Promise.resolve(oauthTokenFIXTURE);
+        return Promise.resolve({
+          models: {
+            "gemini-3-flash": { quotaInfo: { remainingFraction: 0.75, resetTime: "2026-07-27T00:00:00Z" } },
+          },
+        });
+      }),
+    } as unknown as HttpClient;
+
+    mockFs({
+      "antigravity-accounts.json": JSON.stringify([{
+        email: "test@example.com",
+        refreshToken: "test-refresh",
+        clientId: "client-id",
+        oauthSecret: "client-secret",
+        projectId: "test-project",
+      }]),
+    });
+
+    const p = createGeminiProvider(makeSource(() => Promise.resolve(oauthCred)), http);
+    const quotas = await p.fetchQuotas();
+
+    const flashRow = quotas.find((q) => q.id.includes("flash"))!;
+    // info is the branded concept with model name in parentheses
+    expect(flashRow.info).toContain("Model quota");
+    expect(flashRow.info).toContain("gemini-3-flash");
+    expect(flashRow.info).toContain("\u00A0·\u00A0");
+    // providerName stays as "Google Gemini (Antigravity)" — separator only in info
+    expect(flashRow.providerName).toBe("Google Gemini (Antigravity)");
+    // Must not leak the raw remainingFraction concept
+    expect(flashRow.info).not.toContain("remainingFraction");
   });
 
   // ── Scenario 8: resetTime missing → reset=null, no throw ────────────────────

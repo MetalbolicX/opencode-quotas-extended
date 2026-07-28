@@ -49,6 +49,50 @@ describe("zai provider", () => {
     expect(quotas[0].providerName.toLowerCase()).toContain("z.ai");
   });
 
+  // ── WU-2: semantic labels — no raw type/tuple leakage ─────────────────────────
+  it("parseZaiLimits: TIME_LIMIT 5h row → info contains '5-hour rolling limit', providerName uses · separator", async () => {
+    const http = {
+      request: vi.fn(() => Promise.resolve({
+        code: 200, msg: "success",
+        data: { limits: [{
+          type: "TIME_LIMIT", unit: 5, number: 1,
+          usage: 100, currentValue: 0, remaining: 100,
+          percentage: 12, nextResetTime: 1750000000000, usageDetails: [],
+        }] },
+      })),
+    } as unknown as HttpClient;
+    const provider = createZaiProvider(makeSource(oauthCred), http);
+    const quotas = await provider.fetchQuotas();
+    expect(quotas.length).toBeGreaterThan(0);
+    const row = quotas.find((q) => q.id.includes("time_limit"))!;
+    // info must be the human label, not "TIME_LIMIT (1×5)"
+    expect(row.info).toContain("5-hour rolling limit");
+    // providerName must use the · separator
+    expect(row.providerName).toContain("\u00A0·\u00A0");
+    // Must NOT leak raw type or numeric tuple
+    expect(row.info).not.toContain("TIME_LIMIT");
+    expect(row.info).not.toContain("(1×5)");
+  });
+
+  it("parseZaiLimits: MCP_LIMIT row → info contains 'MCP quota', no MCP_LIMIT leakage", async () => {
+    const http = {
+      request: vi.fn(() => Promise.resolve({
+        code: 200, msg: "success",
+        data: { limits: [{
+          type: "MCP_LIMIT", unit: 1, number: 1,
+          usage: 1000, currentValue: 200, remaining: 800,
+          percentage: 20, nextResetTime: 1750000000000, usageDetails: [],
+        }] },
+      })),
+    } as unknown as HttpClient;
+    const provider = createZaiProvider(makeSource(oauthCred), http);
+    const quotas = await provider.fetchQuotas();
+    const mcpRow = quotas.find((q) => q.id.includes("mcp_limit"))!;
+    expect(mcpRow.info).toContain("MCP quota");
+    expect(mcpRow.info).not.toContain("MCP_LIMIT");
+    expect(mcpRow.info).not.toContain("(1×1)");
+  });
+
   it("fetchQuotas returns [] and logs when the HTTP layer throws", async () => {
     const mockLogger: Logger = {
       debug: vi.fn(),

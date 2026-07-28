@@ -7,6 +7,7 @@ import type { Logger } from "../../ports/logger.js";
 import type { QuotaProvider } from "../../ports/provider.js";
 import type { QuotaData } from "../../domain/types.js";
 import { windowMap } from "./coding-plan-parse.js";
+import { enrichQuotaLabel, buildProviderName } from "../../rendering/semantic-labels.js";
 
 interface MinimaxRemainsEntry {
   model_name: string;
@@ -41,28 +42,30 @@ function parseMinimaxCli(out: string, _key: string): QuotaData[] {
   const entries: QuotaData[] = [];
   for (const m of remains) {
     const pct = m.current_interval_remaining_percent ?? 0;
+    const dailyConcept = enrichQuotaLabel("minimax", { modelName: m.model_name, weekly: false });
     entries.push({
       id: `minimax-${m.model_name.toLowerCase()}-daily`,
-      providerName: `Minimax ${m.model_name} Daily`,
+      providerName: buildProviderName("Minimax", dailyConcept.concept),
       used: 100 - pct,
       limit: 100,
       unit: "%",
-      window: windowMap(m.model_name.toLowerCase().includes("video") ? "daily" : "daily"),
+      window: "daily",
       reset: null,
       predictedReset: null,
-      info: `Minimax ${m.model_name}`,
+      info: dailyConcept.label,
     });
     if (m.current_weekly_total_count > 0) {
+      const weeklyConcept = enrichQuotaLabel("minimax", { modelName: m.model_name, weekly: true });
       entries.push({
         id: `minimax-${m.model_name.toLowerCase()}-weekly`,
-        providerName: `Minimax ${m.model_name} Weekly`,
+        providerName: buildProviderName("Minimax", weeklyConcept.concept),
         used: m.current_weekly_usage_count,
         limit: m.current_weekly_total_count,
         unit: "requests",
-        window: windowMap("weekly"),
+        window: "rolling-weekly",
         reset: null,
         predictedReset: null,
-        info: `Minimax ${m.model_name} Weekly`,
+        info: weeklyConcept.label,
       });
     }
   }
