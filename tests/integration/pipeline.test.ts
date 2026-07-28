@@ -130,9 +130,9 @@ describe("8-provider pipeline (integration)", () => {
     uniqueProviders.forEach((name) => {
       expect(result.rendered, `providerName=${name} must appear in rendered table`).toContain(name);
     });
-    // Verify the row count: header + 16 data rows = 17 lines
+    // Verify the row count: the mmx-style frame is frame-top (with brand inside) + 16 data rows + frame-bottom = 18 lines.
     const lines = result.rendered.trim().split("\n");
-    expect(lines).toHaveLength(17); // 1 header + 16 data rows
+    expect(lines).toHaveLength(18); // frame-top + 16 data rows + frame-bottom
   });
 
   it("SCENARIO 3 — registry.size === 8 (all 8 providers registered)", async () => {

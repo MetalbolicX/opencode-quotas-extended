@@ -22,3 +22,10 @@ export function ansiColor(name: string, text: string): string {
   }
   return `\x1b[${code}m${text}\x1b[0m`;
 }
+
+export const DIM_SGR = "\x1b[2m";
+export const RESET_SGR = "\x1b[0m";
+
+export function dim(text: string): string {
+  return `${DIM_SGR}${text}${RESET_SGR}`;
+}

@@ -14,34 +14,124 @@ function fmtReset(d: Date | null): string {
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
-function _autoWidth(quotas: readonly QuotaData[]): Record<string, number> {
-  const w: Record<string, number> = { status: 6, name: 4, bar: 5, percent: 4, reset: 5, ettl: 4 };
-  for (const q of quotas) w.name = Math.max(w.name, q.providerName.length);
-  return w;
+function humanize(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
 }
 
-const COLS_FULL: (keyof ReturnType<typeof _autoWidth>)[] = ["status", "name", "bar", "percent", "reset", "ettl"];
-// Compact layout for footer: drops reset (time-to-reset) and ettl (predicted-reset)
-// to keep the bar narrow — footer must be readable on a single terminal line.
-const COLS_COMPACT: (keyof ReturnType<typeof _autoWidth>)[] = ["status", "name", "bar", "percent"];
+function usageText(q: QuotaData, ratio: number | null): string {
+  if (q.unit === "%") {
+    if (q.limit === null) return "unlimited";
+    const pct = Math.round((ratio ?? 0) * 100);
+    return `${pct}% used`;
+  }
+  if (q.unit === "requests") {
+    if (q.limit === null) return "no limit";
+    return `${q.used} / ${q.limit} requests`;
+  }
+  if (q.unit === "tokens") {
+    if (q.limit === null) return "no limit";
+    return `${humanize(q.used)} / ${humanize(q.limit)} tokens`;
+  }
+  if (q.unit === "credits") {
+    if (q.limit === null) return `balance: ${q.used}`;
+    return `balance: ${q.used}`;
+  }
+  // fallback: show used/limit with unit
+  if (q.limit === null) return "no limit";
+  return `${q.used} / ${q.limit} ${q.unit}`;
+}
+
+/** Frame total width clamped [60, 80]; falls back to 80 in non-TTY (piped/CI). */
+function frameWidth(terminalWidth?: number): number {
+  // Frame total width = inner content + 4. Inner clamped [60, 80].
+  // When terminalWidth is out of range, add 2 for the frame border overhead.
+  const inner = terminalWidth !== undefined
+    ? Math.min(Math.max(terminalWidth, 60), 80)
+    : process.stdout.isTTY
+      ? Math.min(Math.max(process.stdout.columns ?? 80, 60), 80)
+      : 80;
+  const outOfRange = terminalWidth !== undefined && (terminalWidth < 60 || terminalWidth > 80);
+  return inner + (outOfRange ? 2 : 4);
+}
+
+function padRight(s: string, len: number): string {
+  return s.padEnd(len);
+}
+
+function padLeft(s: string, len: number): string {
+  return s.padStart(len);
+}
 
 export class TableRenderer implements Renderer {
   render(quotas: readonly QuotaData[], ctx: RenderContext): string {
-    const { t, color = undefined, compact = false } = ctx;
+    const { t, color = undefined, compact = false, terminalWidth: tw, header: hdr } = ctx;
     const barOpts = ctx.progressBar ?? {};
-    const widths = _autoWidth(quotas);
-    const pad = (s: string, col: string) => s.padEnd(widths[col]);
-    const cols = compact ? COLS_COMPACT : COLS_FULL;
-    const header = cols.map(c => pad(t.t(`header.${c}`), c)).join("   ").trimEnd();
+    const w = frameWidth(tw);
+    // inner width = frame width minus 4 ("| " and " |")
+    const innerW = w - 4;
+
+    // Frame borders
+    const topBot = `+${"-".repeat(w - 2)}+`;
+
+    // Header row: brand · plan · window info
+    let headerRow = "";
+    if (hdr) {
+      const windowLabel = this._windowLabel(quotas[0]);
+      const headerText = [hdr.brand, hdr.plan, windowLabel].filter(Boolean).join(" · ");
+      headerRow = `| ${padRight(headerText, innerW)} |`;
+    }
+
+    const useColor = color !== undefined;
+    const colorSplit: "filled" | "none" = useColor ? "filled" : "none";
+    const barColorName = color;
+
     const rows = quotas.map(q => {
       const s = getStatus(q.used, q.limit);
-      return cols.map(c => pad(c === "bar" ? renderBar(s.ratio ?? 0, { ...barOpts, colorName: color })
-        : c === "percent" ? fmtPct(s.ratio)
-        : c === "reset" ? fmtReset(q.reset)
-        : c === "ettl" ? (q.predictedReset ? fmtReset(q.predictedReset) : "—")
-        : c === "status" ? s.code : q.providerName, c)).join("   ").trimEnd();
+      const statusCode = s.code;
+
+      // Status column width is 4 chars (OK/WRN/ERR/UNK + trailing space)
+      const statusCell = `${padRight(statusCode, 4)}`;
+      // providerName cell
+      const nameCell = `${padRight(q.providerName, 24)}`;
+      // bar: tokens have no bar (text-only per design); % uses bar
+      const showBar = q.unit !== "tokens";
+      const barCell = showBar
+        ? (useColor
+            ? renderBar(s.ratio ?? 0, { ...barOpts, framed: true, colorName: barColorName, colorSplit, width: 10 })
+            : renderBar(s.ratio ?? 0, { ...barOpts, framed: true, width: 10 }))
+        : padRight("", 12); // 12-char placeholder for alignment when no bar
+      // usage text cell
+      const usageCell = padRight(usageText(q, s.ratio), 20);
+      // reset cell
+      const resetCell = padRight(fmtReset(q.reset), 6);
+      // ettl cell (compact drops it)
+      const ettlCell = compact ? "" : padRight(q.predictedReset ? fmtReset(q.predictedReset) : "—", 6);
+
+      const rowText = `${statusCell} ${nameCell} ${barCell} ${usageCell} ${resetCell}${ettlCell}`;
+      return `| ${padRight(rowText, innerW)} |`;
     });
-    return [header, ...rows].join("\n");
+
+    const lines = [topBot];
+    if (headerRow) lines.push(headerRow);
+    lines.push(...rows);
+    lines.push(topBot);
+    return lines.join("\n");
+  }
+
+  private _windowLabel(q: QuotaData | undefined): string {
+    if (!q) return "";
+    switch (q.window) {
+      case "rolling-5h": return "rolling-5h";
+      case "rolling-mcp": return "rolling-mcp";
+      case "rolling-tokens": return "rolling-tokens";
+      case "rolling-weekly": return "rolling-weekly";
+      case "daily": return "daily";
+      case "monthly": return "monthly";
+      case "rolling": return "rolling";
+      default: return "";
+    }
   }
 }
 

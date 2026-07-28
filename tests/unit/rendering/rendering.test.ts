@@ -26,7 +26,7 @@ const EN_TRANSLATOR: Translator = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let getStatus!: (used: number, limit: number | null, gradients?: {threshold: number; color: string}[]) => { code: string; ratio: number | null };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let renderBar!: (ratio: number, opts?: { width?: number; filledChar?: string; emptyChar?: string; colorName?: string }) => string;
+let renderBar!: (ratio: number, opts?: { width?: number; filledChar?: string; emptyChar?: string; colorName?: string; framed?: boolean; colorSplit?: "filled" | "none" }) => string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let selectRenderer!: (mode: "table" | "json" | "markdown") => Renderer;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,7 +81,7 @@ describe("bar rendering", () => {
   it.each([10, 20, 30])("width $w at 70%%", (w) => {
     const bar = renderBar(0.7, { width: w });
     const filled = (bar.match(/█/g) ?? []).length;
-    const empty = (bar.match(/░/g) ?? []).length;
+    const empty = (bar.match(/\./g) ?? []).length;
     expect(filled + empty).toBe(w);
     expect(filled).toBe(Math.round(0.7 * w));
   });
@@ -95,7 +95,7 @@ describe("bar rendering", () => {
   it("no colorName → plain bar, no ANSI codes", () => {
     const bar = renderBar(0.5, { width: 10 });
     expect(bar).not.toMatch(/\x1b\[\d+m/);
-    expect(bar).toMatch(/^[█░]+$/);
+    expect(bar).toMatch(/^[█.]+$/);
   });
 
   it("colorName green → bar wrapped in green ANSI", () => {
@@ -104,7 +104,7 @@ describe("bar rendering", () => {
     expect(bar).toMatch(/\x1b\[32m/);
     expect(bar).toMatch(/\x1b\[0m/);
     expect(bar).toContain("█");
-    expect(bar).toContain("░");
+    expect(bar).toContain(".");
   });
 
   it("colorName yellow → bar wrapped in yellow ANSI", () => {
@@ -185,13 +185,17 @@ describe("table renderer — compact mode", () => {
     expect(out).toMatch(/%/);    // percent
   });
 
-  it("compact=false (full) retains all six columns including reset and ettl", () => {
-    // The full /quotas view shows all six columns so users see reset times and ETTL predictions.
+  it("compact=false (full) retains the framed layout with semantic labels and reset context", () => {
+    // The mmx-style renderer (REQ-r3 + REQ-r4) does not use legacy "Reset"/"ETTL" column
+    // headers — reset context is rendered inline per row (e.g. "in 5h") and ETTL lives
+    // in predictedReset. The frame MUST still wrap the rows.
     const r = selectRenderer("table");
     const out = r.render(QUOTAS, { mode: "table", compact: false, t: EN_TRANSLATOR });
-    expect(out).toContain("Reset");
-    expect(out).toContain("ETTL");
-    expect(out).toMatch(/[█░]/); // bar chars present in both modes
+    expect(out).toMatch(/^\+-+\+$/m);                // top frame border
+    expect(out).toMatch(/\+-+\+$/m);                 // bottom frame border
+    expect(out).toMatch(/[█.]/);                     // bar chars present
+    expect(out).not.toContain("Reset");              // legacy column header removed
+    expect(out).not.toContain("ETTL");               // legacy column header removed
   });
 
   it("both compact and full contain bar characters (█ or ░)", () => {
@@ -259,5 +263,196 @@ describe("i18n translator", () => {
     const cat = await loadCatalog("en");
     expect(cat["status.OK"]).toBeDefined();
     expect(typeof cat["status.OK"]).toBe("string");
+  });
+});
+
+// ── renderBar — framed option ─────────────────────────────────────────────────
+
+describe("renderBar — framed option", () => {
+  it("returns bare bar when framed=false", () => {
+    const bar = renderBar(0.4);
+    // backward compat: bare bar (10 wide default, █ and .)
+    expect(bar).toMatch(/^[█.]+$/);
+    expect(bar).not.toContain("[");
+    expect(bar).not.toContain("]");
+  });
+
+  it("returns bracketed bar with trailing space when framed=true", () => {
+    // Default width is 10 (REQ-r2): ratio 0.4 → 4 filled + 6 empty.
+    expect(renderBar(0.4, { framed: true })).toBe("[████......] ");
+  });
+
+  it("uses . as default empty char when framed", () => {
+    expect(renderBar(0.4, { framed: true })).toContain(".");
+  });
+
+  it("clamps ratio to [0,1]", () => {
+    expect(renderBar(-0.1, { framed: true })).toBe("[..........] ");
+    expect(renderBar(1.5, { framed: true })).toBe("[██████████] ");
+  });
+
+  it("framed=true with width=10", () => {
+    expect(renderBar(0.5, { framed: true, width: 10 })).toBe("[█████.....] ");
+  });
+});
+
+// ── renderBar — colorSplit=filled ────────────────────────────────────────────
+
+describe("renderBar — colorSplit=filled", () => {
+  it("wraps filled portion in colorName and empty in dim", () => {
+    // With width=10 (new default) and ratio=0.4: 4 filled + 6 empty
+    const out = renderBar(0.4, { framed: true, colorName: "green", colorSplit: "filled" });
+    // Filled = "████" wrapped in green, empty = "......" wrapped in dim
+    expect(out).toContain("\x1b[32m████\x1b[0m");
+    expect(out).toContain("\x1b[2m......\x1b[0m");
+  });
+
+  it("colorSplit=filled without colorName falls back to plain bar", () => {
+    const out = renderBar(0.5, { colorSplit: "filled" });
+    expect(out).not.toMatch(/\x1b\[\d+m/);
+  });
+
+  it("colorSplit=none (default) emits no ANSI", () => {
+    const out = renderBar(0.5, { colorSplit: "none" });
+    expect(out).not.toMatch(/\x1b\[\d+m/);
+  });
+});
+
+// ── TableRenderer — unit-aware formatting ─────────────────────────────────────
+
+describe("TableRenderer — unit-aware formatting", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let TableRenderer!: new () => any;
+
+  beforeAll(async () => {
+    const mod = await import("../../../src/rendering/index.js");
+    TableRenderer = mod.TableRenderer;
+  });
+
+  const pctRow: QuotaData = {
+    id: "x", providerName: "z.ai · 5-hour rolling limit",
+    used: 12, limit: 100, unit: "%",
+    reset: new Date(Date.now() + 7 * 3600 * 1000), predictedReset: null,
+    window: "rolling-5h",
+  };
+
+  it("renders percentage rows with bar + 'X% used'", () => {
+    const out = new TableRenderer().render([pctRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out).toContain("[█");
+    expect(out).toMatch(/12%\s*used/);
+    expect(out).toContain("z.ai · 5-hour rolling limit");
+  });
+
+  const tokenRow: QuotaData = {
+    id: "x", providerName: "OpenAI · Token usage",
+    used: 2_400_000, limit: 10_000_000, unit: "tokens",
+    reset: null, predictedReset: null, window: "rolling",
+  };
+
+  it("renders token rows as text-only (no bar), humanized numbers", () => {
+    const out = new TableRenderer().render([tokenRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out).not.toContain("[");
+    expect(out).toContain("tokens");
+    expect(out).toMatch(/2\.4M\s*\/\s*10M\s*tokens/);
+  });
+
+  const creditRow: QuotaData = {
+    id: "x", providerName: "OpenAI · Credit balance",
+    used: 12.5, limit: null, unit: "credits",
+    reset: null, predictedReset: null, window: "rolling",
+  };
+
+  it("renders credits as 'balance: X'", () => {
+    const out = new TableRenderer().render([creditRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out).toContain("balance");
+    expect(out).toContain("12.5");
+  });
+
+  const unlimitedRow: QuotaData = {
+    id: "x", providerName: "Anthropic · Token usage",
+    used: 100, limit: null, unit: "tokens",
+    reset: null, predictedReset: null, window: "daily",
+  };
+
+  it("renders unlimited as 'no limit'", () => {
+    const out = new TableRenderer().render([unlimitedRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out).toContain("no limit");
+  });
+
+  const reqRow: QuotaData = {
+    id: "x", providerName: "Minimax · Daily request quota",
+    used: 850, limit: 1000, unit: "requests",
+    reset: null, predictedReset: null, window: "daily",
+  };
+
+  it("renders requests as 'used / limit requests'", () => {
+    const out = new TableRenderer().render([reqRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out).toMatch(/850\s*\/\s*1000\s*requests/);
+  });
+
+  it("renders unlimited requests as 'no limit'", () => {
+    const unlimitedReq: QuotaData = {
+      id: "y", providerName: "Zen · Requests",
+      used: 50, limit: null, unit: "requests",
+      reset: null, predictedReset: null, window: "rolling",
+    };
+    const out = new TableRenderer().render([unlimitedReq], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out).toContain("no limit");
+  });
+});
+
+// ── TableRenderer — ASCII frame ───────────────────────────────────────────────
+
+describe("TableRenderer — ASCII frame", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let TableRenderer!: new () => any;
+
+  beforeAll(async () => {
+    const mod = await import("../../../src/rendering/index.js");
+    TableRenderer = mod.TableRenderer;
+  });
+
+  const sampleRow: QuotaData = {
+    id: "z-1", providerName: "z.ai · 5-hour rolling limit",
+    used: 12, limit: 100, unit: "%",
+    reset: null, predictedReset: null, window: "rolling-5h",
+  };
+
+  it("wraps rows in +---+ / | | frame", () => {
+    const out = new TableRenderer().render([sampleRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    expect(out.split("\n")[0]).toMatch(/^\+-+\+$/);
+    expect(out.split("\n").at(-1)).toMatch(/^\+-+\+$/);
+  });
+
+  it("includes branded header row with provider name", () => {
+    const out = new TableRenderer().render([sampleRow], {
+      terminalWidth: 80,
+      t: NOOP_TRANSLATOR,
+      header: { brand: "z.ai", plan: "Coding Plan" },
+    });
+    expect(out).toContain("z.ai");
+    expect(out).toContain("Coding Plan");
+  });
+
+  it("clamps terminalWidth to [60,80]", () => {
+    const dummy: QuotaData = {
+      id: "d", providerName: "X",
+      used: 1, limit: 10, unit: "%",
+      reset: null, predictedReset: null, window: "daily",
+    };
+    const narrow = new TableRenderer().render([dummy], { terminalWidth: 30, t: NOOP_TRANSLATOR });
+    const wide = new TableRenderer().render([dummy], { terminalWidth: 200, t: NOOP_TRANSLATOR });
+    // Frame top line length is width + 2 (for + and +)
+    expect(narrow.split("\n")[0].length).toBe(62); // 60 inner + 2 corners
+    expect(wide.split("\n")[0].length).toBe(82);   // 80 inner + 2 corners
+  });
+
+  it("body rows are enclosed in | |", () => {
+    const out = new TableRenderer().render([sampleRow], { terminalWidth: 80, t: NOOP_TRANSLATOR });
+    const lines = out.split("\n");
+    // skip top (+---+) and header (| brand |) — body rows start at index 2
+    for (let i = 2; i < lines.length - 1; i++) {
+      expect(lines[i]).toMatch(/^\| .+ \|$/);
+    }
   });
 });

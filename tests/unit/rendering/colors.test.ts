@@ -10,12 +10,15 @@ let COLOR_MAP!: Readonly<Record<string, string>>;
 let isValidColor!: (name: string) => boolean;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let ansiColor!: (name: string, text: string) => string;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let dim!: (text: string) => string;
 
 beforeAll(async () => {
   const colors = await import("../../../src/rendering/colors.js");
   COLOR_MAP = colors.COLOR_MAP;
   isValidColor = colors.isValidColor;
   ansiColor = colors.ansiColor;
+  dim = colors.dim;
 });
 
 const ALL_16_COLORS = [
@@ -110,10 +113,20 @@ describe("ansiColor integration — colored usage bar", () => {
   });
 
   it("bright colors produce visually distinct output", () => {
-    const dim = ansiColor("red", "X");
+    const dimColored = ansiColor("red", "X");
     const bright = ansiColor("brightRed", "X");
-    expect(dim).not.toBe(bright);
-    expect(dim).toMatch(/^\x1b\[3\dmX\x1b\[0m$/);
+    expect(dimColored).not.toBe(bright);
+    expect(dimColored).toMatch(/^\x1b\[3\dmX\x1b\[0m$/);
     expect(bright).toMatch(/^\x1b\[9\dmX\x1b\[0m$/);
+  });
+});
+
+describe("dim", () => {
+  it("wraps text in SGR 2 + reset", () => {
+    expect(dim("foo")).toBe("\x1b[2mfoo\x1b[0m");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(dim("")).toBe("\x1b[2m\x1b[0m");
   });
 });

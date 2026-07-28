@@ -1,5 +1,5 @@
 // Status thresholds + progress bar. Defaults: OK < 0.5 | WRN [0.5, 0.8) | ERR [0.8, ∞). Unlimited → OK.
-import { ansiColor } from "./colors.js";
+import { ansiColor, dim } from "./colors.js";
 
 export interface StatusResult {
   readonly code: "OK" | "WRN" | "ERR" | "UNK";
@@ -13,6 +13,13 @@ export interface BarOptions {
   readonly emptyChar?: string;
   /** Static color name — when set, bar is wrapped in ANSI codes for that color. */
   readonly colorName?: string;
+  /** When true, return "[<bar>] " with brackets and trailing space. */
+  readonly framed?: boolean;
+  /**
+   * When "filled", the filled portion uses colorName and the empty portion uses dim.
+   * Only meaningful when colorName is also set.
+   */
+  readonly colorSplit?: "filled" | "none";
 }
 
 const DEFAULT_GRADIENTS: Gradient[] = [
@@ -33,9 +40,29 @@ export function getStatus(used: number, limit: number | null, gradients: Gradien
 }
 
 export function renderBar(ratio: number, opts: BarOptions = {}): string {
-  const w = opts.width ?? 20, fc = opts.filledChar ?? "█", ec = opts.emptyChar ?? "░";
-  const filled = Math.round(Math.min(Math.max(ratio, 0), 1) * w);
-  const bar = fc.repeat(filled) + ec.repeat(w - filled);
-  if (!opts.colorName) return bar;
-  return ansiColor(opts.colorName, bar);
+  const w = opts.width ?? 10, fc = opts.filledChar ?? "█", ec = opts.emptyChar ?? ".";
+  const clamped = Math.min(Math.max(ratio, 0), 1);
+  const filled = Math.round(clamped * w);
+  const empty = w - filled;
+
+  const useColorSplit = opts.colorSplit === "filled" && opts.colorName;
+
+  let filledPart: string;
+  let emptyPart: string;
+
+  if (useColorSplit) {
+    filledPart = ansiColor(opts.colorName!, fc.repeat(filled));
+    emptyPart = dim(ec.repeat(empty));  // wrap entire empty portion as one chunk
+  } else if (opts.colorName) {
+    const bar = fc.repeat(filled) + ec.repeat(empty);
+    filledPart = ansiColor(opts.colorName, bar);
+    emptyPart = "";
+  } else {
+    filledPart = fc.repeat(filled) + ec.repeat(empty);
+    emptyPart = "";
+  }
+
+  const bar = filledPart + emptyPart;
+  if (opts.framed) return `[${bar}] `;
+  return bar;
 }
