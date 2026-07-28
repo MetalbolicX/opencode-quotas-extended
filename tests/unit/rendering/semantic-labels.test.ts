@@ -14,12 +14,12 @@ import type { QuotaConcept } from "../../../src/rendering/semantic-labels.js";
 describe("QuotaConcept exhaustive table", () => {
   const cases: Array<{ hints: Parameters<typeof enrichQuotaLabel>[1]; expectedConcept: QuotaConcept; expectedLabel: string }> = [
     // z.ai concepts
-    { hints: { type: "TIME_LIMIT", unit: 5 }, expectedConcept: "z.ai-5-hour-rolling", expectedLabel: "5-hour rolling limit" },
+    { hints: { type: "TIME_LIMIT", unit: 5 }, expectedConcept: "z.ai-5-hour-rolling", expectedLabel: "5h quota" },
     { hints: { type: "MCP_LIMIT", unit: 1 }, expectedConcept: "z.ai-mcp", expectedLabel: "MCP quota" },
     { hints: { type: "TOKENS_LIMIT", unit: 3 }, expectedConcept: "z.ai-token", expectedLabel: "Token quota" },
     // minimax concepts
-    { hints: { modelName: "general", weekly: false }, expectedConcept: "minimax-5h-window", expectedLabel: "5-hour rolling limit" },
-    { hints: { modelName: "general", weekly: true }, expectedConcept: "minimax-weekly-request", expectedLabel: "Weekly request quota" },
+    { hints: { modelName: "general", weekly: false }, expectedConcept: "minimax-5h-window", expectedLabel: "5h rolling limit" },
+    { hints: { modelName: "general", weekly: true }, expectedConcept: "minimax-weekly-request", expectedLabel: "Weekly limit" },
     // openai concepts
     { hints: { openaiVariant: "primary" }, expectedConcept: "openai-primary-rate", expectedLabel: "Primary rate limit" },
     { hints: { openaiVariant: "secondary" }, expectedConcept: "openai-secondary-rate", expectedLabel: "Secondary rate limit" },
@@ -43,7 +43,7 @@ describe("QuotaConcept exhaustive table", () => {
 describe("buildProviderName", () => {
   it("uses the · separator with non-breaking spaces", () => {
     const result = buildProviderName("z.ai", "z.ai-5-hour-rolling");
-    expect(result).toBe("z.ai\u00A0·\u00A05-hour rolling limit");
+    expect(result).toBe("z.ai\u00A0·\u00A05h quota");
   });
 
   it("capitalises brand as provided", () => {
@@ -80,13 +80,13 @@ describe("enrichQuotaLabel — edge cases", () => {
   it("weekly minimax hint drives weekly concept over modelName alone", () => {
     const result = enrichQuotaLabel("minimax", { modelName: "general", weekly: true });
     expect(result.concept).toBe("minimax-weekly-request");
-    expect(result.label).toBe("Weekly request quota");
+    expect(result.label).toBe("Weekly limit");
   });
 
   it("daily minimax hint — no weekly flag — general model → minimax-5h-window", () => {
     const result = enrichQuotaLabel("minimax", { modelName: "general", weekly: false });
     expect(result.concept).toBe("minimax-5h-window");
-    expect(result.label).toBe("5-hour rolling limit");
+    expect(result.label).toBe("5h rolling limit");
   });
 
   it("geminiModel drives gemini-model-quota concept", () => {
@@ -97,51 +97,51 @@ describe("enrichQuotaLabel — edge cases", () => {
 
   it("providerId is included in returned object for traceability", () => {
     const result = enrichQuotaLabel("minimax", { weekly: true });
-    expect(result.label).toBe("Weekly request quota");
+    expect(result.label).toBe("Weekly limit");
   });
 });
 
 // ─── PR2 RED: new semantic-label concepts ────────────────────────────────────────
 describe("PR2: minimax-5h-window concept (general model, non-weekly)", () => {
-  it("modelName general + weekly false → minimax-5h-window, label '5-hour rolling limit'", () => {
+  it("modelName general + weekly false → minimax-5h-window, label '5h rolling limit'", () => {
     const result = enrichQuotaLabel("minimax", { modelName: "general", weekly: false });
     expect(result.concept).toBe("minimax-5h-window");
-    expect(result.label).toBe("5-hour rolling limit");
+    expect(result.label).toBe("5h rolling limit");
   });
 });
 
 describe("PR2: minimax-video concept", () => {
-  it("modelName video (non-weekly) → minimax-video, label 'Video generation quota'", () => {
+  it("modelName video (non-weekly) → minimax-video, label 'Video generation'", () => {
     const result = enrichQuotaLabel("minimax", { modelName: "video", weekly: false });
     expect(result.concept).toBe("minimax-video");
-    expect(result.label).toBe("Video generation quota");
+    expect(result.label).toBe("Video generation");
   });
 });
 
 describe("PR2: z.ai TIME_LIMIT unit branching", () => {
-  it("unit 5 → z.ai-5-hour-rolling '5-hour rolling limit' (existing)", () => {
+  it("unit 5 → z.ai-5-hour-rolling '5h quota' (existing)", () => {
     const result = enrichQuotaLabel("z.ai", { type: "TIME_LIMIT", unit: 5 });
     expect(result.concept).toBe("z.ai-5-hour-rolling");
-    expect(result.label).toBe("5-hour rolling limit");
+    expect(result.label).toBe("5h quota");
   });
 
-  it("unit 'weekly' (string) → z.ai-weekly-rolling 'Weekly rolling limit'", () => {
+  it("unit 'weekly' (string) → z.ai-weekly-rolling 'Weekly quota'", () => {
     // unit is typed number | string | null in ProviderPayloadHints
     const result = enrichQuotaLabel("z.ai", { type: "TIME_LIMIT", unit: "weekly" as const });
     expect(result.concept).toBe("z.ai-weekly-rolling");
-    expect(result.label).toBe("Weekly rolling limit");
+    expect(result.label).toBe("Weekly quota");
   });
 
-  it("unit 168 (>=168) → z.ai-weekly-rolling 'Weekly rolling limit'", () => {
+  it("unit 168 (>=168) → z.ai-weekly-rolling 'Weekly quota'", () => {
     const result = enrichQuotaLabel("z.ai", { type: "TIME_LIMIT", unit: 168 });
     expect(result.concept).toBe("z.ai-weekly-rolling");
-    expect(result.label).toBe("Weekly rolling limit");
+    expect(result.label).toBe("Weekly quota");
   });
 
-  it("unit 200 (>=168) → z.ai-weekly-rolling 'Weekly rolling limit'", () => {
+  it("unit 200 (>=168) → z.ai-weekly-rolling 'Weekly quota'", () => {
     const result = enrichQuotaLabel("z.ai", { type: "TIME_LIMIT", unit: 200 });
     expect(result.concept).toBe("z.ai-weekly-rolling");
-    expect(result.label).toBe("Weekly rolling limit");
+    expect(result.label).toBe("Weekly quota");
   });
 
   it("unit 10 (non-weekly, non-5) → z.ai-generic-rolling '10-hour rolling limit'", () => {
@@ -155,13 +155,13 @@ describe("PR2: minimax model precedence", () => {
   it("weekly=true wins over modelName (general) → minimax-weekly-request", () => {
     const result = enrichQuotaLabel("minimax", { modelName: "general", weekly: true });
     expect(result.concept).toBe("minimax-weekly-request");
-    expect(result.label).toBe("Weekly request quota");
+    expect(result.label).toBe("Weekly limit");
   });
 
   it("weekly=true wins over modelName (video) → minimax-weekly-request", () => {
     const result = enrichQuotaLabel("minimax", { modelName: "video", weekly: true });
     expect(result.concept).toBe("minimax-weekly-request");
-    expect(result.label).toBe("Weekly request quota");
+    expect(result.label).toBe("Weekly limit");
   });
 
   it("general non-weekly → minimax-5h-window", () => {

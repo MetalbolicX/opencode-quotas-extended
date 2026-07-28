@@ -254,10 +254,10 @@ describe("info + window strict-union invariant (all 8 providers)", () => {
     it("accepts 'rolling-weekly' in the strict union", () => {
       const sample: import("../../../src/domain/types.js").QuotaData = {
         id: "minimax-general-weekly",
-        providerName: "Minimax · Weekly request quota",
+        providerName: "Minimax · Weekly limit",
         used: 5,
         limit: 100,
-        unit: "requests",
+        unit: "%",
         reset: null,
         predictedReset: null,
         window: "rolling-weekly",

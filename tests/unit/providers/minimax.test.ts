@@ -62,7 +62,7 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
   });
 
   // ── WU-2: semantic labels for minimax ────────────────────────────────────────
-  it("weekly row → info contains 'Weekly request quota' and window is rolling-weekly", async () => {
+  it("weekly row → info contains 'Weekly limit' and window is rolling-weekly", async () => {
     // Mock execSync to succeed (mmx binary present) and return a fixture with weekly data.
     vi.mocked(execSync).mockImplementation(() => {
       const out = [
@@ -82,7 +82,7 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
     const quotas = await provider.fetchQuotas();
 
     const weeklyRow = quotas.find((q) => q.id.includes("weekly"))!;
-    expect(weeklyRow.info).toContain("Weekly request quota");
+    expect(weeklyRow.info).toContain("Weekly limit");
     // providerName must use the · separator
     expect(weeklyRow.providerName).toContain("\u00A0·\u00A0");
     // window must be rolling-weekly (not generic rolling)
@@ -91,7 +91,7 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
     expect(weeklyRow.info).not.toContain("(100×42)");
   });
 
-  it("general interval row → info contains '5-hour rolling limit' and window is rolling-5h", async () => {
+  it("general interval row → info contains '5h rolling limit' and window is rolling-5h", async () => {
     vi.mocked(execSync).mockImplementation(() => {
       const out = [
         '{"model_remains":[{"model_name":"general",',
@@ -110,7 +110,7 @@ describe("minimax provider — mmx binary pre-check (WU-6)", () => {
     const quotas = await provider.fetchQuotas();
 
     const generalIntervalRow = quotas.find((q) => q.id === "minimax-general-5h")!;
-    expect(generalIntervalRow.info).toContain("5-hour rolling limit");
+    expect(generalIntervalRow.info).toContain("5h rolling limit");
     expect(generalIntervalRow.window).toBe("rolling-5h");
   });
 
@@ -178,17 +178,20 @@ describe("minimax provider — three rows: general 5h, general weekly, video int
 
     // Row 1: general 5h window
     expect(quotas[0].id).toBe("minimax-general-5h");
-    expect(quotas[0].info).toContain("5-hour rolling limit");
+    expect(quotas[0].info).toContain("5h rolling limit");
     expect(quotas[0].window).toBe("rolling-5h");
 
     // Row 2: general weekly
     expect(quotas[1].id).toBe("minimax-general-weekly");
-    expect(quotas[1].info).toContain("Weekly request quota");
+    expect(quotas[1].info).toContain("Weekly limit");
     expect(quotas[1].window).toBe("rolling-weekly");
 
     // Row 3: video interval
     expect(quotas[2].id).toBe("minimax-video-interval");
-    expect(quotas[2].info).toContain("Video generation quota");
+    expect(quotas[2].info).toContain("Video generation");
+    expect(quotas[2].used).toBe(Math.round((0 / 3) * 100));
+    expect(quotas[2].limit).toBe(100);
+    expect(quotas[2].unit).toBe("%");
     expect(quotas[2].window).toBe("daily");
 
     // Distinct labels

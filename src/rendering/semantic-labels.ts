@@ -28,14 +28,14 @@ export interface ProviderPayloadHints {
 
 // Label catalog — one entry per concept
 const LABEL_MAP: Record<QuotaConcept, string> = {
-  "z.ai-5-hour-rolling": "5-hour rolling limit",
+  "z.ai-5-hour-rolling": "5h quota",
   "z.ai-mcp": "MCP quota",
   "z.ai-token": "Token quota",
   "minimax-daily-request": "Daily request quota",
-  "minimax-weekly-request": "Weekly request quota",
-  "minimax-5h-window": "5-hour rolling limit",
-  "minimax-video": "Video generation quota",
-  "z.ai-weekly-rolling": "Weekly rolling limit",
+  "minimax-weekly-request": "Weekly limit",
+  "minimax-5h-window": "5h rolling limit",
+  "minimax-video": "Video generation",
+  "z.ai-weekly-rolling": "Weekly quota",
   "z.ai-generic-rolling": "Generic rolling limit",
   "openai-primary-rate": "Primary rate limit",
   "openai-secondary-rate": "Secondary rate limit",
@@ -68,7 +68,13 @@ export function enrichQuotaLabel(
     return { label, concept };
   }
   if (hints.type === "MCP_LIMIT") return { label: LABEL_MAP["z.ai-mcp"], concept: "z.ai-mcp" };
-  if (hints.type === "TOKENS_LIMIT") return { label: LABEL_MAP["z.ai-token"], concept: "z.ai-token" };
+  if (hints.type === "TOKENS_LIMIT") {
+    // Distinguish multiple token limits by their `number` field so they don't collapse
+    // into identical rows in the table (Z.AI can expose several token buckets).
+    const base = LABEL_MAP["z.ai-token"];
+    const discriminator = hints.number !== null && hints.number !== undefined ? ` #${hints.number}` : "";
+    return { label: `${base}${discriminator}`, concept: "z.ai-token" };
+  }
 
   // minimax concepts — weekly wins
   if (hints.weekly) {

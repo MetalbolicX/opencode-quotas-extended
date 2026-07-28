@@ -126,10 +126,10 @@ describe("parseUsage", () => {
 
 /**
  * RED 4.1.1 — scrambled input.
- * parseZaiLimits MUST sort output as: rolling-5h → rolling-mcp → rolling-weekly.
+ * parseZaiLimits MUST sort output as: rolling-mcp → rolling-5h → rolling-weekly.
  * Input order is [weekly, 5h, MCP]; expected output order must be sorted.
  */
-describe("parseZaiLimits — PR4 row order (5h → MCP → weekly)", () => {
+describe("parseZaiLimits — PR4 row order (MCP → 5h → weekly)", () => {
   const weeklyEntry = {
     type: "TIME_LIMIT", unit: 168, number: 1,
     usage: 100, currentValue: 87, remaining: 13,
@@ -146,24 +146,24 @@ describe("parseZaiLimits — PR4 row order (5h → MCP → weekly)", () => {
     percentage: 20, nextResetTime: 1750000000000, usageDetails: [],
   };
 
-  it("sorts rows as 5h → MCP → weekly regardless of payload order", () => {
+  it("sorts rows as MCP → 5h → weekly regardless of payload order", () => {
     // Scrambled: weekly first, then 5h, then MCP
     const input = { code: 200, msg: "success", data: { limits: [weeklyEntry, fiveHEntry, mcpEntry] } };
     const result = parseZaiLimits(input, "zai", "z.ai");
     expect(result).toHaveLength(3);
-    // Must be sorted: rolling-5h first, rolling-mcp second, rolling-weekly third
-    expect(result[0].window).toBe("rolling-5h");
-    expect(result[1].window).toBe("rolling-mcp");
+    // Must be sorted: rolling-mcp first, rolling-5h second, rolling-weekly third
+    expect(result[0].window).toBe("rolling-mcp");
+    expect(result[1].window).toBe("rolling-5h");
     expect(result[2].window).toBe("rolling-weekly");
   });
 
   it("wrong row count: only 2 rows → those 2 rows are still sorted correctly", () => {
-    // When only 2 rows present, they should still be sorted: 5h first, MCP second (no weekly)
+    // When only 2 rows present, they should still be sorted: MCP first, 5h second (no weekly)
     const input = { code: 200, msg: "success", data: { limits: [weeklyEntry, fiveHEntry, mcpEntry].slice(1) } };
     const result = parseZaiLimits(input, "zai", "z.ai");
     expect(result).toHaveLength(2);
-    expect(result[0].window).toBe("rolling-5h");
-    expect(result[1].window).toBe("rolling-mcp");
+    expect(result[0].window).toBe("rolling-mcp");
+    expect(result[1].window).toBe("rolling-5h");
   });
 
   it("4 rows (extra non-standard unit) → canonical 3 are sorted + 1 fallback", () => {
@@ -176,8 +176,8 @@ describe("parseZaiLimits — PR4 row order (5h → MCP → weekly)", () => {
     const result = parseZaiLimits(input, "zai", "z.ai");
     // Expect 4: 3 canonical sorted + 1 non-standard fallback
     expect(result).toHaveLength(4);
-    expect(result[0].window).toBe("rolling-5h");
-    expect(result[1].window).toBe("rolling-mcp");
+    expect(result[0].window).toBe("rolling-mcp");
+    expect(result[1].window).toBe("rolling-5h");
     expect(result[2].window).toBe("rolling-weekly");
     expect(result[3].window).toBe("rolling"); // unit=10 fallback
     expect(result[3].info).toMatch(/10-hour rolling limit/);
@@ -375,7 +375,9 @@ describe("parseZaiLimits — percentage + window identity", () => {
     const result = parseZaiLimits(input, "zai", "z.ai");
     expect(result).toHaveLength(2);
     expect(result[0].providerName).not.toBe(result[1].providerName);
-    expect(result[1].used).toBe(20);
+    // MCP_LIMIT (used=20) sorts before TIME_LIMIT 5h (used=12) per new ZAI_WINDOW_ORDER
+    expect(result[0].used).toBe(20);
+    expect(result[1].used).toBe(12);
   });
 
   it("falls back to currentValue/usage*100 when percentage is missing", () => {

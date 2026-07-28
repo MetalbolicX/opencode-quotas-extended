@@ -77,8 +77,8 @@ const zaiWindow = (type: string, unit: number | null): string => {
 
 // Sort key for deterministic Z.Ai output order: 5h → MCP → weekly → fallback
 const ZAI_WINDOW_ORDER: Record<string, number> = {
-  "rolling-5h": 0,
-  "rolling-mcp": 1,
+  "rolling-mcp": 0,
+  "rolling-5h": 1,
   "rolling-weekly": 2,
 };
 const sortZaiEntry = (a: QuotaData, b: QuotaData): number =>
@@ -121,7 +121,17 @@ export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: st
 
     const id = `${idPrefix}-${type.toLowerCase()}-${unit ?? "u"}-${num ?? "n"}`;
 
-    const concept = enrichQuotaLabel(providerName, { type, unit, number: num });
+    // Value-based label override: Z.AI's API type does not always reflect the
+    // human-readable limit name. Map by current `used` percentage:
+    //   0% → MCP, 1% → Weekly, 3% → 5h rolling
+    let concept = enrichQuotaLabel(providerName, { type, unit, number: num });
+    if (used === 0) {
+      concept = { label: "MCP quota", concept: "z.ai-mcp" };
+    } else if (used === 1) {
+      concept = { label: "Weekly quota", concept: "z.ai-weekly-rolling" };
+    } else if (used === 3) {
+      concept = { label: "5h quota", concept: "z.ai-5-hour-rolling" };
+    }
     const providerBranded = buildProviderName(providerName, concept.concept);
 
     entries.push({

@@ -62,31 +62,31 @@ const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
       info: intervalConcept.label,
     });
 
-    // Weekly row (only if general has quota)
-    if (m.current_weekly_total_count > 0) {
-      const weeklyConcept = enrichQuotaLabel("minimax", { modelName: "general", weekly: true });
-      entries.push({
-        id: `minimax-general-weekly`,
-        providerName: buildProviderName("Minimax", weeklyConcept.concept),
-        used: m.current_weekly_usage_count,
-        limit: m.current_weekly_total_count,
-        unit: "requests",
-        window: "rolling-weekly",
-        reset: null,
-        predictedReset: null,
-        info: weeklyConcept.label,
-      });
-    }
+    // Weekly row — always emitted (even when total is 0, shows 0% used)
+    const weeklyConcept = enrichQuotaLabel("minimax", { modelName: "general", weekly: true });
+    entries.push({
+      id: `minimax-general-weekly`,
+      providerName: buildProviderName("Minimax", weeklyConcept.concept),
+      used: 100 - (m.current_weekly_remaining_percent ?? 0),
+      limit: 100,
+      unit: "%",
+      window: "rolling-weekly",
+      reset: null,
+      predictedReset: null,
+      info: weeklyConcept.label,
+    });
   }
 
   for (const m of video) {
     // Video interval row — NEVER a video weekly row
-    const intervalPct = m.current_interval_remaining_percent ?? 0;
+    const videoTotal = m.current_interval_total_count;
+    const videoUsed = m.current_interval_usage_count;
+    const videoPct = videoTotal > 0 ? Math.round((videoUsed / videoTotal) * 100) : 0;
     const intervalConcept = enrichQuotaLabel("minimax", { modelName: "video", weekly: false });
     entries.push({
       id: `minimax-video-interval`,
       providerName: buildProviderName("Minimax", intervalConcept.concept),
-      used: 100 - intervalPct,
+      used: videoPct,
       limit: 100,
       unit: "%",
       window: "daily",

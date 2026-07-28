@@ -88,10 +88,11 @@ export class TableRenderer implements Renderer {
     const colorSplit: "filled" | "none" = useColor ? "filled" : "none";
     const barColorName = color;
 
-    // Default geometry: info=24, bar=13 ([10 chars] + trailing space), usage=20, reset=6, ettl=6
+    // Default geometry: info=24, bar=13 ([10 chars] + trailing space), usage=27, reset=6, ettl=6
+    // Sum of cells (24+13+27+6+6 = 76) + 4 spaces = 80 chars, matching innerW = w - 4.
     const INFO_W = 24;
     const BAR_W = 13;   // [10 chars] + trailing space
-    const USAGE_W = 20;
+    const USAGE_W = 27;
     const RESET_W = 6;
     const ETTL_W = 6;
 

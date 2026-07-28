@@ -330,11 +330,11 @@ describe("TableRenderer — unit-aware formatting", () => {
   });
 
   const pctRow: QuotaData = {
-    id: "x", providerName: "z.ai · 5-hour rolling limit",
+    id: "x", providerName: "z.ai · 5h quota",
     used: 12, limit: 100, unit: "%",
     reset: new Date(Date.now() + 7 * 3600 * 1000), predictedReset: null,
     window: "rolling-5h",
-    info: "5-hour rolling limit",
+    info: "5h quota",
   };
 
   it("renders percentage rows with bar + 'X% used'", () => {
@@ -342,7 +342,7 @@ describe("TableRenderer — unit-aware formatting", () => {
     expect(out).toContain("[█");
     expect(out).toMatch(/12%\s*used/);
     // Data row uses info (clipped), not providerName; header carries brand/plan
-    expect(out).toContain("5-hour rolling limit");
+    expect(out).toContain("5h quota");
   });
 
   const tokenRow: QuotaData = {
@@ -420,10 +420,10 @@ describe("TableRenderer — ASCII frame", () => {
   });
 
   const sampleRow: QuotaData = {
-    id: "z-1", providerName: "z.ai · 5-hour rolling limit",
+    id: "z-1", providerName: "z.ai · 5h quota",
     used: 12, limit: 100, unit: "%",
     reset: null, predictedReset: null, window: "rolling-5h",
-    info: "5-hour rolling limit",
+    info: "5h quota",
   };
 
   it("wraps rows in +---+ / | | frame", () => {
