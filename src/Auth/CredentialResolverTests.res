@@ -1,0 +1,182 @@
+// src/Auth/CredentialResolverTests.res
+// Tests for CredentialResolver module — covers spec scenarios CR1 through CR5.
+open RescriptTest
+
+autoBoot := false
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+let tmpDir = (): string => {
+  let ts = %raw("Date.now().toString()")
+  Node.osTmpdir() ++ "/cr-test-" ++ ts
+}
+
+let tmpAuthJsonPath = (dir: string): string => dir ++ "/opencode/auth.json"
+
+let ensureOpencodeDir = (dir: string): unit => {
+  // Create base dir and opencode subdir; ignore if already exists
+  try {
+    let _ = Node.mkdirSync(dir)
+  } catch {
+  | _ => ()
+  }
+  try {
+    let _ = Node.mkdirSync(dir ++ "/opencode")
+  } catch {
+  | _ => ()
+  }
+}
+
+// ─── CR1: auth.json present → resolver returns that credential ────────────────
+
+testAsync("CR1: auth.json credential is returned", callback => {
+  let dir = tmpDir()
+  let authPath = tmpAuthJsonPath(dir)
+  let content = JSON.Object(Dict.fromArray([
+    ("openai", JSON.Object(Dict.fromArray([
+      ("type", JSON.String("api")),
+      ("key", JSON.String("sk-auth-json-key")),
+    ]))),
+  ]))->JSON.stringify
+
+  // Create opencode subdir + write auth.json
+  ensureOpencodeDir(dir)
+  let _ = Node.writeFileSync(authPath, content)
+
+  // Set XDG_DATA_HOME so Paths.getAuthJsonPath resolves to our temp auth.json
+  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let result = CredentialResolver.resolve("openai")
+
+  let _ = result->Promise.then(cred => {
+    let passed = cred == Some(Credential.Api({variant: "api", key: "sk-auth-json-key"}))
+    assertion(
+      ~message="CR1: Expected auth.json credential",
+      (a, b) => a == b,
+      true,
+      passed,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    assertion(~message="CR1: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
+// ─── CR2: auth.json absent, env present → resolver returns env credential ───────
+
+testAsync("CR2: env credential is returned when auth.json is absent", callback => {
+  let dir = tmpDir()
+  let authPath = tmpAuthJsonPath(dir)
+
+  // Create opencode subdir + write empty auth.json
+  ensureOpencodeDir(dir)
+  let _ = Node.writeFileSync(authPath, "{}")
+
+  // Set XDG_DATA_HOME to our temp dir + set OPENAI_API_KEY in process.env
+  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let _ = %raw("process.env['OPENAI_API_KEY'] = 'sk-env-key'")
+
+  let result = CredentialResolver.resolve("openai")
+
+  let _ = result->Promise.then(cred => {
+    let passed = cred == Some(Credential.Api({variant: "api", key: "sk-env-key"}))
+    assertion(
+      ~message="CR2: Expected env credential",
+      (a, b) => a == b,
+      true,
+      passed,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    assertion(~message="CR2: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
+// ─── CR3: auth.json + env absent → resolver returns None ─────────────────────
+
+testAsync("CR3: resolver returns None when all three sources are empty", callback => {
+  let dir = tmpDir()
+  let authPath = tmpAuthJsonPath(dir)
+
+  // Create opencode subdir + write empty auth.json
+  ensureOpencodeDir(dir)
+  let _ = Node.writeFileSync(authPath, "{}")
+
+  // Set XDG_DATA_HOME to our temp dir; ensure no API key
+  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let _ = %raw("delete process.env['OPENAI_API_KEY']")
+
+  let result = CredentialResolver.resolve("openai")
+
+  let _ = result->Promise.then(cred => {
+    // All three sources should be empty → None
+    let passed = cred == None
+    assertion(
+      ~message="CR3: Expected None when all sources are empty",
+      (a, b) => a == b,
+      true,
+      passed,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    assertion(~message="CR3: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
+// ─── CR4: all sources absent → individual sources return None ─────────────────
+
+test("CR4: individual sources return None when empty", () => {
+  let dir = tmpDir()
+  let authPath = tmpAuthJsonPath(dir)
+
+  // Create opencode subdir + write empty auth.json
+  ensureOpencodeDir(dir)
+  let _ = Node.writeFileSync(authPath, "{}")
+
+  let injectedEnv = Dict.fromArray([
+    ("XDG_DATA_HOME", dir),
+    // no OPENAI_API_KEY
+  ])
+
+  let jsonResult = AuthJsonSource.getCredential("openai")
+  let envResult = EnvSource.getCredential("openai", injectedEnv)
+
+  let jsonNone = jsonResult == None
+  let envNone = envResult == None
+  assertion(
+    ~message="CR4: auth.json and env both None",
+    (a, b) => a == b,
+    true,
+    jsonNone && envNone,
+  )
+})
+
+// ─── CR5: returns a Promise ───────────────────────────────────────────────────
+
+testAsync("CR5: resolve returns a Promise", callback => {
+  let result = CredentialResolver.resolve("openai")
+  let _ = result->Promise.then(_cred => {
+    assertion(
+      ~message="CR5: resolve returns a Promise",
+      (a, b) => a == b,
+      true,
+      true,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    assertion(~message="CR5: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
+let () = runTests()

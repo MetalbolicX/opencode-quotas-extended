@@ -12,12 +12,13 @@ external promiseAllSettled: array<promise<'a>> => promise<array<settlement<'a>>>
 
 // Node built-ins (prefixed to avoid conflicts)
 @module("node:os") external osHomedir: unit => string = "homedir"
+@module("node:os") external osTmpdir: unit => string = "tmpdir"
 @module("node:path") external pathJoin: (string, string) => string = "join"
 @val external processEnvGet: string => option<string> = "process.env.__lookupGetter__"
 
 // Read process.env as a plain Dict.t<string>.
 @val @scope("process")
-external processEnv: unit => Dict.t<string> = "env"
+external processEnv: Dict.t<string> = "env"
 
 @val external globalFetch: (string, 'init) => promise<'response> = "fetch"
 @new external makeAbortController: unit => 'controller = "AbortController"
@@ -29,6 +30,8 @@ external processEnv: unit => Dict.t<string> = "env"
 @module("node:fs") external readFileSync: string => string = "readFileSync"
 @module("node:fs") external writeFileSync: (string, string) => unit = "writeFileSync"
 @module("node:fs") external existsSync: string => bool = "existsSync"
+@module("node:fs") external mkdirSync: string => unit = "mkdirSync"
+@module("node:fs") external rmSync: string => unit = "rmSync"
 
 @val external setTimeoutMs: (unit => unit, float) => float = "setTimeout"
 @val external clearTimeoutId: float => unit = "clearTimeout"
