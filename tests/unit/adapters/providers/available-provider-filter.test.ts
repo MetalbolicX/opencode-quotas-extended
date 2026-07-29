@@ -5,7 +5,7 @@ import type { QuotaProvider } from "../../../../src/ports/provider.js";
 
 const fakeQuota = (id: string) => ({
   id, providerName: id, used: 50, limit: 100, unit: "requests",
-  reset: null, predictedReset: null, window: "daily" as const,
+  reset: null, window: "daily" as const,
 });
 
 describe("available-provider filter", () => {

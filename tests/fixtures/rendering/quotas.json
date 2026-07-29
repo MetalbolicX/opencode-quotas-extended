@@ -1,7 +1,7 @@
 // Shared QuotaData fixtures for rendering tests.
 [
-  { "id": "openai", "providerName": "OpenAI", "used": 75, "limit": 100, "unit": "%", "reset": null, "predictedReset": null, "window": "daily" },
-  { "id": "anthropic", "providerName": "Anthropic", "used": 45, "limit": 50, "unit": "req", "reset": null, "predictedReset": null, "window": "daily" },
-  { "id": "gemini", "providerName": "Gemini", "used": 120, "limit": 100, "unit": "req", "reset": null, "predictedReset": null, "window": "monthly" },
-  { "id": "zen", "providerName": "opencode-zen", "used": 99, "limit": null, "unit": "req", "reset": null, "predictedReset": null, "window": "rolling" }
+  { "id": "openai", "providerName": "OpenAI", "used": 75, "limit": 100, "unit": "%", "reset": null, "window": "daily" },
+  { "id": "anthropic", "providerName": "Anthropic", "used": 45, "limit": 50, "unit": "req", "reset": null, "window": "daily" },
+  { "id": "gemini", "providerName": "Gemini", "used": 120, "limit": 100, "unit": "req", "reset": null, "window": "monthly" },
+  { "id": "zen", "providerName": "opencode-zen", "used": 99, "limit": null, "unit": "req", "reset": null, "window": "rolling" }
 ]

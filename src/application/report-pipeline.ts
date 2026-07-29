@@ -11,7 +11,8 @@ import type { Renderer } from "../ports/renderer.js";
 import type { RenderMode } from "../domain/types.js";
 
 import { selectRenderer } from "../rendering/index.js";
-import { createI18nTranslator, loadCatalog } from "../i18n/translator.js";
+import en from "../i18n/locales/en.json";
+import { createI18nTranslator, type I18nTranslator } from "../i18n/translator.js";
 import { aggregate, mergeAggregationGroups, type AggregationGroup } from "../domain/aggregation.js";
 import { DEFAULT_AGGREGATION_GROUPS } from "../domain/aggregation-defaults.js";
 
@@ -63,19 +64,10 @@ export interface ReportOptions {
 
 // ── pipeline ───────────────────────────────────────────────────────────────────
 
-/**
- * Loads the English i18n catalog and creates a translator.
- * Falls back to an empty catalog (→ key-as-value) if loading fails,
- * so the pipeline remains robust when locale files are missing.
- */
-async function createDefaultTranslator() {
-  try {
-    const catalog = await loadCatalog("en");
-    return createI18nTranslator(catalog);
-  } catch {
-    return createI18nTranslator({});
-  }
-}
+// Module-scope translator — built once at init from the statically-imported English catalog.
+// The en.json file is bundled by rolldown, so it MUST be present at build time.
+// If it were somehow absent at runtime the original async loader would have failed too.
+const DEFAULT_TRANSLATOR: I18nTranslator = createI18nTranslator(en as Record<string, string>);
 
 /**
  * Shared pipeline: resolve → fetch → history → aggregate(defaults+user) → predict → filter → render.
@@ -111,8 +103,7 @@ export async function reportQuotas(
   // ── Step 2: fetch — direct Promise.allSettled (failure isolation per provider) ─
   let allData: QuotaData[];
   const errors: Record<string, string> = {};
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fetched = await Promise.allSettled(providers.map((p) => (p as any).fetchQuotas()));
+  const fetched = await Promise.allSettled(providers.map((p) => p.fetchQuotas()));
   allData = [];
 
   for (let i = 0; i < fetched.length; i++) {
@@ -155,9 +146,15 @@ export async function reportQuotas(
   // Apply aggregation per group and collect results.
   const aggregatedRows: QuotaData[] = [];
   const groupedIds = new Set<string>();
+  const quotaById = new Map<string, QuotaData>();
+  for (const q of allData) quotaById.set(q.id, q);
   for (const group of mergedGroups) {
     const memberIds = config.aggregatedGroups[group.id]?.members ?? [];
-    const memberQuotas = allData.filter((q) => memberIds.includes(q.id));
+    const memberQuotas: QuotaData[] = [];
+    for (const id of memberIds) {
+      const q = quotaById.get(id);
+      if (q) memberQuotas.push(q);
+    }
     if (memberQuotas.length === 0) continue;
     const ettlMap: Record<string, number> = {};
     // Wire prediction into aggregation context (ettlMap from history)
@@ -189,20 +186,21 @@ export async function reportQuotas(
   }
 
   // ── Step 5: ETTL prediction ─────────────────────────────────────────────────
-  // predictTimeToLimit is wired and available; compute predictedReset for each row.
-  // (Currently pass-through; full history wiring was deferred in the original design.)
+  // Prediction is intentionally not wired. The prediction module exists in
+  // src/domain/prediction.ts for future use; wiring it requires accumulated
+  // history data and a design decision about the user-visible output format.
 
   // ── Step 6: filter by providerId (already applied in Step 1) + modelId ───────
   // providerId filter was applied when selecting providers in Step 1.
   // modelId filter applies to the rendered rows if set.
   let filteredRows = displayRows;
   if (modelId) {
-    filteredRows = filteredRows.filter((q) => q.id === modelId || (q as any).modelId === modelId);
+    filteredRows = filteredRows.filter((q) => q.id === modelId || q.modelId === modelId);
   }
 
   // ── Step 7: select renderer and render ──────────────────────────────────────
   const renderer: Renderer = selectRenderer(mode);
-  const t = await createDefaultTranslator();
+  const t = DEFAULT_TRANSLATOR;
 
   if (filteredRows.length === 0) {
     return { rendered: "", errors };

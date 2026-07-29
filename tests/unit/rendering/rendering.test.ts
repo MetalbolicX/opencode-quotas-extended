@@ -8,10 +8,10 @@ import type { Translator } from "../../../src/ports/translator.js";
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
 const F = {
-  openai: { id: "openai", providerName: "OpenAI", used: 75, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const, info: "OpenAI" },
-  anthropic: { id: "anthropic", providerName: "Anthropic", used: 45, limit: 50, unit: "req", reset: null, predictedReset: null, window: "daily" as const, info: "Anthropic" },
-  gemini: { id: "gemini", providerName: "Gemini", used: 120, limit: 100, unit: "req", reset: null, predictedReset: null, window: "monthly" as const, info: "Gemini" },
-  unlimited: { id: "zen", providerName: "opencode-zen", used: 99, limit: null, unit: "req", reset: null, predictedReset: null, window: "rolling" as const, info: "opencode-zen" },
+  openai: { id: "openai", providerName: "OpenAI", used: 75, limit: 100, unit: "%", reset: null, window: "daily" as const, info: "OpenAI" },
+  anthropic: { id: "anthropic", providerName: "Anthropic", used: 45, limit: 50, unit: "req", reset: null, window: "daily" as const, info: "Anthropic" },
+  gemini: { id: "gemini", providerName: "Gemini", used: 120, limit: 100, unit: "req", reset: null, window: "monthly" as const, info: "Gemini" },
+  unlimited: { id: "zen", providerName: "opencode-zen", used: 99, limit: null, unit: "req", reset: null, window: "rolling" as const, info: "opencode-zen" },
 } as const;
 
 const QUOTAS: QuotaData[] = [F.openai, F.anthropic, F.gemini, F.unlimited];
@@ -187,8 +187,9 @@ describe("table renderer — compact mode", () => {
 
   it("compact=false (full) retains the framed layout with semantic labels and reset context", () => {
     // The mmx-style renderer (REQ-r3 + REQ-r4) does not use legacy "Reset"/"ETTL" column
-    // headers — reset context is rendered inline per row (e.g. "in 5h") and ETTL lives
-    // in predictedReset. The frame MUST still wrap the rows.
+    // headers — reset context is rendered inline per row (e.g. "in 5h"). The frame MUST
+    // still wrap the rows. Prediction/ETTL was removed from QuotaData because no
+    // implementation wires it; the cell renders as "—" for non-compact mode.
     const r = selectRenderer("table");
     const out = r.render(QUOTAS, { mode: "table", compact: false, t: EN_TRANSLATOR });
     expect(out).toMatch(/^\+-+\+$/m);                // top frame border
@@ -332,7 +333,7 @@ describe("TableRenderer — unit-aware formatting", () => {
   const pctRow: QuotaData = {
     id: "x", providerName: "z.ai · 5h quota",
     used: 12, limit: 100, unit: "%",
-    reset: new Date(Date.now() + 7 * 3600 * 1000), predictedReset: null,
+    reset: new Date(Date.now() + 7 * 3600 * 1000),
     window: "rolling-5h",
     info: "5h quota",
   };
@@ -348,7 +349,7 @@ describe("TableRenderer — unit-aware formatting", () => {
   const tokenRow: QuotaData = {
     id: "x", providerName: "OpenAI · Token usage",
     used: 2_400_000, limit: 10_000_000, unit: "tokens",
-    reset: null, predictedReset: null, window: "rolling",
+    reset: null, window: "rolling",
     info: "Token usage",
   };
 
@@ -362,7 +363,7 @@ describe("TableRenderer — unit-aware formatting", () => {
   const creditRow: QuotaData = {
     id: "x", providerName: "OpenAI · Credit balance",
     used: 12.5, limit: null, unit: "credits",
-    reset: null, predictedReset: null, window: "rolling",
+    reset: null, window: "rolling",
     info: "Credit balance",
   };
 
@@ -375,7 +376,7 @@ describe("TableRenderer — unit-aware formatting", () => {
   const unlimitedRow: QuotaData = {
     id: "x", providerName: "Anthropic · Token usage",
     used: 100, limit: null, unit: "tokens",
-    reset: null, predictedReset: null, window: "daily",
+    reset: null, window: "daily",
     info: "Token usage",
   };
 
@@ -387,7 +388,7 @@ describe("TableRenderer — unit-aware formatting", () => {
   const reqRow: QuotaData = {
     id: "x", providerName: "Minimax · Daily request quota",
     used: 850, limit: 1000, unit: "requests",
-    reset: null, predictedReset: null, window: "daily",
+    reset: null, window: "daily",
     info: "Daily request quota",
   };
 
@@ -400,7 +401,7 @@ describe("TableRenderer — unit-aware formatting", () => {
     const unlimitedReq: QuotaData = {
       id: "y", providerName: "Zen · Requests",
       used: 50, limit: null, unit: "requests",
-      reset: null, predictedReset: null, window: "rolling",
+      reset: null, window: "rolling",
       info: "Requests",
     };
     const out = new TableRenderer().render([unlimitedReq], { terminalWidth: 80, t: NOOP_TRANSLATOR });
@@ -422,7 +423,7 @@ describe("TableRenderer — ASCII frame", () => {
   const sampleRow: QuotaData = {
     id: "z-1", providerName: "z.ai · 5h quota",
     used: 12, limit: 100, unit: "%",
-    reset: null, predictedReset: null, window: "rolling-5h",
+    reset: null, window: "rolling-5h",
     info: "5h quota",
   };
 
@@ -446,7 +447,7 @@ describe("TableRenderer — ASCII frame", () => {
     const dummy: QuotaData = {
       id: "d", providerName: "X",
       used: 1, limit: 10, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const narrow = new TableRenderer().render([dummy], { terminalWidth: 30, t: NOOP_TRANSLATOR });
     const wide = new TableRenderer().render([dummy], { terminalWidth: 200, t: NOOP_TRANSLATOR });
@@ -501,11 +502,11 @@ describe("table renderer — stable geometry (PR1)", () => {
   it("28-char providerName → body width equals 6-char provider case", () => {
     const short: QuotaData = {
       id: "s", providerName: "OpenAI", used: 50, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const long: QuotaData = {
       id: "l", providerName: "Minimax · Daily request quota", used: 50, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const shortOut = new TableRenderer().render([short], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     const longOut = new TableRenderer().render([long], { terminalWidth: 80, t: NOOP_TRANSLATOR });
@@ -517,11 +518,11 @@ describe("table renderer — stable geometry (PR1)", () => {
   it("40-char providerName → body width equals 28-char case", () => {
     const a: QuotaData = {
       id: "a", providerName: "Minimax · Daily request quota", used: 50, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const b: QuotaData = {
       id: "b", providerName: "ProviderNameWithExactlyFortyCharactersLong!!", used: 50, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const aOut = new TableRenderer().render([a], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     const bOut = new TableRenderer().render([b], { terminalWidth: 80, t: NOOP_TRANSLATOR });
@@ -545,7 +546,7 @@ describe("table renderer — provider identity header-only (PR1)", () => {
   it("providerName absent from data rows but present in header", () => {
     const row: QuotaData = {
       id: "x", providerName: "z.ai · 5-hour rolling limit", used: 12, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "rolling-5h",
+      reset: null, window: "rolling-5h",
     };
     const out = new TableRenderer().render([row], {
       terminalWidth: 80,
@@ -562,8 +563,8 @@ describe("table renderer — provider identity header-only (PR1)", () => {
 
   it("multiple providers — only one header row each, no provider column in data rows", () => {
     const rows: QuotaData[] = [
-      { id: "a", providerName: "Provider A · First concept", used: 10, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" },
-      { id: "b", providerName: "Provider B · Second concept", used: 20, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" },
+      { id: "a", providerName: "Provider A · First concept", used: 10, limit: 100, unit: "%", reset: null, window: "daily" },
+      { id: "b", providerName: "Provider B · Second concept", used: 20, limit: 100, unit: "%", reset: null, window: "daily" },
     ];
     const out = new TableRenderer().render(rows, { terminalWidth: 80, t: NOOP_TRANSLATOR });
     const lines = out.split("\n");
@@ -588,7 +589,7 @@ describe("table renderer — no status column (PR1)", () => {
   it("percentage rows have no separate status cell", () => {
     const row: QuotaData = {
       id: "x", providerName: "Test", used: 60, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     // Status text OK/WRN/ERR must not appear as standalone text in the row
@@ -600,7 +601,7 @@ describe("table renderer — no status column (PR1)", () => {
   it("non-token rows show no inline status glyph", () => {
     const row: QuotaData = {
       id: "x", providerName: "Test", used: 85, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     // No ✓ / ! / ✕ / ? glyphs in non-token rows
@@ -625,7 +626,7 @@ describe("table renderer — token row inline glyph (PR1)", () => {
   it("token row shows inline status glyph and no bar", () => {
     const row: QuotaData = {
       id: "x", providerName: "OpenAI · Token usage", used: 12000, limit: 50000, unit: "tokens",
-      reset: null, predictedReset: null, window: "rolling",
+      reset: null, window: "rolling",
     };
     const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     // Must show humanized token numbers
@@ -641,7 +642,7 @@ describe("table renderer — token row inline glyph (PR1)", () => {
   it("non-token row never shows status glyph", () => {
     const row: QuotaData = {
       id: "x", providerName: "OpenAI", used: 75, limit: 100, unit: "%",
-      reset: null, predictedReset: null, window: "daily",
+      reset: null, window: "daily",
     };
     const out = new TableRenderer().render([row], { terminalWidth: 80, t: NOOP_TRANSLATOR });
     // No glyphs in percent rows (bar conveys status)

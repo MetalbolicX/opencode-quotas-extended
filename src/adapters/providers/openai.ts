@@ -65,18 +65,18 @@ export function createOpenAIProvider(
               const used = toNum(w.used_percent);
               if (used === null) continue;
               const concept = enrichQuotaLabel("openai", { openaiVariant: variant });
-              entries.push({ id, providerName: buildProviderName("OpenAI", concept.concept), used: Math.max(0, Math.min(100, used)), limit: 100, unit: "%", window: win as "daily" | "rolling", reset: resetDate(toNum(w.reset_after_seconds), toNum(w.reset_at)), predictedReset: null, info: concept.label });
+              entries.push({ id, providerName: buildProviderName("OpenAI", concept.concept), used: Math.max(0, Math.min(100, used)), limit: 100, unit: "%", window: win as "daily" | "rolling", reset: resetDate(toNum(w.reset_after_seconds), toNum(w.reset_at)), info: concept.label });
             }
             const credits = rl?.credits;
             if (credits) {
               if (credits.unlimited) {
                 const concept = enrichQuotaLabel("openai", { openaiVariant: "credits" });
-                entries.push({ id: "openai-credits", providerName: buildProviderName("OpenAI", concept.concept), used: 0, limit: null, unit: "credits", window: "rolling", reset: null, predictedReset: null, info: concept.label });
+                entries.push({ id: "openai-credits", providerName: buildProviderName("OpenAI", concept.concept), used: 0, limit: null, unit: "credits", window: "rolling", reset: null, info: concept.label });
               } else {
                 const bal = toNum(credits.balance ?? null);
                 if (bal !== null) {
                   const concept = enrichQuotaLabel("openai", { openaiVariant: "credits" });
-                  entries.push({ id: "openai-credits", providerName: buildProviderName("OpenAI", concept.concept), used: bal, limit: null, unit: "credits", window: "rolling", reset: null, predictedReset: null, info: concept.label });
+                  entries.push({ id: "openai-credits", providerName: buildProviderName("OpenAI", concept.concept), used: bal, limit: null, unit: "credits", window: "rolling", reset: null, info: concept.label });
                 }
               }
             }
@@ -127,7 +127,6 @@ export function createOpenAIProvider(
               unit: "tokens",
               window: "rolling",
               reset: null,
-              predictedReset: null,
               info: concept.label,
             });
           }

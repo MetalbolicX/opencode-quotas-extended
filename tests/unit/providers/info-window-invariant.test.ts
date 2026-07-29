@@ -255,13 +255,12 @@ describe("info + window strict-union invariant (all 8 providers)", () => {
       const sample: import("../../../src/domain/types.js").QuotaData = {
         id: "minimax-general-weekly",
         providerName: "Minimax · Weekly limit",
-        used: 5,
-        limit: 100,
-        unit: "%",
-        reset: null,
-        predictedReset: null,
-        window: "rolling-weekly",
-      };
+         used: 5,
+         limit: 100,
+         unit: "%",
+         reset: null,
+         window: "rolling-weekly",
+       };
       expect(STRICT_WINDOW_UNION).toContain("rolling-weekly");
       expect(sample.window).toBe("rolling-weekly");
     });

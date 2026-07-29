@@ -126,7 +126,7 @@ export class TableRenderer implements Renderer {
       // reset cell
       const resetCell = clip(fmtReset(q.reset), RESET_W);
       // ettl cell (compact drops it)
-      const ettlCell = compact ? "" : clip(q.predictedReset ? fmtReset(q.predictedReset) : "—", ETTL_W);
+      const ettlCell = compact ? "" : clip("—", ETTL_W);
 
       const rowText = compact
         ? `${infoCell} ${barCell} ${usageCell}`
@@ -160,7 +160,7 @@ export class JsonRenderer implements Renderer {
   render(quotas: readonly QuotaData[], _ctx: RenderContext): string {
     return JSON.stringify({ fetchedAt: new Date().toISOString(), quotas: quotas.map(q => {
       const s = getStatus(q.used, q.limit);
-      return { id: q.id, provider: q.providerName, used: q.used, limit: q.limit, unit: q.unit, status: s.code, ratio: s.ratio, reset: q.reset?.toISOString() ?? null, predictedReset: q.predictedReset?.toISOString() ?? null, window: q.window };
+      return { id: q.id, provider: q.providerName, used: q.used, limit: q.limit, unit: q.unit, status: s.code, ratio: s.ratio, reset: q.reset?.toISOString() ?? null, window: q.window };
     })}, null, 2);
   }
 }
@@ -169,7 +169,7 @@ export class MarkdownRenderer implements Renderer {
   render(quotas: readonly QuotaData[], ctx: RenderContext): string {
     const rows = quotas.map(q => {
       const s = getStatus(q.used, q.limit);
-      return `| ${q.providerName} | ${s.code} | ${fmtPct(s.ratio)} | ${fmtReset(q.reset)} | ${q.predictedReset ? fmtReset(q.predictedReset) : "—"} |`;
+      return `| ${q.providerName} | ${s.code} | ${fmtPct(s.ratio)} | ${fmtReset(q.reset)} | — |`;
     });
     return [
       `| ${ctx.t.t("header.name")} | ${ctx.t.t("header.status")} | ${ctx.t.t("header.percent")} | ${ctx.t.t("header.reset")} | ${ctx.t.t("header.ettl")} |`,

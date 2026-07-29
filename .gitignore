@@ -21,6 +21,11 @@ node_modules/.vite/
 .env.local
 .env.*.local
 
+# Provider credential files used at runtime. These must NEVER be committed.
+auth.json
+*.auth.json
+antigravity-accounts.json
+
 # Editor files
 .vscode/
 .idea/

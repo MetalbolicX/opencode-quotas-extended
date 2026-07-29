@@ -61,21 +61,21 @@ describe("pipeline — partial-result flow (WU-6)", () => {
     const registry = {
       list: () => [
         makeSuccessProvider("good-a", [
-          { id: "good-a/daily", providerName: "Good A", used: 10, limit: 100, unit: "%", window: "daily", reset: null, predictedReset: null, info: "good" },
+          { id: "good-a/daily", providerName: "Good A", used: 10, limit: 100, unit: "%", window: "daily", reset: null, info: "good" },
         ]),
         makeFailingProvider("bad-one", "connection refused"),
         makeSuccessProvider("good-b", [
-          { id: "good-b/daily", providerName: "Good B", used: 20, limit: 100, unit: "%", window: "daily", reset: null, predictedReset: null, info: "good" },
+          { id: "good-b/daily", providerName: "Good B", used: 20, limit: 100, unit: "%", window: "daily", reset: null, info: "good" },
         ]),
       ],
       get: (id: string) => {
         const all = [
           makeSuccessProvider("good-a", [
-            { id: "good-a/daily", providerName: "Good A", used: 10, limit: 100, unit: "%", window: "daily", reset: null, predictedReset: null, info: "good" },
+            { id: "good-a/daily", providerName: "Good A", used: 10, limit: 100, unit: "%", window: "daily", reset: null, info: "good" },
           ]),
           makeFailingProvider("bad-one", "connection refused"),
           makeSuccessProvider("good-b", [
-            { id: "good-b/daily", providerName: "Good B", used: 20, limit: 100, unit: "%", window: "daily", reset: null, predictedReset: null, info: "good" },
+            { id: "good-b/daily", providerName: "Good B", used: 20, limit: 100, unit: "%", window: "daily", reset: null, info: "good" },
           ]),
         ];
         return all.find((p) => p.id === id);
@@ -109,7 +109,7 @@ describe("pipeline — partial-result flow (WU-6)", () => {
     const registry = {
       list: () => [
         makeSuccessProvider("good-a", [
-          { id: "good-a/daily", providerName: "Good A", used: 10, limit: 100, unit: "%", window: "daily", reset: null, predictedReset: null, info: "good" },
+          { id: "good-a/daily", providerName: "Good A", used: 10, limit: 100, unit: "%", window: "daily", reset: null, info: "good" },
         ]),
       ],
       get: (id: string) => registry.list().find((p) => p.id === id),

@@ -1,26 +1,20 @@
 // Config loader — reads and validates .opencode/quotas.json using Ajv.
 // Fails fast with a clear error if the config is missing or invalid.
 
+import { readFileSync } from "node:fs";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { RenderMode } from "../../domain/types.js";
 import type { Logger } from "../../ports/logger.js";
+import schema from "../../../schemas/quotas.schema.json";
 
 const ajv = new Ajv({ allErrors: true, verbose: true });
 addFormats(ajv);
 
-// Dynamically load the schema at runtime (avoids build-time coupling)
-const loadSchema = () => {
-  const schemaPath = join(import.meta.dirname, "../../../schemas/quotas.schema.json");
-  return JSON.parse(readFileSync(schemaPath, "utf-8"));
-}
-
 let _validate: ReturnType<typeof ajv.compile> | null = null;
 const getValidate = () => {
   if (!_validate) {
-    _validate = ajv.compile(loadSchema());
+    _validate = ajv.compile(schema);
   }
   return _validate;
 }

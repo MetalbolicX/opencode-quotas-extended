@@ -1,10 +1,9 @@
 {
   "name": "opencode-quotas-extended",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Opencode quota hub plugin — extended provider list, SOLID/hexagonal rewrite",
   "type": "module",
-  "packageManager": "bun@1.1.20",
   "bin": {
     "opencode-quotas": "dist/cli/index.js"
   },
@@ -19,7 +18,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "build": "bun scripts/build.ts"
+    "build": "rolldown -c"
   },
   "dependencies": {
     "ajv": "^8.20.0",
@@ -28,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",
+    "rolldown": "^1.0.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }

@@ -10,7 +10,7 @@ import type { QuotaData } from "../../src/domain/types.js";
 
 /** Make a minimal QuotaData entry for a given provider. */
 const mk = (id: string, providerName: string, used = 10): QuotaData =>
-  ({ id, providerName, used, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const });
+  ({ id, providerName, used, limit: 100, unit: "%", reset: null, window: "daily" as const });
 
 // All 8 providers each return exactly 1 row.
 const ALL8: QuotaData[] = [

@@ -17,10 +17,7 @@ export function createZaiProvider(credSrc: CredentialSource, http: HttpClient, _
     async fetchQuotas(): Promise<QuotaData[]> {
       return withOAuth(credSrc, http, "zai-coding-plan", async (c) =>
         parseZaiLimits(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "zai", "z.ai")
-      ).catch((err) => {
-        _logger?.error("zai: fetch failed", { error: String(err) });
-        return [] as QuotaData[];
-      });
+      );
     },
   };
 }

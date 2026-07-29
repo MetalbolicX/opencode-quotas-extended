@@ -216,7 +216,6 @@ describe("gemini Antigravity quota adapter", () => {
         expect(q.limit).toBeNull(); // cap unknown
         expect(q.unit).toBe("fraction");
         expect(q.window).toBe("rolling");
-        expect(q.predictedReset).toBeNull();
         expect(q.reset).toBeInstanceOf(Date);
         // WU-2: info uses branded semantic label (Model quota) with model in parentheses
         expect(q.info).toContain("Model quota");

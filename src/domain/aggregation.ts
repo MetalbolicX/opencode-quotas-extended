@@ -35,7 +35,7 @@ export function aggregateMean(
 ): QuotaData {
   const avgRatio =
     quotas.reduce((s, q) => s + ratio(q), 0) / Math.max(1, quotas.length);
-  return { id, providerName: name, used: Math.round(avgRatio * 100), limit: 100, unit: "%", reset: null, predictedReset: null, window: "rolling" };
+  return { id, providerName: name, used: Math.round(avgRatio * 100), limit: 100, unit: "%", reset: null, window: "rolling" };
 }
 
 export function aggregateMedian(
@@ -46,7 +46,7 @@ export function aggregateMedian(
   if (quotas.length === 0) return null;
   const sorted = [...quotas].sort((a, b) => ratio(a) - ratio(b));
   const mid = sorted[Math.floor(sorted.length / 2)];
-  return { id, providerName: name, used: Math.round(ratio(mid) * 100), limit: 100, unit: "%", reset: null, predictedReset: null, window: "rolling" };
+  return { id, providerName: name, used: Math.round(ratio(mid) * 100), limit: 100, unit: "%", reset: null, window: "rolling" };
 }
 
 export function aggregateMostCritical(

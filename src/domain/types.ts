@@ -12,9 +12,10 @@ export interface QuotaData {
   readonly limit: number | null;
   readonly unit: string;
   readonly reset: Date | null;
-  readonly predictedReset: Date | null;
   readonly window: "daily" | "monthly" | "rolling" | "rolling-5h" | "rolling-mcp" | "rolling-tokens" | "rolling-weekly";
   readonly info?: string;
+  /** Optional model identifier for providers that emit multiple rows per provider. */
+  readonly modelId?: string;
 }
 
 /** Snapshot returned by the fetch pipeline — includes isolated per-provider failures. */

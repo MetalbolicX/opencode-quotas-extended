@@ -272,7 +272,6 @@ const parseQuotaResponse = (response: FetchAvailableModelsResponse): QuotaData[]
       unit: "fraction",
       window: "rolling",
       reset: resetDate,
-      predictedReset: null,
       info: buildProviderName("Google Gemini", "gemini-model-quota", displayName),
     });
   }

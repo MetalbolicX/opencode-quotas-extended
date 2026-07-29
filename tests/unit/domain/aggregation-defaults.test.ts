@@ -1,4 +1,4 @@
-// RED: Five default coding-plan aggregation groups (most_critical strategy).
+// RED: Five default coding-plan aggregation groups (max strategy).
 // Pure data — no I/O, no network.
 import { describe, it, expect } from "vitest";
 import { DEFAULT_AGGREGATION_GROUPS } from "../../../src/domain/aggregation-defaults.js";
@@ -61,10 +61,10 @@ describe("DEFAULT_AGGREGATION_GROUPS", () => {
     });
   });
 
-  describe("every default uses most_critical strategy", () => {
-    it("all groups use most_critical", () => {
+  describe("every default uses max strategy", () => {
+    it("all groups use max", () => {
       for (const g of DEFAULT_AGGREGATION_GROUPS) {
-        expect(g.strategy).toBe("most_critical");
+        expect(g.strategy).toBe("max");
       }
     });
   });

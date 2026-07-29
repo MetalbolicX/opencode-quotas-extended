@@ -17,7 +17,7 @@ export function createGoProvider(credSrc: CredentialSource, http: HttpClient, _l
     async fetchQuotas(): Promise<QuotaData[]> {
       return withOAuth(credSrc, http, "opencode-go", async (c) =>
         parseUsage(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "go", "Go")
-      ).catch(() => [] as QuotaData[]);
+      );
     },
   };
 }

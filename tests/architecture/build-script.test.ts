@@ -5,29 +5,42 @@ import { fileURLToPath } from "node:url";
 
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-describe("build script", () => {
-  const BUILD_SCRIPT = join(PROJECT_ROOT, "scripts/build.ts");
+describe("rolldown build config", () => {
+  const CONFIG_FILE = join(PROJECT_ROOT, "rolldown.config.ts");
+  const PACKAGE_JSON = join(PROJECT_ROOT, "package.json");
+  const CLI_ENTRY = join(PROJECT_ROOT, "src", "cli", "index.ts");
 
-  it("scripts/build.ts must exist", () => {
-    expect(existsSync(BUILD_SCRIPT), "build script exists").toBe(true);
+  it("rolldown.config.ts must exist at the project root", () => {
+    expect(existsSync(CONFIG_FILE), "rolldown.config.ts exists at project root").toBe(true);
   });
 
-  it("scripts/build.ts must be executable (shebang or runnable)", () => {
-    const content = readFileSync(BUILD_SCRIPT, "utf-8");
-    // Must have a shebang or be a runnable Node script
-    expect(
-      content.startsWith("#!") || content.includes("import"),
-      "build script must be a runnable script"
-    ).toBe(true);
+  it("package.json must invoke rolldown for the build script", () => {
+    const pkg = JSON.parse(readFileSync(PACKAGE_JSON, "utf-8")) as {
+      scripts: Record<string, string>;
+    };
+    expect(pkg.scripts.build, "build script uses rolldown").toMatch(/rolldown/);
   });
 
-  it("scripts/build.ts must clean dist before building", () => {
-    const content = readFileSync(BUILD_SCRIPT, "utf-8");
-    expect(content.toLowerCase(), "build script must remove dist directory").toMatch(/rm.*dist|remove.*dist|clean.*dist/i);
+  it("package.json must not reference bun in scripts or packageManager", () => {
+    const pkg = JSON.parse(readFileSync(PACKAGE_JSON, "utf-8")) as {
+      scripts: Record<string, string>;
+      packageManager?: string;
+    };
+    const scriptValues = Object.values(pkg.scripts).join(" ");
+    expect(scriptValues.toLowerCase(), "no bun scripts").not.toMatch(/\bbun\b/);
+    if (pkg.packageManager) {
+      expect(pkg.packageManager.toLowerCase(), "no bun packageManager").not.toMatch(/\bbun\b/);
+    }
   });
 
-  it("scripts/build.ts must invoke tsc or bun build", () => {
-    const content = readFileSync(BUILD_SCRIPT, "utf-8");
-    expect(content, "build script must invoke tsc or bun build").toMatch(/tsc|bun build|bun\s+build/i);
+  it("rolldown.config.ts must point at the CLI entry and target Node", () => {
+    const content = readFileSync(CONFIG_FILE, "utf-8");
+    expect(content, "configures src/cli/index.ts as the entry").toContain("src/cli/index.ts");
+    expect(content, "declares node platform").toMatch(/platform:\s*"node"/);
+    expect(content, "uses a node shebang banner").toContain("#!/usr/bin/env node");
+  });
+
+  it("the CLI entry must exist", () => {
+    expect(existsSync(CLI_ENTRY), "src/cli/index.ts exists").toBe(true);
   });
 });

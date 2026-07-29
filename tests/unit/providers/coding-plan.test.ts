@@ -43,7 +43,7 @@ describe("coding-plan providers", () => {
   describe.each(PROVIDERS)("fetchQuotas parses fixture — $id", ({ id, create, cred, fixture }) => {
     it("returns QuotaData[] from fixture", async () => {
       const http = { request: vi.fn(() => Promise.resolve(fixture)) } as unknown as HttpClient;
-      const qs = await create(makeSource(cred), http).fetchQuotas({}, {});
+      const qs = await create(makeSource(cred), http).fetchQuotas();
       // Should return at least as many entries as windows + credits
       const windowCount = (fixture as { windows?: unknown[] }).windows?.length ?? 0;
       const hasCredits = Boolean((fixture as { credits?: unknown }).credits);
@@ -56,21 +56,25 @@ describe("coding-plan providers", () => {
       const http = {
         request: vi.fn((r: unknown) => { capturedReq = r; return Promise.resolve(fixture); }),
       } as unknown as HttpClient;
-      await create(makeSource(cred), http).fetchQuotas({}, {});
+      await create(makeSource(cred), http).fetchQuotas();
       const req = capturedReq as { headers?: { Authorization?: string } };
       expect(req.headers?.Authorization).toMatch(/^Bearer /);
     });
   });
 
   // ── HTTP failure isolation ─────────────────────────────────────────────────
-  describe.each(PROVIDERS)("fetchQuotas HTTP failure — $id", ({ id, create, cred }) => {
-    it("returns [] on HTTP 500 (no throw)", async () => {
-      const http = { request: vi.fn(async () => { const e = new Error(); (e as Error & { status?: number }).status = 500; throw e; }) } as unknown as HttpClient;
-      await expect(create(makeSource(cred), http).fetchQuotas({}, {})).resolves.toEqual([]);
+  // Adapters now propagate transport/HTTP errors so the report pipeline
+  // records them in its per-provider error map. Only "no credential" still
+  // resolves to []. Minimax is CLI-based and intentionally swallows exit
+  // errors as [], so it is excluded from this contract.
+  describe.each(PROVIDERS.filter((p) => p.id !== "minimax"))("fetchQuotas HTTP failure — $id", ({ id, create, cred }) => {
+    it("rejects on HTTP 500 (so pipeline records it)", async () => {
+      const http = { request: vi.fn(async () => { const e = new Error("HTTP 500"); (e as Error & { status?: number }).status = 500; throw e; }) } as unknown as HttpClient;
+      await expect(create(makeSource(cred), http).fetchQuotas()).rejects.toBeDefined();
     });
-    it("returns [] on network error (no throw)", async () => {
+    it("rejects on network error (so pipeline records it)", async () => {
       const http = { request: vi.fn(() => Promise.reject(new Error("ENOTFOUND"))) } as unknown as HttpClient;
-      await expect(create(makeSource(cred), http).fetchQuotas({}, {})).resolves.toEqual([]);
+      await expect(create(makeSource(cred), http).fetchQuotas()).rejects.toBeDefined();
     });
   });
 

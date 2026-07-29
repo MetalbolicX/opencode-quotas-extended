@@ -48,9 +48,8 @@ const mapRow = (row: Record<string, unknown>, idx: number): QuotaData | null => 
     unit: "tokens",
     window,
     reset: null,
-    predictedReset: null,
     info: `Anthropic ${model} (${timeBucket})`,
-  };
+  }
 }
 
 /** Extended factory — accepts optional runtime context so orgId can be resolved

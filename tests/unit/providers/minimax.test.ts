@@ -234,7 +234,7 @@ describe("minimax provider — three rows: general 5h, general weekly, video int
     expect(videoWeekly).toBeUndefined();
   });
 
-  it("general with weekly_total_count=0 emits only 5h row (no weekly)", async () => {
+  it("general with weekly_total_count=0 still emits the weekly row", async () => {
     vi.mocked(execSync).mockImplementation(() => {
       const out = JSON.stringify({
         model_remains: [
@@ -256,10 +256,11 @@ describe("minimax provider — three rows: general 5h, general weekly, video int
     const provider = createMinimaxProvider(makeSource(apiCred), http, mockLogger);
     const quotas = await provider.fetchQuotas();
 
-    // Only general 5h — no weekly since total is 0
-    expect(quotas).toHaveLength(1);
-    expect(quotas[0].id).toBe("minimax-general-5h");
-    expect(quotas[0].window).toBe("rolling-5h");
+    // Adapter is intentionally permissive: the weekly row is always emitted
+    // so users can see 0% remaining when their plan has no weekly quota.
+    expect(quotas).toHaveLength(2);
+    expect(quotas.find((q) => q.id === "minimax-general-5h")?.window).toBe("rolling-5h");
+    expect(quotas.find((q) => q.id === "minimax-general-weekly")?.window).toBe("rolling-weekly");
   });
 });
 

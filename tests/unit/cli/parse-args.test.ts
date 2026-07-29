@@ -1,6 +1,6 @@
 // WU-4 RED: parseArgs with node:util.parseArgs — strict validation contract.
 // These tests define the expected behavior BEFORE the implementation exists.
-// Run: bun run test tests/unit/cli/parse-args.test.ts
+// Run: pnpm test tests/unit/cli/parse-args.test.ts
 import { describe, it, expect } from "vitest";
 import { parseArgs } from "../../../src/cli/parse-args.js";
 

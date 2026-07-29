@@ -6,7 +6,7 @@ import aggFIXTURES from "../fixtures/reference/aggregation.json";
 import predFIXTURES from "../fixtures/reference/prediction.json";
 import resetFIXTURES from "../fixtures/reference/history-reset.json";
 
-type QuotaData = { id: string; providerName: string; used: number; limit: number | null; unit: string; reset: null; predictedReset: null; window: "daily" | "monthly" | "rolling"; info?: string };
+type QuotaData = { id: string; providerName: string; used: number; limit: number | null; unit: string; reset: null; window: "daily" | "monthly" | "rolling"; info?: string };
 type HistoryPoint = { timestamp: number; used: number; limit: number | null };
 
 const loadDomain = () => import("../../src/domain");

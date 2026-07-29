@@ -19,7 +19,7 @@ const q = (
   providerName = "test",
   window: QuotaData["window"] = "daily",
 ): QuotaData =>
-  Object.freeze({ id, providerName, used, limit, unit: "requests", reset: null, predictedReset: null, window });
+  Object.freeze({ id, providerName, used, limit, unit: "requests", reset: null, window });
 
 const ETTL_MAP = Object.freeze({
   "a": 10,

@@ -10,7 +10,7 @@ import type { QuotaData } from "../../src/domain/types.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 const mk = (overrides: Partial<QuotaData> = {}): QuotaData =>
-  ({ id: "openai", providerName: "OpenAI", used: 50, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const, ...overrides });
+  ({ id: "openai", providerName: "OpenAI", used: 50, limit: 100, unit: "%", reset: null, window: "daily" as const, ...overrides });
 
 const MIXED: QuotaData[] = [
   mk({ id: "openai", providerName: "OpenAI", used: 30, limit: 100 }),
@@ -85,7 +85,7 @@ vi.mock("../../src/adapters/infra/fetch-http.js", () => ({
   FetchHttpClient: vi.fn().mockImplementation(function () { this.request = vi.fn(); }),
 }));
 vi.mock("../../src/adapters/providers/registry.js", () => ({
-  buildDefaultRegistry: vi.fn(() => makeRegistry([...MIXED, { id: "anthropic", providerName: "Anthropic", used: 0, limit: 100, unit: "%", reset: null, predictedReset: null, window: "daily" as const }])),
+  buildDefaultRegistry: vi.fn(() => makeRegistry([...MIXED, { id: "anthropic", providerName: "Anthropic", used: 0, limit: 100, unit: "%", reset: null, window: "daily" as const }])),
 }));
 
 // ── SECTION 1: CLI (stashed Slice 9 tests) ────────────────────────────────────

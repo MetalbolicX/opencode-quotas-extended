@@ -17,7 +17,7 @@ export function createZenProvider(credSrc: CredentialSource, http: HttpClient, _
     async fetchQuotas(): Promise<QuotaData[]> {
       return withOAuth(credSrc, http, "opencode", async (c) =>
         parseUsage(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "zen", "Zen")
-      ).catch(() => [] as QuotaData[]);
+      );
     },
   };
 }

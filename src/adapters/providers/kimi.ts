@@ -18,7 +18,7 @@ export function createKimiProvider(credSrc: CredentialSource, http: HttpClient, 
     async fetchQuotas(): Promise<QuotaData[]> {
       return withOAuth(credSrc, http, "kimi-for-coding", async (c) =>
         parseMonitorLimits(await c.request<unknown>({ url: USAGE_URL, method: "GET" }, { timeoutMs: 15_000, retries: 0, redact: true }), "kimi", "Kimi")
-      ).catch(() => [] as QuotaData[]);
+      );
     },
   };
 }

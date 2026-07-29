@@ -58,7 +58,6 @@ const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
       unit: "%",
       window: "rolling-5h",
       reset: null,
-      predictedReset: null,
       info: intervalConcept.label,
     });
 
@@ -72,7 +71,6 @@ const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
       unit: "%",
       window: "rolling-weekly",
       reset: null,
-      predictedReset: null,
       info: weeklyConcept.label,
     });
   }
@@ -91,7 +89,6 @@ const parseMinimaxCli = (out: string, _key: string): QuotaData[] => {
       unit: "%",
       window: "daily",
       reset: null,
-      predictedReset: null,
       info: intervalConcept.label,
     });
   }

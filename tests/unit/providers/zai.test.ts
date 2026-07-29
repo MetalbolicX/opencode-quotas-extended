@@ -50,7 +50,7 @@ describe("zai provider", () => {
   });
 
   // ── WU-2: semantic labels — no raw type/tuple leakage ─────────────────────────
-  it("parseZaiLimits: TIME_LIMIT 5h row → info contains '5-hour rolling limit', providerName uses · separator", async () => {
+  it("parseZaiLimits: TIME_LIMIT 5h row → info uses human label, providerName uses · separator", async () => {
     const http = {
       request: vi.fn(() => Promise.resolve({
         code: 200, msg: "success",
@@ -66,7 +66,7 @@ describe("zai provider", () => {
     expect(quotas.length).toBeGreaterThan(0);
     const row = quotas.find((q) => q.id.includes("time_limit"))!;
     // info must be the human label, not "TIME_LIMIT (1×5)"
-    expect(row.info).toContain("5-hour rolling limit");
+    expect(row.info).toContain("5h quota");
     // providerName must use the · separator
     expect(row.providerName).toContain("\u00A0·\u00A0");
     // Must NOT leak raw type or numeric tuple
@@ -93,19 +93,11 @@ describe("zai provider", () => {
     expect(mcpRow.info).not.toContain("(1×1)");
   });
 
-  it("fetchQuotas returns [] and logs when the HTTP layer throws", async () => {
-    const mockLogger: Logger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
+  it("fetchQuotas rejects (so pipeline records it) when the HTTP layer throws", async () => {
     const http = {
       request: vi.fn(() => Promise.reject(new Error("network down"))),
     } as unknown as HttpClient;
-    const provider = createZaiProvider(makeSource(oauthCred), http, mockLogger);
-    const quotas = await provider.fetchQuotas();
-    expect(quotas).toEqual([]);
-    expect(mockLogger.error).toHaveBeenCalled();
+    const provider = createZaiProvider(makeSource(oauthCred), http);
+    await expect(provider.fetchQuotas()).rejects.toBeDefined();
   });
 });

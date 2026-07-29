@@ -1,4 +1,4 @@
-// FetchHttpClient — HttpClient adapter using global fetch (Node 18+ / Bun).
+// FetchHttpClient — HttpClient adapter using global fetch (Node 18+).
 import type { HttpClient, HttpRequest } from "../../ports/http.js";
 import type { Logger } from "../../ports/logger.js";
 

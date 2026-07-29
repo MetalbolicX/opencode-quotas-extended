@@ -8,7 +8,6 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { RenderMode } from "../domain/types.js";
 import { parseArgs } from "./parse-args.js";
 import { DEFAULTS, loadConfig } from "../adapters/infra/config-loader.js";
@@ -28,8 +27,7 @@ import {
   formatProviderFetchErrors,
 } from "./messages.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const ROOT = join(__dirname, "..", "..");
+const ROOT = process.cwd();
 
 // ── No-op logger (CLI doesn't emit debug/info; errors surface via result) ─────
 

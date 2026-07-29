@@ -34,7 +34,7 @@ export const parseUsage = (json: unknown, idPrefix: string, providerName: string
       id: `${idPrefix}-${w.label.toLowerCase()}`,
       providerName: `${providerName} ${w.label}`,
       used, limit: limit ?? null, unit: "%", window: normalizedWindow,
-      reset: null, predictedReset: null,
+      reset: null,
       info: `${providerName} ${w.label}`,
     });
   }
@@ -43,7 +43,7 @@ export const parseUsage = (json: unknown, idPrefix: string, providerName: string
     if (bal !== null) entries.push({
       id: `${idPrefix}-credits`, providerName: `${providerName} Credits`,
       used: bal, limit: null, unit: "credits", window: "rolling",
-      reset: null, predictedReset: null,
+      reset: null,
       info: `${providerName} Credits`,
     });
   }
@@ -142,7 +142,6 @@ export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: st
       unit: "%",
       window: zaiWindow(type, unit) as QuotaData["window"],
       reset: resetMs ? new Date(resetMs) : null,
-      predictedReset: null,
       info: concept.label,
     });
   }
