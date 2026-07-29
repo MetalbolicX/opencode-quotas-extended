@@ -19,13 +19,13 @@ type progressBarConfig = {
   gradients: option<bool>,
 }
 
-type authStrategy = [ #api | #oauth | #wellknown | #env ]
+type authStrategy = [#api | #oauth | #wellknown | #env]
 
-type credential = 
-  | Api({ variant: string, key: string })
-  | OAuth({ access: string, refresh: string, expires: float })
-  | Wellknown({ key: string, token: string })
-  | Env({ envVar: string })
+type credential =
+  | Api({variant: string, key: string})
+  | OAuth({access: string, refresh: string, expires: float})
+  | Wellknown({key: string, token: string})
+  | Env({envVar: string})
 
 type quotaProvider = {
   id: string,
@@ -80,7 +80,7 @@ type renderContext = {
   compact: option<bool>,
   progressBar: option<progressBarConfig>,
   terminalWidth: option<float>,
-  header: option<{ brand: string, plan: option<string> }>,
+  header: option<{brand: string, plan: option<string>}>,
   t: translator,
 }
 
@@ -120,36 +120,28 @@ type reportOptions = {
   now: option<float>,
 }
 
-let makeStubRenderer = (): renderer => {
-  { render: (data, _ctx) => `rendered:${Belt.Array.length(data)->Int.toString}` }
-}
+let selectRenderer = Renderers.selectRenderer
+let createI18nTranslator = Translator.createI18nTranslator
 
-let makeStubTranslator = (): translator => {
-  { t: (key, _vars) => key }
-}
-
-let reportQuotas = async (
-  deps: reportDeps,
-  opts: reportOptions,
-): promise<reportResult> => {
+let reportQuotas = async (deps: reportDeps, opts: reportOptions): promise<reportResult> => {
   let providers = switch opts.providerId {
   | Some(id) => deps.registry.list()->Belt.Array.keep(p => p.id === id)
   | None => deps.registry.list()
   }
-  
+
   if providers->Belt.Array.length === 0 {
-    let errors = Js.Dict.empty()
-    Js.Dict.set(errors, "_", "No providers found.")
+    let errors = Dict.make()
+    Dict.set(errors, "_", "No providers found.")
     let rendered = ""
-    let result: reportResult = { rendered: rendered, errors: errors }
+    let result: reportResult = {rendered, errors}
     Promise.resolve(result)
   } else {
     let allData: array<quotaData> = []
-    let errors: dict<string> = Js.Dict.empty()
-    
+    let errors: dict<string> = Dict.make()
+
     let fetches = providers->Belt.Array.map(p => p.fetchQuotas())
     let results = await Node.promiseAllSettled(fetches)
-    
+
     for i in 0 to results->Belt.Array.length - 1 {
       let r = results->Belt.Array.getExn(i)
       if r.status === #fulfilled {
@@ -159,73 +151,77 @@ let reportQuotas = async (
         }
       } else {
         let provider = providers->Belt.Array.getExn(i)
-        let reason = Js.String.make(r.reason)
-        Js.Dict.set(errors, provider.id, reason)
+        let reason = String.make(r.reason)
+        Dict.set(errors, provider.id, reason)
       }
     }
-    
+
     let now = switch opts.now {
     | Some(n) => n
-    | None => Js.Date.now()
+    | None => Date.now()
     }
-    
+
     for idx in 0 to allData->Belt.Array.length - 1 {
       let q = allData->Belt.Array.getExn(idx)
       try {
-        await deps.historyStore.append(q.id, { timestamp: now, used: q.used, limit: q.limit })
+        await deps.historyStore.append(q.id, {timestamp: now, used: q.used, limit: q.limit})
       } catch {
       | _err => ()
       }
     }
-    
-    let userGroups: array<Domain.Aggregation.aggregationGroup> =
-      Js.Dict.entries(deps.config.aggregatedGroups)->Belt.Array.map(((groupId, g)) => {
-        Domain.Aggregation.makeAggregationGroup(
-          ~id=groupId,
-          ~providerId="",
-          ~strategy=switch g.strategy {
-          | "most_critical" => #mostCritical
-          | "max" => #max
-          | "min" => #min
-          | "mean" => #mean
-          | "median" => #median
-          | _ => #max
-          },
-        )
-      })
-    
+
+    let userGroups: array<Domain.Aggregation.aggregationGroup> = Dict.toArray(
+      deps.config.aggregatedGroups,
+    )->Belt.Array.map(((groupId, g)) => {
+      Domain.Aggregation.makeAggregationGroup(
+        ~id=groupId,
+        ~providerId="",
+        ~strategy=switch g.strategy {
+        | "most_critical" => #mostCritical
+        | "max" => #max
+        | "min" => #min
+        | "mean" => #mean
+        | "median" => #median
+        | _ => #max
+        },
+      )
+    })
+
     let mergedGroups = mergeAggregationGroups(userGroups, defaultAggregationGroups)
-    
+
     let displayRows = if mergedGroups->Belt.Array.length === 0 {
       allData->Belt.Array.copy
     } else {
       allData
     }
-    
+
     let filteredRows = switch opts.modelId {
     | Some(mid) => displayRows->Belt.Array.keep(q => q.id === mid || q.modelId === Some(mid))
     | None => displayRows
     }
-    
+
     if filteredRows->Belt.Array.length === 0 {
       let rendered = ""
-      let result: reportResult = { rendered: rendered, errors: errors }
+      let result: reportResult = {rendered, errors}
       Promise.resolve(result)
     } else {
-      let renderer = makeStubRenderer()
-      let translator = makeStubTranslator()
-      
-      let rendered = renderer.render(filteredRows, {
-        mode: opts.mode,
-        color: opts.color,
-        compact: opts.compact,
-        progressBar: deps.config.progressBar,
-        terminalWidth: None,
-        header: None,
-        t: translator,
-      })
-      
-      let result: reportResult = { rendered: rendered, errors: errors }
+      let translator = createI18nTranslator(Translator.enCatalog)
+      let renderer = selectRenderer(opts.mode)
+
+      let rendered = renderer.render(
+        filteredRows,
+        {
+          mode: opts.mode,
+          color: opts.color,
+          compact: opts.compact,
+          progressBar: (deps.config.progressBar :> option<Renderers.progressBarConfig>),
+          terminalWidth: None,
+          header: None,
+          t: (translator :> Renderers.translator),
+        },
+      )
+
+      let result: reportResult = {rendered, errors}
       Promise.resolve(result)
     }
   }

@@ -14,12 +14,7 @@ open RescriptTest
 
 // Placeholder — actual tests live in individual test files
 test("placeholder: domain tests run via pnpm test:domain", () => {
-  assertion(
-    ~message="see package.json test:domain script",
-    (a, b) => a == b,
-    true,
-    true,
-  )
+  assertion(~message="see package.json test:domain script", (a, b) => a == b, true, true)
 })
 
 runTests()

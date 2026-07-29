@@ -7,7 +7,12 @@ test("windowToString handles #daily", () => {
 })
 
 test("windowFromString returns Some for valid", () => {
-  assertion(~message="daily parses", (a, b) => a == b, Domain.windowFromString("daily")->Belt.Option.isSome, true)
+  assertion(
+    ~message="daily parses",
+    (a, b) => a == b,
+    Domain.windowFromString("daily")->Belt.Option.isSome,
+    true,
+  )
 })
 
 test("windowFromString returns None for invalid", () => {
@@ -16,7 +21,12 @@ test("windowFromString returns None for invalid", () => {
 
 test("strategyToString round-trips", () => {
   let s = Domain.strategyFromString("max")->Belt.Option.getExn
-  assertion(~message="max round-trips", (a, b) => a == b, Domain.strategyFromString(Domain.strategyToString(s))->Belt.Option.isSome, true)
+  assertion(
+    ~message="max round-trips",
+    (a, b) => a == b,
+    Domain.strategyFromString(Domain.strategyToString(s))->Belt.Option.isSome,
+    true,
+  )
 })
 
 runTests()

@@ -25,7 +25,9 @@
     "res:dev": "rescript build -w",
     "test:application": "node src/application/ReportPipeline.test.mjs",
     "test:rescript": "node lib/es6/src/Bootstrap.test.res.mjs",
-    "test:domain": "node lib/es6/src/domain/Reset.test.res.mjs && node lib/es6/src/domain/AggregationDefaults.test.res.mjs && node lib/es6/src/domain/Prediction.test.res.mjs && node lib/es6/src/domain/Aggregation.test.res.mjs && node lib/es6/src/domain/Types.test.res.mjs"
+    "test:domain": "node lib/es6/src/domain/Reset.test.res.mjs && node lib/es6/src/domain/AggregationDefaults.test.res.mjs && node lib/es6/src/domain/Prediction.test.res.mjs && node lib/es6/src/domain/Aggregation.test.res.mjs && node lib/es6/src/domain/Types.test.res.mjs",
+    "test:rendering": "node lib/es6/src/rendering/RenderingTests.res.mjs",
+    "test:i18n": "node lib/es6/src/i18n/TranslatorTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -3,10 +3,7 @@ open Types
 
 let resetThresholdPercent = 20.0
 
-let detectReset = (
-  lastPoint: historyPoint,
-  current: quotaData,
-): bool => {
+let detectReset = (lastPoint: historyPoint, current: quotaData): bool => {
   switch lastPoint.limit {
   | None => false
   | Some(limit) =>
@@ -16,20 +13,18 @@ let detectReset = (
           let drop = lastPoint.used -. current.used
           drop <= 0.0
             ? false
-            : (
-                switch current.limit {
-                | None => false
-                | Some(cl) =>
-                  cl <= 0.0
-                    ? false
-                    : {
-                        let threshold = (resetThresholdPercent /. 100.0) *. cl
-                        drop >= threshold
-                      }
-                | _ => false
-                }
-              )
+            : switch current.limit {
+              | None => false
+              | Some(cl) =>
+                cl <= 0.0
+                  ? false
+                  : {
+                      let threshold = resetThresholdPercent /. 100.0 *. cl
+                      drop >= threshold
+                    }
+
+              }
         }
-  | _ => false
+
   }
 }

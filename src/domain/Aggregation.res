@@ -20,10 +20,7 @@ let floatMax = (a: float, b: float): float => a > b ? a : b
 // Null limit = unlimited → treated as ratio 0 so max/min strategies skip it.
 let ratio = (q: quotaData): float => {
   switch q.limit {
-  | Some(limit) =>
-    limit > 0.0
-      ? q.used /. limit
-      : 0.0
+  | Some(limit) => limit > 0.0 ? q.used /. limit : 0.0
   | _ => 0.0
   }
 }
@@ -85,9 +82,11 @@ let aggregateMax = (quotas: array<quotaData>): option<quotaData> => {
     None
   } else {
     let initial = quotas->Belt.Array.getExn(0)
-    Some(quotas->Belt.Array.reduce(initial, (best, curr) => {
-      ratio(curr) > ratio(best) ? curr : best
-    }))
+    Some(
+      quotas->Belt.Array.reduce(initial, (best, curr) => {
+        ratio(curr) > ratio(best) ? curr : best
+      }),
+    )
   }
 }
 
@@ -96,16 +95,18 @@ let aggregateMin = (quotas: array<quotaData>): option<quotaData> => {
     None
   } else {
     let initial = quotas->Belt.Array.getExn(0)
-    Some(quotas->Belt.Array.reduce(initial, (best, curr) => {
-      ratio(curr) < ratio(best) ? curr : best
-    }))
+    Some(
+      quotas->Belt.Array.reduce(initial, (best, curr) => {
+        ratio(curr) < ratio(best) ? curr : best
+      }),
+    )
   }
 }
 
 let aggregateMean = (
   quotas: array<quotaData>,
-  ~name: string = "Aggregated",
-  ~id: string = "agg-mean",
+  ~name: string="Aggregated",
+  ~id: string="agg-mean",
 ): quotaData => {
   let len = quotas->Belt.Array.length->Belt.Float.fromInt
   let safeLen = len < 1.0 ? 1.0 : len
@@ -113,7 +114,7 @@ let aggregateMean = (
   {
     id,
     providerName: name,
-    used: Js.Math.round(avgRatio *. 100.0),
+    used: Math.round(avgRatio *. 100.0),
     limit: Some(100.0),
     unit: "%",
     reset: None,
@@ -125,8 +126,8 @@ let aggregateMean = (
 
 let aggregateMedian = (
   quotas: array<quotaData>,
-  ~name: string = "Aggregated",
-  ~id: string = "agg-median",
+  ~name: string="Aggregated",
+  ~id: string="agg-median",
 ): option<quotaData> => {
   if quotas->Belt.Array.length == 0 {
     None
@@ -137,7 +138,7 @@ let aggregateMedian = (
     Some({
       id,
       providerName: name,
-      used: Js.Math.round(ratio(mid) *. 100.0),
+      used: Math.round(ratio(mid) *. 100.0),
       limit: Some(100.0),
       unit: "%",
       reset: None,
@@ -148,31 +149,27 @@ let aggregateMedian = (
   }
 }
 
-let aggregateMostCritical = (
-  quotas: array<quotaData>,
-  ettlMap: dict<float>,
-): option<quotaData> => {
+let aggregateMostCritical = (quotas: array<quotaData>, ettlMap: dict<float>): option<quotaData> => {
   if quotas->Belt.Array.length == 0 {
     None
   } else {
-    let rec loop = (remaining: list<quotaData>, best: quotaData, minTime: float): (quotaData, float) => {
+    let rec loop = (remaining: list<quotaData>, best: quotaData, minTime: float): (
+      quotaData,
+      float,
+    ) => {
       switch remaining {
       | list{} => (best, minTime)
       | list{q, ...rest} =>
-        let t = switch Js.Dict.get(ettlMap, q.id) {
+        let t = switch Dict.get(ettlMap, q.id) {
         | Some(v) => v
         | None => infinity
         }
-        t < minTime
-          ? loop(rest, q, t)
-          : loop(rest, best, minTime)
+        t < minTime ? loop(rest, q, t) : loop(rest, best, minTime)
       }
     }
     let first = quotas->Belt.Array.getExn(0)
     let (best, minTime) = loop(Belt.List.fromArray(quotas), first, infinity)
-    minTime == infinity
-      ? aggregateMax(quotas)
-      : Some(best)
+    minTime == infinity ? aggregateMax(quotas) : Some(best)
   }
 }
 
@@ -187,27 +184,27 @@ let mergeAggregationGroups = (
   userGroups: array<aggregationGroup>,
   defaultGroups: array<aggregationGroup>,
 ): array<aggregationGroup> => {
-  let map = Js.Dict.empty()
+  let map = Dict.make()
 
   // Seed with defaults; user groups will overwrite on collision
   for i in 0 to defaultGroups->Belt.Array.length - 1 {
     let g = defaultGroups->Belt.Array.getExn(i)
-    Js.Dict.set(map, g.id, g)
+    Dict.set(map, g.id, g)
   }
 
   // User wins on id collision
   for i in 0 to userGroups->Belt.Array.length - 1 {
     let g = userGroups->Belt.Array.getExn(i)
-    Js.Dict.set(map, g.id, g)
+    Dict.set(map, g.id, g)
   }
 
-  Js.Dict.values(map)
+  Dict.valuesToArray(map)
 }
 
 let aggregate = (
   quotas: array<quotaData>,
   strategy: aggregationStrategy,
-  ~ettlMap: dict<float>=Js.Dict.empty(),
+  ~ettlMap: dict<float>=Dict.make(),
 ): option<quotaData> => {
   switch strategy {
   | #mostCritical => aggregateMostCritical(quotas, ettlMap)
@@ -220,11 +217,7 @@ let aggregate = (
 
 // -- test helpers (pure domain, no I/O) ----------------------------------------
 
-let makeAggregationGroup = (
-  ~id: string,
-  ~providerId: string,
-  ~strategy: aggregationStrategy,
-) => {
+let makeAggregationGroup = (~id: string, ~providerId: string, ~strategy: aggregationStrategy) => {
   id,
   providerId,
   strategy,

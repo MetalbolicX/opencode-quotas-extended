@@ -18,7 +18,7 @@ let makeCurrent = (~used: float, ~limit: optFloat): quotaData => {
     id: "test",
     providerName: "test",
     used,
-    limit: limit,
+    limit,
     unit: "requests",
     reset: None,
     window: #rolling,
@@ -30,7 +30,7 @@ let makeCurrent = (~used: float, ~limit: optFloat): quotaData => {
 // ── detectReset ────────────────────────────────────────────────────────────────
 
 test("detectReset: returns false when lastPoint.limit is null", () => {
-  let lastPoint: historyPoint = { timestamp: 1000.0, used: 80.0, limit: None }
+  let lastPoint: historyPoint = {timestamp: 1000.0, used: 80.0, limit: None}
   let current = makeCurrent(~used=10.0, ~limit=Some(100.0))
   assertion(
     ~message="null limit -> false",
@@ -55,12 +55,7 @@ test("detectReset: returns false when current.limit is null (unlimited)", () => 
 test("detectReset: returns false when there is no drop (used increased or same)", () => {
   let lastPoint = makeHistoryPoint(~used=50.0, ~limit=100.0)
   let current = makeCurrent(~used=80.0, ~limit=Some(100.0))
-  assertion(
-    ~message="no drop -> false",
-    (a, b) => a == b,
-    detectReset(lastPoint, current),
-    false,
-  )
+  assertion(~message="no drop -> false", (a, b) => a == b, detectReset(lastPoint, current), false)
 })
 
 test("detectReset: returns false when drop is below 20% threshold", () => {
@@ -145,10 +140,5 @@ test("detectReset: small drop on large limit still detects reset", () => {
 })
 
 test("detectReset: resetThresholdPercent is 20.0", () => {
-  assertion(
-    ~message="resetThresholdPercent == 20.0",
-    (a, b) => a == b,
-    20.0,
-    20.0,
-  )
+  assertion(~message="resetThresholdPercent == 20.0", (a, b) => a == b, 20.0, 20.0)
 })

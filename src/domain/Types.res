@@ -2,7 +2,7 @@
 // The domain layer has NO dependencies on adapters, ports, or Node built-ins.
 
 /** RenderMode mapped from TS: "table" | "json" | "markdown" */
-type renderMode = [ #table | #json | #markdown ]
+type renderMode = [#table | #json | #markdown]
 
 /** Window mapped from TS literal union */
 type windowType = [
@@ -16,7 +16,7 @@ type windowType = [
 ]
 
 /** AggregationStrategy mapped from TS snake_case to camelCase */
-type aggregationStrategy = [ #mostCritical | #max | #min | #mean | #median ]
+type aggregationStrategy = [#mostCritical | #max | #min | #mean | #median]
 
 /** Immutable quota data for a single tracked resource. */
 type quotaData = {
@@ -137,11 +137,7 @@ let makeQuotaData = (
   modelId,
 }
 
-let makeHistoryPoint = (
-  ~timestamp: float,
-  ~used: float,
-  ~limit: option<float>=None,
-) => {
+let makeHistoryPoint = (~timestamp: float, ~used: float, ~limit: option<float>=None) => {
   timestamp,
   used,
   limit,

@@ -1,7 +1,7 @@
 type greeting = {
-  name: string
+  name: string,
 }
 
 let hello = (g: greeting): string => "Hello, " ++ g.name ++ "!"
 
-let _ = hello({ name: "ReScript" })
+let _ = hello({name: "ReScript"})
