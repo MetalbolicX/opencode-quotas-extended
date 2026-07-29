@@ -39,7 +39,21 @@ pnpm install
 pnpm build
 ```
 
-When published to npm:
+### Usage without global install
+
+```bash
+npx opencode-quotas-extended --help         # via npx (npm registry)
+pnpm dlx opencode-quotas-extended --help    # via pnpm dlx
+```
+
+**As a local dev dependency:**
+
+```bash
+npm install -D opencode-quotas-extended    # or: pnpm add -D opencode-quotas-extended
+npx opencode-quotas --help
+```
+
+**Via npm global install:**
 
 ```bash
 npm install -g opencode-quotas-extended
