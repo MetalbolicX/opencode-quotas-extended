@@ -6,3 +6,6 @@ let getHistoryPath = Paths.getHistoryPath
 
 let request = FetchHttp.request
 let make = FetchHttp.make
+
+let loadConfig = ConfigLoader.loadConfig
+let resolveAnthropicOrgId = ConfigLoader.resolveAnthropicOrgId
