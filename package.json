@@ -4,7 +4,8 @@
   "description": "Opencode quota hub plugin — extended provider list, SOLID/hexagonal rewrite",
   "type": "module",
   "bin": {
-    "opencode-quotas": "dist/cli/index.js"
+    "opencode-quotas": "dist/cli/index.js",
+    "opencode-quotas-extended": "dist/cli/index.js"
   },
   "files": [
     "dist/",

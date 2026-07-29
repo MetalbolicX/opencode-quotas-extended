@@ -8,6 +8,8 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import type { RenderMode } from "../domain/types.js";
 import { parseArgs } from "./parse-args.js";
 import { DEFAULTS, loadConfig } from "../adapters/infra/config-loader.js";
@@ -234,8 +236,6 @@ export const run = async (argv: string[]): Promise<RunResult> => {
 
 // ── Top-level bootstrap ───────────────────────────────────────────────────────
 
-const IS_MAIN = process.argv[1]?.endsWith("cli/index.ts") ||
-  process.argv[1]?.endsWith("cli/index.js");
-if (IS_MAIN) {
+if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   run(process.argv.slice(2)).then((r) => process.exit(r.exitCode));
 }
