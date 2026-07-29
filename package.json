@@ -29,7 +29,8 @@
     "test:rendering": "node lib/es6/src/rendering/RenderingTests.res.mjs",
     "test:i18n": "node lib/es6/src/i18n/TranslatorTests.res.mjs",
     "test:infra-paths": "node lib/es6/src/Infra/PathsTests.res.mjs",
-    "test:infra-http": "node lib/es6/src/Infra/FetchHttpTests.res.mjs"
+    "test:infra-http": "node lib/es6/src/Infra/FetchHttpTests.res.mjs",
+    "test:infra-history": "node lib/es6/src/Infra/JsonFileHistoryTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
