@@ -87,6 +87,17 @@ pnpm build                              # Rolldown bundle → dist/cli/index.js
 
 Or after `npm install -g`: `opencode-quotas --list`.
 
+### How the CLI entrypoint works
+
+`dist/cli/index.js` is the rolldown bundle shipped as the `bin` entry for both
+`opencode-quotas` and `opencode-quotas-extended`. The bundle compares its own
+realpath against `process.argv[1]` (also resolved through `realpath`) before
+calling `run()`. This makes the entrypoint symlink-safe: `npm install -g`,
+`pnpm dlx`, and `npx` all launch the bundle through a `bin/` shim, so the
+launch path is a symlink that points at the real file inside `node_modules/`.
+The realpath comparison resolves the symlink on both sides and the guard fires
+correctly.
+
 ## Development
 
 ```bash
