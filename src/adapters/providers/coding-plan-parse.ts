@@ -55,15 +55,27 @@ export const parseMonitorLimits = parseUsage;
 
 /**
  * Maps a z.ai limit type + unit to a window label.
- * Uses a local mapping (not the global windowMap) to preserve per-limit-type identity.
- * TIME_LIMIT unit:5 → "rolling-5h"
- * TIME_LIMIT other units → "rolling-{unit}h"
- * MCP_LIMIT → "rolling-mcp"
- * TOKENS_LIMIT → "rolling-tokens"
- * Fallback → "rolling"
+ * The lite plan encodes MCP / 5h / weekly on different type+unit combinations than
+ * the full plan, so this function branches on `isLitePlan` first.
+ *
+ * Full plan (default):
+ *   TIME_LIMIT unit:5 → "rolling-5h"
+ *   TIME_LIMIT unit >= 168 → "rolling-weekly"
+ *   MCP_LIMIT → "rolling-mcp"
+ *   TOKENS_LIMIT → "rolling-tokens"
+ *
+ * Lite plan:
+ *   TIME_LIMIT unit:5 → "rolling-mcp"  (5h quota collapsed into MCP slot)
+ *   TOKENS_LIMIT unit:3 → "rolling-5h"
+ *   TOKENS_LIMIT unit:6 → "rolling-weekly"
  */
-const zaiWindow = (type: string, unit: number | null): string => {
+const zaiWindow = (type: string, unit: number | null, isLitePlan: boolean): string => {
   const t = type.toUpperCase();
+  if (isLitePlan) {
+    if (t === "TIME_LIMIT" && unit === 5) return "rolling-mcp";
+    if (t === "TOKENS_LIMIT" && unit === 3) return "rolling-5h";
+    if (t === "TOKENS_LIMIT" && unit === 6) return "rolling-weekly";
+  }
   if (t === "TIME_LIMIT") {
     if (unit === 5) return "rolling-5h";
     // weekly window: numeric 168 or any unit >= 168 (hours in a week)
@@ -94,6 +106,10 @@ export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: st
   const limits = Array.isArray((data as { limits?: unknown })?.limits)
     ? (data as { limits: Array<Record<string, unknown>> }).limits
     : [];
+  // Lite plan encodes MCP / 5h / weekly on different type+unit combinations than the
+  // full plan (no MCP_LIMIT, no TIME_LIMIT unit=168). Detect via data.level so we can
+  // map the right human label to each row.
+  const isLitePlan = (data as { level?: string })?.level === "lite";
   if (limits.length === 0) return [];
 
   const entries: QuotaData[] = [];
@@ -121,16 +137,15 @@ export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: st
 
     const id = `${idPrefix}-${type.toLowerCase()}-${unit ?? "u"}-${num ?? "n"}`;
 
-    // Value-based label override: Z.AI's API type does not always reflect the
-    // human-readable limit name. Map by current `used` percentage:
-    //   0% → MCP, 1% → Weekly, 3% → 5h rolling
     let concept = enrichQuotaLabel(providerName, { type, unit, number: num });
-    if (used === 0) {
-      concept = { label: "MCP quota", concept: "z.ai-mcp" };
-    } else if (used === 1) {
-      concept = { label: "Weekly quota", concept: "z.ai-weekly-rolling" };
-    } else if (used === 3) {
-      concept = { label: "5h quota", concept: "z.ai-5-hour-rolling" };
+    if (isLitePlan) {
+      if (type === "TIME_LIMIT" && unit === 5) {
+        concept = { label: "MCP quota", concept: "z.ai-mcp" };
+      } else if (type === "TOKENS_LIMIT" && unit === 3) {
+        concept = { label: "5h rolling window", concept: "z.ai-5-hour-rolling" };
+      } else if (type === "TOKENS_LIMIT" && unit === 6) {
+        concept = { label: "Weekly quota", concept: "z.ai-weekly-rolling" };
+      }
     }
     const providerBranded = buildProviderName(providerName, concept.concept);
 
@@ -140,11 +155,11 @@ export const parseZaiLimits = (json: unknown, idPrefix: string, providerName: st
       used,
       limit,
       unit: "%",
-      window: zaiWindow(type, unit) as QuotaData["window"],
+      window: zaiWindow(type, unit, isLitePlan) as QuotaData["window"],
       reset: resetMs ? new Date(resetMs) : null,
       info: concept.label,
     });
   }
-  // Stable sort: rolling-5h → rolling-mcp → rolling-weekly → fallback rows
+  // Stable sort: rolling-mcp → rolling-5h → rolling-weekly → fallback rows
   return [...entries].sort(sortZaiEntry);
 }

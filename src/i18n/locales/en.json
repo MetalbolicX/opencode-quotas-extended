@@ -16,7 +16,7 @@
   "unit.credits": "credits",
   "unit.calls": "calls",
   "unit.%": "%",
-  "concept.z.ai-5-hour-rolling": "5h quota",
+  "concept.z.ai-5-hour-rolling": "5h rolling window",
   "concept.z.ai-mcp": "MCP quota",
   "concept.z.ai-token": "Token quota",
   "concept.minimax-daily-request": "Daily request quota",

@@ -28,7 +28,7 @@ export interface ProviderPayloadHints {
 
 // Label catalog — one entry per concept
 const LABEL_MAP: Record<QuotaConcept, string> = {
-  "z.ai-5-hour-rolling": "5h quota",
+  "z.ai-5-hour-rolling": "5h rolling window",
   "z.ai-mcp": "MCP quota",
   "z.ai-token": "Token quota",
   "minimax-daily-request": "Daily request quota",

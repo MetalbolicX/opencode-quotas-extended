@@ -392,3 +392,55 @@ describe("parseZaiLimits — percentage + window identity", () => {
     expect(result[0].used).toBeCloseTo(25, 1);
   });
 });
+
+// ── Lite plan: MCP / 5h / weekly are encoded on different type+unit combinations ──
+describe("parseZaiLimits — lite plan (level: 'lite')", () => {
+  const liteEntry = {
+    type: "TIME_LIMIT", unit: 5, number: 1,
+    usage: 100, currentValue: 0, remaining: 100,
+    percentage: 0, nextResetTime: 1787882656000, usageDetails: [],
+  };
+  const liteTokens5h = {
+    type: "TOKENS_LIMIT", unit: 3, number: 5,
+    percentage: 9, nextResetTime: 1785302459000,
+  };
+  const liteTokensWeekly = {
+    type: "TOKENS_LIMIT", unit: 6, number: 1,
+    percentage: 2, nextResetTime: 1785809056000,
+  };
+
+  it("TIME_LIMIT unit=5 → 'MCP quota'", () => {
+    const input = { data: { level: "lite", limits: [liteEntry] } };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result[0].info).toBe("MCP quota");
+    expect(result[0].window).toBe("rolling-mcp");
+  });
+
+  it("TOKENS_LIMIT unit=3 → '5h rolling window'", () => {
+    const input = { data: { level: "lite", limits: [liteTokens5h] } };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result[0].info).toBe("5h rolling window");
+    expect(result[0].window).toBe("rolling-5h");
+  });
+
+  it("TOKENS_LIMIT unit=6 → 'Weekly quota'", () => {
+    const input = { data: { level: "lite", limits: [liteTokensWeekly] } };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result[0].info).toBe("Weekly quota");
+    expect(result[0].window).toBe("rolling-weekly");
+  });
+
+  it("sorts lite plan rows as MCP → 5h → weekly", () => {
+    const input = {
+      data: {
+        level: "lite",
+        limits: [liteTokensWeekly, liteTokens5h, liteEntry],
+      },
+    };
+    const result = parseZaiLimits(input, "zai", "z.ai");
+    expect(result).toHaveLength(3);
+    expect(result[0].window).toBe("rolling-mcp");
+    expect(result[1].window).toBe("rolling-5h");
+    expect(result[2].window).toBe("rolling-weekly");
+  });
+});

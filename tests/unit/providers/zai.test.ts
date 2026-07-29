@@ -66,7 +66,7 @@ describe("zai provider", () => {
     expect(quotas.length).toBeGreaterThan(0);
     const row = quotas.find((q) => q.id.includes("time_limit"))!;
     // info must be the human label, not "TIME_LIMIT (1×5)"
-    expect(row.info).toContain("5h quota");
+    expect(row.info).toContain("5h rolling window");
     // providerName must use the · separator
     expect(row.providerName).toContain("\u00A0·\u00A0");
     // Must NOT leak raw type or numeric tuple

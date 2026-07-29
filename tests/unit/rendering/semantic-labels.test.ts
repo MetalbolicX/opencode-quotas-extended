@@ -14,7 +14,7 @@ import type { QuotaConcept } from "../../../src/rendering/semantic-labels.js";
 describe("QuotaConcept exhaustive table", () => {
   const cases: Array<{ hints: Parameters<typeof enrichQuotaLabel>[1]; expectedConcept: QuotaConcept; expectedLabel: string }> = [
     // z.ai concepts
-    { hints: { type: "TIME_LIMIT", unit: 5 }, expectedConcept: "z.ai-5-hour-rolling", expectedLabel: "5h quota" },
+    { hints: { type: "TIME_LIMIT", unit: 5 }, expectedConcept: "z.ai-5-hour-rolling", expectedLabel: "5h rolling window" },
     { hints: { type: "MCP_LIMIT", unit: 1 }, expectedConcept: "z.ai-mcp", expectedLabel: "MCP quota" },
     { hints: { type: "TOKENS_LIMIT", unit: 3 }, expectedConcept: "z.ai-token", expectedLabel: "Token quota" },
     // minimax concepts
@@ -43,7 +43,7 @@ describe("QuotaConcept exhaustive table", () => {
 describe("buildProviderName", () => {
   it("uses the · separator with non-breaking spaces", () => {
     const result = buildProviderName("z.ai", "z.ai-5-hour-rolling");
-    expect(result).toBe("z.ai\u00A0·\u00A05h quota");
+    expect(result).toBe("z.ai\u00A0·\u00A05h rolling window");
   });
 
   it("capitalises brand as provided", () => {
@@ -119,10 +119,10 @@ describe("PR2: minimax-video concept", () => {
 });
 
 describe("PR2: z.ai TIME_LIMIT unit branching", () => {
-  it("unit 5 → z.ai-5-hour-rolling '5h quota' (existing)", () => {
+  it("unit 5 → z.ai-5-hour-rolling '5h rolling window' (existing)", () => {
     const result = enrichQuotaLabel("z.ai", { type: "TIME_LIMIT", unit: 5 });
     expect(result.concept).toBe("z.ai-5-hour-rolling");
-    expect(result.label).toBe("5h quota");
+    expect(result.label).toBe("5h rolling window");
   });
 
   it("unit 'weekly' (string) → z.ai-weekly-rolling 'Weekly quota'", () => {
