@@ -15,6 +15,10 @@ external promiseAllSettled: array<promise<'a>> => promise<array<settlement<'a>>>
 @module("node:path") external pathJoin: (string, string) => string = "join"
 @val external processEnvGet: string => option<string> = "process.env.__lookupGetter__"
 
+// Read process.env as a plain Dict.t<string>.
+@val @scope("process")
+external processEnv: unit => Dict.t<string> = "env"
+
 @val external globalFetch: (string, 'init) => promise<'response> = "fetch"
 @new external makeAbortController: unit => 'controller = "AbortController"
 @get external abortControllerSignal: 'controller => 'signal = "signal"
