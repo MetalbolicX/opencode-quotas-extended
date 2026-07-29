@@ -31,7 +31,9 @@
     "test:infra-paths": "node lib/es6/src/Infra/PathsTests.res.mjs",
     "test:infra-http": "node lib/es6/src/Infra/FetchHttpTests.res.mjs",
     "test:infra-history": "node lib/es6/src/Infra/JsonFileHistoryTests.res.mjs",
-    "test:infra-config": "node lib/es6/src/Infra/ConfigLoaderTests.res.mjs"
+    "test:infra-config": "node lib/es6/src/Infra/ConfigLoaderTests.res.mjs",
+    "test:auth-redactor": "node lib/es6/src/Auth/RedactorTests.res.mjs",
+    "test:auth-provider-keys": "node lib/es6/src/Auth/ProviderKeysTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
