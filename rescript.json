@@ -1,0 +1,17 @@
+{
+  "name": "opencode-quotas-extended",
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true
+    }
+  ],
+  "package-specs": {
+    "module": "esmodule",
+    "in-source": false
+  },
+  "suffix": ".res.mjs",
+  "warnings": {
+    "error": "+101+102+5+7"
+  }
+}

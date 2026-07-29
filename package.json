@@ -19,7 +19,11 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "build": "rolldown -c",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "res:build": "rescript build",
+    "res:clean": "rescript clean",
+    "res:dev": "rescript build -w",
+    "test:rescript": "node lib/es6/src/Bootstrap.test.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -29,8 +33,11 @@
     "ajv-formats": "^3.0.1"
   },
   "devDependencies": {
+    "@rescript/runtime": "12.3.0",
     "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",
+    "rescript": "12.3.0",
+    "rescript-test": "^8.0.1",
     "rolldown": "^1.2.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
