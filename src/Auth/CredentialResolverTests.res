@@ -179,4 +179,60 @@ testAsync("CR5: resolve returns a Promise", callback => {
   })
 })
 
+// ─── CR3 (config fallback): auth.json + env null, config has credentials ─────────
+
+testAsync("CR3: config credential is returned when auth.json + env are empty", callback => {
+  let dir = tmpDir()
+  ensureOpencodeDir(dir)
+
+  // Empty auth.json so AuthJsonSource returns None
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+
+  // ConfigLoader loads from process.cwd() + "/.opencode/quotas.json"
+  // so we must create .opencode/quotas.json (not opencode/quotas.json)
+  let _ = Node.mkdirSync(dir ++ "/.opencode")
+
+  // Valid quotas.json with credentials.openai (schema uses "type", not "variant")
+  let configContent = JSON.stringify(
+    JSON.Object(Dict.fromArray([
+      ("credentials", JSON.Object(Dict.fromArray([
+        ("openai", JSON.Object(Dict.fromArray([
+          ("type", JSON.String("api")),
+          ("key", JSON.String("sk-cfg-key")),
+        ]))),
+      ]))),
+    ])),
+  )
+  let _ = Node.writeFileSync(dir ++ "/.opencode/quotas.json", configContent)
+
+  // Clear API key env var; set XDG_DATA_HOME so auth.json path resolves
+  let _ = %raw("delete process.env['OPENAI_API_KEY']")
+  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+
+  // chdir into temp dir so ConfigLoader loads our quotas.json via cwd
+  let _ = %raw("process.chdir(dir)")
+
+  let result = CredentialResolver.resolve("openai")
+
+  let _ = result->Promise.then(cred => {
+    // Restore cwd using the absolute path to the temp dir we can derive from dir
+    let _ = %raw("process.chdir(dir)")
+    let expected = Some(Credential.Api({variant: "api", key: "sk-cfg-key"}))
+    let passed = cred == expected
+    assertion(
+      ~message="CR3: Expected config credential from quotas.json",
+      (a, b) => a == b,
+      true,
+      passed,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    let _ = %raw("process.chdir(prevCwd)")
+    assertion(~message="CR3: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
 let () = runTests()
