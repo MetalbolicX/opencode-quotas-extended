@@ -31,3 +31,5 @@ antigravity-accounts.json
 .idea/
 *.swp
 *.swo
+
+.opencode/
