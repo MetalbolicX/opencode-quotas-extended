@@ -399,4 +399,31 @@ testAsync("second append within debounce keeps both points", callback => {
   ->ignore
 })
 
+// 13. manual flushNow forces write before debounce window
+test("flushNow writes immediately and cancels pending debounce", () => {
+  let fs = makeFs()
+  fs.now := 100.0
+  setupTestFile(fs, "/test/h13.json", None)
+  let deps = makeDeps(fs)
+  let store = JsonFileHistory.make(~debounceMs=5000.0, "/test/h13.json", deps)
+  // Append synchronously — Promise.resolve resolves immediately when awaited
+  let _ = store.append("prov1", mkPoint(~timestamp=50.0, ~used=10.0))
+  // Before flush: writes should be 0
+  assertion(
+    ~message=`Expected 0 writes before flushNow, got ${Int.toString(fs.writes.contents)}`,
+    (a, b) => a == b,
+    fs.writes.contents,
+    0,
+  )
+  // Flush
+  store.flushNow()
+  // After flush: writes should be 1
+  assertion(
+    ~message=`Expected 1 write after flushNow, got ${Int.toString(fs.writes.contents)}`,
+    (a, b) => a == b,
+    fs.writes.contents,
+    1,
+  )
+})
+
 let () = runTests()

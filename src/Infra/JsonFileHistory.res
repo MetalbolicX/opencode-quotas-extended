@@ -20,8 +20,13 @@ type historyStore = {
   resetDetected: (string, historyPoint, float, option<float>) => bool,
 }
 
-// Public: build a HistoryStore instance
-let make = (~debounceMs: float=5000.0, filePath: string, deps: deps): historyStore => {
+type store = {
+  ...historyStore,
+  flushNow: unit => unit,
+}
+
+// Public: build a HistoryStore instance with an attached flushNow
+let make = (~debounceMs: float=5000.0, filePath: string, deps: deps): store => {
   let cache: ref<option<fileShape>> = ref(None)
   let pending: ref<option<float>> = ref(None)
 
@@ -169,6 +174,18 @@ let make = (~debounceMs: float=5000.0, filePath: string, deps: deps): historySto
         modelId: None,
       }
       Reset.detectReset(prev, quotaData)
+    },
+
+    flushNow: () => {
+      switch pending.contents {
+      | Some(t) => Node.clearTimeoutId(t)
+      | None => ()
+      }
+      pending := None
+      switch cache.contents {
+      | Some(c) => save(c)
+      | None => ()
+      }
     },
   }
 }
