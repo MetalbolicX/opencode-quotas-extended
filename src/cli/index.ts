@@ -7,6 +7,7 @@
 // This CLI now delegates to the shared module for all surfaces.
 
 import { existsSync, readFileSync } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -235,7 +236,25 @@ export const run = async (argv: string[]): Promise<RunResult> => {
 }
 
 // ── Top-level bootstrap ───────────────────────────────────────────────────────
+// Realpath resolves symlinks, so npm/npx bin shims invoke `run()` correctly.
+// Strict equality on `process.argv[1]` fails when the launch path is a symlink
+// (npm global install, pnpm dlx, npx) — argv[1] is the symlink, import.meta.url
+// is the real file. The try/catch guards missing/unresolvable argv[1] so the
+// module stays importable as a library without triggering process.exit.
 
-if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+const isMainModule = await (async (): Promise<boolean> => {
+  if (!process.argv[1]) return false;
+  try {
+    const [here, invoked] = await Promise.all([
+      realpath(fileURLToPath(import.meta.url)),
+      realpath(resolve(process.argv[1])),
+    ]);
+    return here === invoked;
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   run(process.argv.slice(2)).then((r) => process.exit(r.exitCode));
 }
