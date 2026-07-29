@@ -23,7 +23,8 @@
     "res:build": "rescript build",
     "res:clean": "rescript clean",
     "res:dev": "rescript build -w",
-    "test:rescript": "node lib/es6/src/Bootstrap.test.res.mjs"
+    "test:rescript": "node lib/es6/src/Bootstrap.test.res.mjs",
+    "test:domain": "node lib/es6/src/domain/Reset.test.res.mjs && node lib/es6/src/domain/AggregationDefaults.test.res.mjs && node lib/es6/src/domain/Prediction.test.res.mjs && node lib/es6/src/domain/Aggregation.test.res.mjs && node lib/es6/src/domain/Types.test.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
