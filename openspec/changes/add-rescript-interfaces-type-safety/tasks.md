@@ -56,15 +56,15 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 
 ## Phase 4: Node FFI Externals
 
-- [ ] 4.1 RED: Add an architecture contract test for four targeted `Node.res` bindings.
-- [ ] 4.2 GREEN: Replace them with `@val`/`@scope` externals; create `src/bindings/Node.resi`.
-- [ ] 4.3 REFACTOR: Run `rescript build` and CLI `--help`.
+- [x] 4.1 RED: Add an architecture contract test for four targeted `Node.res` bindings.
+- [x] 4.2 GREEN: Replace them with `@val`/`@scope` externals; create `src/bindings/Node.resi`.
+- [x] 4.3 REFACTOR: Run `rescript build` and CLI `--help`.
 
 ## Phase 5: Auth/Cli/Rendering `.resi`
 
-- [ ] 5.1 RED: Extend `resi-coverage.test.ts` for `src/Infra/{FetchHttp,JsonFileHistory,Paths,ConfigLoader}`, `src/Auth/{Credential,CredentialResolver,AuthJsonSource,EnvSource,ConfigSource,Redactor,ProviderKeys}.res`, `src/Cli/{Cli,ParseArgs,Messages}`, `src/rendering/{Renderers,Colors}`, `src/i18n/Translator.res`.
-- [ ] 5.2 GREEN: Create those interfaces; expose only cross-module APIs.
-- [ ] 5.3 REFACTOR: Compile and run affected ReScript tests.
+- [x] 5.1 RED: Extend `resi-coverage.test.ts` for `src/Infra/{FetchHttp,JsonFileHistory,Paths,ConfigLoader}`, `src/Auth/{Credential,CredentialResolver,AuthJsonSource,EnvSource,ConfigSource,Redactor,ProviderKeys}.res`, `src/Cli/{Cli,ParseArgs,Messages}`, `src/rendering/{Renderers,Colors}`, `src/i18n/Translator.res`.
+- [x] 5.2 GREEN: Create those interfaces; expose only cross-module APIs.
+- [x] 5.3 REFACTOR: Compile and run affected ReScript tests.
 
 ### Phase 5a: ParseArgs + Renderers Obj.magic Reduction (apply session)
 
@@ -94,7 +94,7 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 - [x] Created `src/Infra/ConfigLoader.resi` — `logger`, `progressBar`, `progressBarPartial`, `aggregationGroup`, `anthropicConfig`, `quotasConfig`, `partialConfig`, `loadConfig`, `resolveAnthropicOrgId`, `defaults`, `depsRef`, `ConfigValidationError` (depsRef+exception included for test compatibility)
 
 **Architecture test update (C):**
-- [ ] 5b.1: Extend `tests/architecture/resi-coverage.test.ts` to assert .resi existence for new modules (deferred to Phase 6)
+- [x] 5b.1: Extend `tests/architecture/resi-coverage.test.ts` to assert .resi existence for new modules (done in Phase 6)
 
 ## Phase 6: Barrel `.resi` and Verification
 
@@ -113,6 +113,6 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
   - [x] %raw budget: asserts ≤ 12 occurrences in `src/**/*.res` (excluding `*Tests.res`) — current: 9
   - [x] .resi coverage: asserts all cross-module modules have matching `.resi` (35 modules)
 - [x] 6.4 GATE: `pnpm res:build` (0 warnings), `pnpm test` (690/690), `pnpm typecheck` (exit 0), `pnpm build` (rolldown bundle 95.25 kB)
-- [x] **Bonus**: Fixed orphaned `src/ports/*.resi` files (Http, Logger, History, Renderer, Credentials) that were blocking the build — created minimal stub `.res` implementations and fixed syntax errors in the `.resi` files
+- [x] **Revert note**: an over-reach that aliased the canonical `src/ports/*.resi` contracts to implementation modules (inverting DIP) was reverted. The `src/ports/*.resi` remain documented port interfaces (interface-only, skipped by the ReScript compiler) — they were never broken; a thin top-level `src/Provider.{res,resi}` pair was created instead because interface-only `.resi` are skipped unless paired with a `.res`.
 
  Threat matrix: N/A.

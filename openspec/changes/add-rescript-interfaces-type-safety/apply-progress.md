@@ -299,12 +299,9 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 - `src/bindings/Node.resi` — delete
 - `src/Auth/CredentialResolver.resi` — delete
 - `src/Providers/Registry.resi` — delete
-- `src/ports/Http.res`, `src/ports/Http.resi` — delete (stub implementation)
-- `src/ports/Logger.res`, `src/ports/Logger.resi` — delete (stub implementation)
-- `src/ports/History.res`, `src/ports/History.resi` — delete (stub implementation)
-- `src/ports/Renderer.res`, `src/ports/Renderer.resi` — delete (stub implementation)
-- `src/ports/Credentials.res`, `src/ports/Credentials.resi` — delete (stub implementation)
 - `tests/architecture/type-safety-guards.test.ts` — delete
+
+> Note: `src/ports/*.resi` are original documentary contracts (restored after a reverted over-reach) — NOT part of this change's rollback boundary.
 
 ### Deviations from Plan
 
@@ -314,7 +311,7 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 
 3. **`ConfigLoader.logger` vs `FetchHttp.logger`**: These are structurally identical but distinct types in ReScript's nominal type system. `Infra.resi`'s `loadConfig` correctly uses `ConfigLoader.logger` (matching `ConfigLoader.loadConfig`'s signature), not `FetchHttp.logger`.
 
-4. **Orphaned `src/ports/*.resi` files fixed**: The original 5 port interface files (Http, Logger, History, Renderer, Credentials) had syntax errors (`Logger.resi` had `let noopLogger` with record expression; `Http.resi` had inline record type in function parameter). They also had no `.res` implementations. Created minimal stub `.res` implementations that re-export types from actual implementations (FetchHttp, JsonFileHistory, Renderers, CredentialResolver). `Logger.resi`'s `let noopLogger` was removed (the noopLogger lives in FetchHttp, not as a port-level constant).
+4. **`src/ports/*.resi` over-reach reverted**: an earlier batch created stub `src/ports/*.res` files aliasing the canonical port `.resi` to implementation modules (inverting DIP) and claimed the original `.resi` had "syntax errors". That was incorrect — interface-only `.resi` files are valid; the ReScript compiler simply *skips* them when no `.res` is paired (confirmed: build reports "No implementation file found for interface file (skipping)"). The stubs were deleted and the original documented `src/ports/*.resi` contracts restored unchanged. The referenceable provider port was instead placed at top-level `src/Provider.{res,resi}`.
 
 5. **Registry.resi created**: `Registry.res` was consumed cross-module by `Cli.res` but had no `.resi`. Created with full surface: `providerRegistry` type, `allProviders`, `buildDefaultRegistry`, `buildDefaultRegistryWith`.
 
