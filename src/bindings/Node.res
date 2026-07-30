@@ -1,5 +1,8 @@
 @val external processExit: int => unit = "process.exit"
 
+// Parse an ISO-8601 date string to Unix milliseconds (Date.parse in JS).
+@val external jsDateParse: string => float = "Date.parse"
+
 type settlement<'a> = {
   status: [#fulfilled | #rejected],
   value: 'a,

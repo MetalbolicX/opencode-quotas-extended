@@ -5,8 +5,8 @@
 // --- QuotaData helpers (local to this module) ----------------------------------
 
 // Type re-export for internal use
-type quotaData = QuotaData.quotaData
-type windowType = QuotaData.windowType
+type quotaData = Domain.quotaData
+type windowType = Domain.windowType
 
 // --- Helpers --------------------------------------------------------------------
 
@@ -40,11 +40,11 @@ let windowMap = (label: option<string>): windowType => {
   switch label {
   | Some("24h") => #daily
   | Some("30d") => #monthly
-  | Some("5h") => #\"rolling-5h"
-  | Some("1h") => #\"rolling-1h"
-  | Some("1m") => #\"rolling-mcp"
-  | Some("tokens") => #\"rolling-tokens"
-  | Some("1w") => #\"rolling-weekly"
+  | Some("5h") => #rolling5h
+  | Some("1h") => #rolling1h
+  | Some("1m") => #rollingMcp
+  | Some("tokens") => #rollingTokens
+  | Some("1w") => #rollingWeekly
   | _ => #rolling
   }
 }
@@ -214,25 +214,25 @@ let zaiWindow = (
   let t = limitType->String.toUpperCase
   if isLitePlan {
     if t === "TIME_LIMIT" && unit === Some(5.0) {
-      #\"rolling-mcp"
+      #rollingMcp
     } else if t === "TOKENS_LIMIT" && unit === Some(3.0) {
-      #\"rolling-5h"
+      #rolling5h
     } else if t === "TOKENS_LIMIT" && unit === Some(6.0) {
-      #\"rolling-weekly"
+      #rollingWeekly
     } else {
       #rolling
     }
   } else {
     if t === "TIME_LIMIT" {
       switch unit {
-      | Some(5.0) => #\"rolling-5h"
-      | Some(u) if u >= 168.0 => #\"rolling-weekly"
+      | Some(5.0) => #rolling5h
+      | Some(u) if u >= 168.0 => #rollingWeekly
       | _ => #rolling
       }
     } else if t === "MCP_LIMIT" {
-      #\"rolling-mcp"
+      #rollingMcp
     } else if t === "TOKENS_LIMIT" {
-      #\"rolling-tokens"
+      #rollingTokens
     } else {
       #rolling
     }
@@ -246,11 +246,11 @@ let windowRank = (w: windowType): int => {
   switch w {
   | #daily => 0
   | #monthly => 1
-  | #\"rolling-5h" => 2
-  | #\"rolling-1h" => 3
-  | #\"rolling-mcp" => 4
-  | #\"rolling-tokens" => 5
-  | #\"rolling-weekly" => 6
+  | #rolling5h => 2
+  | #rolling1h => 3
+  | #rollingMcp => 4
+  | #rollingTokens => 5
+  | #rollingWeekly => 6
   | #rolling => 7
   }
 }
@@ -260,9 +260,9 @@ let windowRank = (w: windowType): int => {
 // Stable sort order for Z.Ai output: rolling-mcp → rolling-5h → rolling-weekly → fallback
 let zaiSortRank = (w: windowType): int => {
   switch w {
-  | #\"rolling-mcp" => 0
-  | #\"rolling-5h" => 1
-  | #\"rolling-weekly" => 2
+  | #rollingMcp => 0
+  | #rolling5h => 1
+  | #rollingWeekly => 2
   | _ => 3
   }
 }
@@ -362,12 +362,11 @@ let limitToQuota = (
       baseConcept
     }
     let providerBranded = SemanticLabels.buildProviderName(providerName, concept.concept)
-    let resetStr = switch resetMs {
+    let resetDateOpt = switch resetMs {
     | Some(ms) =>
       switch ms > 0.0 {
       | true =>
-        let d = Date.fromTime(ms /. 1000.0)
-        Some(d->Date.toISOString)
+        Some(Date.fromTime(ms /. 1000.0))
       | false => None
       }
     | None => None
@@ -378,7 +377,7 @@ let limitToQuota = (
       used: u,
       limit: Some(100.0),
       unit: "%",
-      reset: resetStr,
+      reset: resetDateOpt,
       window: normalizedWindow,
       info: Some(concept.label),
       modelId: None,

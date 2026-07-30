@@ -12,7 +12,7 @@ type quotaProvider = {
   category: string,
   authStrategy: authStrategy,
   isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<QuotaData.quotaData>>,
+  fetchQuotas: unit => promise<array<Domain.quotaData>>,
 }
 
 // -----------------------------------------------------------------------------

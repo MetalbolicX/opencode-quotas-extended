@@ -17,7 +17,7 @@ type quotaProvider = {
   category: string,
   authStrategy: authStrategy,
   isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<QuotaData.quotaData>>,
+  fetchQuotas: unit => promise<array<Domain.quotaData>>,
 }
 
 // --- Antigravity account types -------------------------------------------------
@@ -182,8 +182,8 @@ let refreshAccessToken = (
 
 // Parses the fetchAvailableModels response into QuotaData entries.
 // Only tracked models with quotaInfo are included; used: 0 is hardcoded.
-let parseQuotaResponse = (response: JSON.t): array<QuotaData.quotaData> => {
-  let rows: array<QuotaData.quotaData> = []
+let parseQuotaResponse = (response: JSON.t): array<Domain.quotaData> => {
+  let rows: array<Domain.quotaData> = []
   switch response {
   | JSON.Object(dict) =>
     let models = switch Dict.get(dict, "models") {
@@ -223,6 +223,10 @@ let parseQuotaResponse = (response: JSON.t): array<QuotaData.quotaData> => {
             | Some(JSON.String(s)) if s !== "" => Some(s)
             | _ => None
             }
+            let resetDateOpt = switch resetStr {
+            | Some(iso) => Some(Date.fromTime(Node.jsDateParse(iso) /. 1000.0))
+            | None => None
+            }
             let concept = enrichQuotaLabel("gemini", {
               type_: None,
               unit: None,
@@ -239,7 +243,7 @@ let parseQuotaResponse = (response: JSON.t): array<QuotaData.quotaData> => {
               used: 0.0,  // hardcoded — do not compute from remainingFraction
               limit: None,
               unit: "fraction",
-              reset: resetStr,
+              reset: resetDateOpt,
               window: #rolling,
               info: None,
               modelId: None,
@@ -259,7 +263,7 @@ let parseQuotaResponse = (response: JSON.t): array<QuotaData.quotaData> => {
 let fetchQuotasForAccount = (
   http: FetchHttp.httpClient,
   account: antigravityAccount,
-): Promise.t<array<QuotaData.quotaData>> => {
+): Promise.t<array<Domain.quotaData>> => {
   refreshAccessToken(http, account.clientId, account.oauthSecret, account.refreshToken)
   ->Promise.then(accessToken => {
     let req: FetchHttp.httpRequest = {
@@ -312,7 +316,7 @@ let createGeminiProvider = (): quotaProvider => {
           )
           Promise.all(promises)
           ->Promise.then(results => {
-            let allRows: array<QuotaData.quotaData> = []
+            let allRows: array<Domain.quotaData> = []
             let _ = results->Array.forEach(rows => {
               let _ = rows->Array.forEach(r => Belt.Array.push(allRows, r)->ignore)
             })

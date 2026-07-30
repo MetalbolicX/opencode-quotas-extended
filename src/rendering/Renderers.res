@@ -40,22 +40,13 @@ let fmtPct = (r: option<float>): string => {
   }
 }
 
-// fmtReset accepts an optional Date OR ISO string. The ReScript migration
-// left Providers/* returning reset as option<string> (ISO format) while
-// Domain.quotaData declares option<Date.t>. Both flow into the renderer
-// through Obj.magic in the registry, so we coerce at the boundary.
-let fmtReset = (d: option<'a>): string => {
+// fmtReset formats a reset date into a human-readable string.
+// reset is always option<Date.t> (providers now build Domain.quotaData directly).
+let fmtReset = (d: option<Date.t>): string => {
   switch d {
   | None => "-"
-  | Some(v) =>
-    let millis = switch (Obj.magic(v): 'b) {
-    | Some(isoStr) =>
-      let ms = %raw("(s) => Date.parse(s)")
-      Belt.Int.toFloat(ms(isoStr))
-    | _ =>
-      let dateObj = (Obj.magic(v): Date.t)
-      Date.getTime(dateObj)
-    }
+  | Some(dateObj) =>
+    let millis = Date.getTime(dateObj)
     if millis <= 0.0 {
       "now"
     } else {
@@ -156,22 +147,18 @@ let frameWidth = (~terminalWidth: option<float>=?): int => {
   inner + 4
 }
 
-// Window label helper
-// Domain.quotaData uses camelCase polymorphic variants (#rolling5h) while
-// Providers/* use kebab-case string-tagged variants (#\"rolling-5h"). The
-// registry passes the provider value to the renderer through Obj.magic, so
-// at runtime we may receive either variant. Match both forms here.
+// Window label helper -- all providers now produce Domain.quotaData
+// with camelCase windowType variants.
 let windowLabelText = (q: Domain.quotaData): string => {
-  switch (Obj.magic(q.window): 'a) {
-  | #rolling5h | #\"rolling-5h" => "rolling-5h"
-  | #rollingMcp | #\"rolling-mcp" => "rolling-mcp"
-  | #rollingTokens | #\"rolling-tokens" => "rolling-tokens"
-  | #rollingWeekly | #\"rolling-weekly" => "rolling-weekly"
+  switch q.window {
+  | #rolling5h => "rolling-5h"
+  | #rollingMcp => "rolling-mcp"
+  | #rollingTokens => "rolling-tokens"
+  | #rollingWeekly => "rolling-weekly"
+  | #rolling1h => "rolling-1h"
   | #daily => "daily"
   | #monthly => "monthly"
   | #rolling => "rolling"
-  | #\"rolling-1h" => "rolling-1h"
-  | _ => ""
   }
 }
 
@@ -316,16 +303,15 @@ let tableRenderer: renderer = {
 // JSON renderer
 
 let windowToStr = (w: Domain.windowType): string => {
-  switch (Obj.magic(w): 'a) {
-  | #rolling5h | #\"rolling-5h" => "rolling-5h"
-  | #rollingMcp | #\"rolling-mcp" => "rolling-mcp"
-  | #rollingTokens | #\"rolling-tokens" => "rolling-tokens"
-  | #rollingWeekly | #\"rolling-weekly" => "rolling-weekly"
+  switch w {
+  | #rolling5h => "rolling-5h"
+  | #rollingMcp => "rolling-mcp"
+  | #rollingTokens => "rolling-tokens"
+  | #rollingWeekly => "rolling-weekly"
+  | #rolling1h => "rolling-1h"
   | #daily => "daily"
   | #monthly => "monthly"
   | #rolling => "rolling"
-  | #\"rolling-1h" => "rolling-1h"
-  | _ => ""
   }
 }
 
@@ -354,15 +340,8 @@ let jsonRenderer: renderer = {
       | None => Dict.set(obj, "ratio", JSON.Encode.null)
       }
       switch q.reset {
-      | Some(d) =>
-        let millis = switch (Obj.magic(d): 'a) {
-        | s =>
-          let ms = %raw("(s) => Date.parse(s)")
-          Belt.Int.toFloat(ms(s))
-        | _ =>
-          let dateObj = (Obj.magic(d): Date.t)
-          Date.getTime(dateObj)
-        }
+      | Some(dateObj) =>
+        let millis = Date.getTime(dateObj)
         Dict.set(obj, "reset", JSON.Encode.string(millis->Float.toString))
       | None => Dict.set(obj, "reset", JSON.Encode.null)
       }

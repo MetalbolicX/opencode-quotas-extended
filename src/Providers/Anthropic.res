@@ -16,7 +16,7 @@ type quotaProvider = {
   category: string,
   authStrategy: authStrategy,
   isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<QuotaData.quotaData>>,
+  fetchQuotas: unit => promise<array<Domain.quotaData>>,
 }
 
 // --- Constants ----------------------------------------------------------------
@@ -55,7 +55,7 @@ let isObj = (v: JSON.t): bool => {
 // Maps an Anthropic admin-usage row to a QuotaData entry.
 // Token totals (input + output) are summed as the used value.
 // Window is inferred from time_bucket granularity (daily for YYYY-MM-DD prefixes).
-let mapRow = (row: dict<JSON.t>, idx: int): option<QuotaData.quotaData> => {
+let mapRow = (row: dict<JSON.t>, idx: int): option<Domain.quotaData> => {
   let usage = switch Dict.get(row, "usage") {
   | Some(JSON.Object(u)) => u
   | _ => Dict.make()
@@ -77,7 +77,7 @@ let mapRow = (row: dict<JSON.t>, idx: int): option<QuotaData.quotaData> => {
     }
   })
   // Helper: check if timeBucket starts with YYYY-MM-DD (daily window)
-  let dailyFromTimeBucket = (tb: string): QuotaData.windowType => {
+  let dailyFromTimeBucket = (tb: string): Domain.windowType => {
     let isDaily = tb->String.length >= 10 &&
       tb->String.substring(~start=4, ~end=5) == "-" &&
       tb->String.substring(~start=7, ~end=8) == "-"
@@ -200,8 +200,8 @@ let createAnthropicProvider = (): quotaProvider => {
               Promise.resolve([])
             } else {
               let baseUrl = String.replace(usageUrl, "{org_id}", orgId)
-              let rows: ref<array<QuotaData.quotaData>> = ref([])
-              let rec fetchPage = (nextPage: option<string>): Promise.t<array<QuotaData.quotaData>> => {
+              let rows: ref<array<Domain.quotaData>> = ref([])
+              let rec fetchPage = (nextPage: option<string>): Promise.t<array<Domain.quotaData>> => {
                 let pageUrl = switch nextPage {
                 | Some(cursor) => `${baseUrl}?page=${cursor}`
                 | None => baseUrl

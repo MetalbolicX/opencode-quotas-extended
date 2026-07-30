@@ -13,7 +13,7 @@ type sharedProvider = {
   category: string,
   authStrategy: [#api | #oauth | #wellknown | #env],
   isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<QuotaData.quotaData>>,
+  fetchQuotas: unit => promise<array<Domain.quotaData>>,
 }
 
 // --- Registry type ------------------------------------------------------------

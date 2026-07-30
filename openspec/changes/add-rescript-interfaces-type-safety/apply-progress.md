@@ -1,4 +1,4 @@
-# Apply Progress: add-rescript-interfaces-type-safety — Phase 1
+# Apply Progress: add-rescript-interfaces-type-safety — Phase 1 & 2a
 
 ## TDD Cycle Evidence
 
@@ -35,6 +35,48 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 3. **DomainFixturesTests.res**: Added `open Domain` to access `aggregationStrategy` variant type in test helper.
 
 4. **Unused `open Domain` in Aggregation.test.res**: Removed after factory imports switched to `DomainFixtures` (domain functions accessed via DomainFixtures opened alongside Domain, or directly when already in scope).
+
+---
+
+## Phase 2a: Provider Type Unification — quotaData Data Shape
+
+### TDD Cycle Evidence
+
+| Task | Phase | Test File | Test Command | Result |
+|------|-------|-----------|--------------|--------|
+| 2a.1 | RED | N/A (type change) | `pnpm res:build` (expected: unknown variant #rolling1h in Types.resi consumers) | ✅ Types.resi and Types.res updated; Domain.resi auto-re-exports via `type windowType = Types.windowType` — no change needed there |
+| 2a.1 | GREEN | N/A | `pnpm res:build` | ✅ Build clean with only pre-existing `floatMax` warning |
+| 2a.2 | REFACTOR | N/A (QuotaData deletion) | `pnpm res:build` | ✅ Deleted `src/Providers/QuotaData.res`; `Providers.res` barrel updated; QuotaData type aliases removed from CodingPlanParse |
+| 2a.3 | RED | `src/Providers/CodingPlanParseTests.res` | `pnpm res:build` (expected: kebab variants `#\"rolling-5h"` etc. no longer valid after CodingPlanParse type alias change) | ✅ 5 compile errors in CodingPlanParseTests.res showing old kebab variants incompatible with new Domain.windowType |
+| 2a.3 | GREEN | `src/Providers/CodingPlanParseTests.res` | `pnpm res:build` after updating all `#\"rolling-X"` → `#rollingX` in test assertions | ✅ All providers (OpenAI, Gemini, Minimax, Anthropic, Zen, Go, Zai, Kimi) updated to `Domain.quotaData` + camelCase windows + `option<Date.t>` reset; build clean |
+| 2a.4 | GREEN | N/A | `pnpm res:build` after updating `Registry.res` `sharedProvider.fetchQuotas` → `Domain.quotaData` | ✅ Registry updated; `private_coerce` and `sharedProvider` remain (Phase 2b removes them) |
+| 2a.5 | RED | N/A (Renderers simplification) | `pnpm res:build` (expected: unused match case warning #11 in Renderers.res) | ✅ Warning #11 ("this match case is unused") present before Renderers changes — confirms the `Obj.magic` dual-string/Date path was dead code |
+| 2a.5 | GREEN | N/A | `pnpm res:build` after removing `Obj.magic` from `fmtReset`, `windowLabelText`, `windowToStr`, jsonRenderer reset | ✅ Warning #11 GONE; only pre-existing `floatMax` warning remains |
+| 2a.6 | GATE | N/A | `pnpm res:build` + `pnpm test` | ✅ Clean build (no new warnings), 655/655 tests green |
+
+### Work Unit Evidence
+
+| Unit | Focused test command | Runtime harness | Result |
+|------|---------------------|-----------------|--------|
+| 2a (Provider unification) | `pnpm res:build` | `pnpm test` (655 vitest via `node lib/es6/src/Providers/CodingPlanParseTests.res.mjs`) | ✅ Clean build, 655/655 pass |
+
+### Rollback Boundary
+
+- `src/Providers/QuotaData.res` — deleted; restore from git if needed
+- `src/domain/Types.res` — added `#rolling1h` variant + converter entries; revert git diff
+- `src/domain/Types.resi` — added `#rolling1h` variant; revert git diff
+- `src/bindings/Node.res` — added `jsDateParse` external; revert git diff
+- `src/rendering/Renderers.res` — removed 9× `Obj.magic`/`%raw` calls for reset/window; revert git diff
+- All 8 providers + CodingPlanParse — converted to `Domain.quotaData`; revert git diff
+
+### Deviations from Plan
+
+1. **Task 2a.4 done before 2a.2 build pass**: `Registry.res` updated in same session as 2a.2 (was needed to unblock build after deleting QuotaData.res). `private_coerce` left intact as specified.
+2. **`jsDateParse` placed in `Node.res`**: Placed in `src/bindings/Node.res` (shared infra) rather than per-provider, since only Gemini reads ISO strings from the API and other providers may benefit.
+3. **CodingPlanParseTests.res updated alongside CodingPlanParse.res**: Test file used old kebab variants in assertions; updated to camelCase to match new `Domain.windowType`.
+4. **`windowRank`/`zaiSortRank` updated**: These helper functions used kebab variants internally for pattern matching; updated to camelCase to match the new `Domain.windowType`.
+
+---
 
 ## Phase 1 Summary
 

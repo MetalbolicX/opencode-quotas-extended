@@ -31,6 +31,16 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 
 ## Phase 2: Provider Type Unification
 
+> **Phase 2a completed** (this apply session): unified `quotaData` data shape. Providers produce `Domain.quotaData` with `reset: option<Date.t>` and camelCase windows. `QuotaData.res` deleted. Renderers `Obj.magic` removed.
+
+- [x] 2a.1: Add `#rolling1h` to domain `windowType` + converters (Types.res, Types.resi)
+- [x] 2a.2: Delete `src/Providers/QuotaData.res`; update `Providers.res` barrel
+- [x] 2a.3: Convert OpenAI, Gemini, Minimax, Anthropic to `Domain.quotaData` (reset: `Date.t`, windows: camelCase); update CodingPlanParse + test file; update Zen/Go/Zai/Kimi local `quotaProvider` types
+- [x] 2a.4: Update `Registry.res` `sharedProvider.fetchQuotas` to `array<Domain.quotaData>` (private_coerce kept for 2b)
+- [x] 2a.5: Remove 9× `Obj.magic`/`%raw Date.parse` from Renderers.res (`fmtReset`, `windowLabelText`, `windowToStr`, jsonRenderer reset)
+- [x] 2a.6: Full gate — `pnpm res:build` clean, 655/655 tests green, Renderers warning #11 gone
+
+- [ ] 2b: Remove provider-local `quotaProvider` types; replace Registry `private_coerce`/`Obj.magic`; update provider type identity (not done — deferred)
 - [ ] 2.1 RED: Update `src/Providers/RegistryTests.res`; require `array<Provider.quotaProvider>`, no coercion.
 - [ ] 2.2 GREEN: Return `Provider.quotaProvider` from `OpenAI`, `Zen`, `Go`, `Zai`, `Kimi`, `Minimax`, `Anthropic`, `Gemini`.
 - [ ] 2.3 REFACTOR: Remove `sharedProvider`/`private_coerce` from `Registry.res`; update `QuotaData.res`, `CodingPlanParse.res`, `Filter.res`, `ReportPipeline.res`.

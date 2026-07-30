@@ -203,7 +203,7 @@ test("windowMap maps 5h to rolling-5h", () => {
     ~message="5h should map to rolling-5h",
     (a, b) => a == b,
     result,
-    #\"rolling-5h",
+    #rolling5h,
   )
 })
 
@@ -233,7 +233,7 @@ test("windowMap maps 1m to rolling-mcp", () => {
     ~message="1m should map to rolling-mcp",
     (a, b) => a == b,
     result,
-    #\"rolling-mcp",
+    #rollingMcp,
   )
 })
 
@@ -260,7 +260,7 @@ test("zaiWindow full plan TIME_LIMIT 5h", () => {
     ~message="Full plan TIME_LIMIT 5h -> rolling-5h",
     (a, b) => a == b,
     result,
-    #\"rolling-5h",
+    #rolling5h,
   )
 })
 
@@ -270,7 +270,7 @@ test("zaiWindow full plan MCP_LIMIT", () => {
     ~message="Full plan MCP_LIMIT -> rolling-mcp",
     (a, b) => a == b,
     result,
-    #\"rolling-mcp",
+    #rollingMcp,
   )
 })
 
@@ -280,7 +280,7 @@ test("zaiWindow full plan TOKENS_LIMIT", () => {
     ~message="Full plan TOKENS_LIMIT -> rolling-tokens",
     (a, b) => a == b,
     result,
-    #\"rolling-tokens",
+    #rollingTokens,
   )
 })
 
@@ -290,7 +290,7 @@ test("zaiWindow lite plan TIME_LIMIT 5h becomes rolling-mcp", () => {
     ~message="Lite plan TIME_LIMIT 5h -> rolling-mcp",
     (a, b) => a == b,
     result,
-    #\"rolling-mcp",
+    #rollingMcp,
   )
 })
 
@@ -300,7 +300,7 @@ test("zaiWindow lite plan TOKENS_LIMIT 3 becomes rolling-5h", () => {
     ~message="Lite plan TOKENS_LIMIT 3 -> rolling-5h",
     (a, b) => a == b,
     result,
-    #\"rolling-5h",
+    #rolling5h,
   )
 })
 
@@ -310,7 +310,7 @@ test("zaiWindow lite plan TOKENS_LIMIT 6 becomes rolling-weekly", () => {
     ~message="Lite plan TOKENS_LIMIT 6 -> rolling-weekly",
     (a, b) => a == b,
     result,
-    #\"rolling-weekly",
+    #rollingWeekly,
   )
 })
 
@@ -320,7 +320,7 @@ test("zaiWindow full plan TIME_LIMIT >= 168 becomes rolling-weekly", () => {
     ~message="Full plan TIME_LIMIT 200 -> rolling-weekly",
     (a, b) => a == b,
     result,
-    #\"rolling-weekly",
+    #rollingWeekly,
   )
 })
 
@@ -337,7 +337,7 @@ test("windowRank monthly is 1", () => {
 })
 
 test("windowRank rolling-5h is 2", () => {
-  let result = windowRank(#\"rolling-5h")
+  let result = windowRank(#rolling5h)
   assertion(~message="rolling-5h rank", (a, b) => a == b, result, 2)
 })
 
@@ -378,7 +378,7 @@ test("parseZaiLimits handles valid limits array", () => {
     ~message="Should have rolling-5h window",
     (a, b) => a == b,
     first(result).window,
-    #\"rolling-5h",
+    #rolling5h,
   )
   assertion(
     ~message="limit should be Some(100.0)",
@@ -449,7 +449,7 @@ test("parseZaiLimits lite plan TIME_LIMIT unit 5 becomes rolling-mcp with MCP qu
     ~message="Lite plan TIME_LIMIT 5h should be rolling-mcp",
     (a, b) => a == b,
     first(result).window,
-    #\"rolling-mcp",
+    #rollingMcp,
   )
   assertion(
     ~message="Info label should be MCP quota",
@@ -488,7 +488,7 @@ test("parseZaiLimits lite plan TOKENS_LIMIT unit 3 becomes rolling-5h", () => {
     ~message="Lite plan TOKENS_LIMIT unit 3 should be rolling-5h",
     (a, b) => a == b,
     first(result).window,
-    #\"rolling-5h",
+    #rolling5h,
   )
   assertion(
     ~message="Info label should be 5h rolling window",
@@ -521,7 +521,7 @@ test("parseZaiLimits lite plan TOKENS_LIMIT unit 6 becomes rolling-weekly", () =
     ~message="Lite plan TOKENS_LIMIT unit 6 should be rolling-weekly",
     (a, b) => a == b,
     first(result).window,
-    #\"rolling-weekly",
+    #rollingWeekly,
   )
   assertion(
     ~message="Info label should be Weekly quota",
@@ -593,7 +593,7 @@ test("parseZaiLimits full plan TIME_LIMIT unit 168 becomes rolling-weekly", () =
     ~message="Full plan TIME_LIMIT unit 168 should be rolling-weekly",
     (a, b) => a == b,
     first(result).window,
-    #\"rolling-weekly",
+    #rollingWeekly,
   )
 })
 
@@ -647,19 +647,19 @@ test("parseZaiLimits output is sorted: rolling-mcp, rolling-5h, rolling-weekly",
     ~message="First entry should be rolling-mcp",
     (a, b) => a == b,
     Belt.Array.getExn(result, 0).window,
-    #\"rolling-mcp",
+    #rollingMcp,
   )
   assertion(
     ~message="Second entry should be rolling-5h",
     (a, b) => a == b,
     Belt.Array.getExn(result, 1).window,
-    #\"rolling-5h",
+    #rolling5h,
   )
   assertion(
     ~message="Third entry should be rolling-weekly",
     (a, b) => a == b,
     Belt.Array.getExn(result, 2).window,
-    #\"rolling-weekly",
+    #rollingWeekly,
   )
 })
 

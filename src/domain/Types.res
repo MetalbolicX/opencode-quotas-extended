@@ -9,6 +9,7 @@ type windowType = [
   | #daily
   | #monthly
   | #rolling
+  | #rolling1h
   | #rolling5h
   | #rollingMcp
   | #rollingTokens
@@ -55,6 +56,7 @@ let windowToString = (w: windowType): string => {
   | #daily => "daily"
   | #monthly => "monthly"
   | #rolling => "rolling"
+  | #rolling1h => "rolling-1h"
   | #rolling5h => "rolling-5h"
   | #rollingMcp => "rolling-mcp"
   | #rollingTokens => "rolling-tokens"
@@ -67,6 +69,7 @@ let windowFromString = (s: string): option<windowType> => {
   | "daily" => Some(#daily)
   | "monthly" => Some(#monthly)
   | "rolling" => Some(#rolling)
+  | "rolling-1h" => Some(#rolling1h)
   | "rolling-5h" => Some(#rolling5h)
   | "rolling-mcp" => Some(#rollingMcp)
   | "rolling-tokens" => Some(#rollingTokens)

@@ -15,7 +15,7 @@ type quotaProvider = {
   category: string,
   authStrategy: authStrategy,
   isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<QuotaData.quotaData>>,
+  fetchQuotas: unit => promise<array<Domain.quotaData>>,
 }
 
 // --- Helpers -----------------------------------------------------------------
@@ -45,14 +45,14 @@ let toNum = (json: JSON.t): option<float> => {
 }
 
 // Builds reset Date from reset_after_seconds or reset_at epoch.
-let resetDate = (afterSeconds: option<float>, atEpoch: option<float>): option<string> => {
+let resetDate = (afterSeconds: option<float>, atEpoch: option<float>): option<Date.t> => {
   switch atEpoch {
-  | Some(ts) => Some(Date.toISOString(Date.fromTime(ts *. 1000.0)))
+  | Some(ts) => Some(Date.fromTime(ts *. 1000.0))
   | None =>
     switch afterSeconds {
     | Some(secs) =>
       let resetMs = Date.now() +. (secs *. 1000.0)
-      Some(Date.toISOString(Date.fromTime(resetMs)))
+      Some(Date.fromTime(resetMs))
     | None => None
     }
   }
@@ -65,7 +65,7 @@ let whamUrl = "https://chatgpt.com/backend-api/wham/usage"
 let fetchQuotasOAuth = (
   ~cred: Credential.credential,
   ~http: FetchHttp.httpClient,
-): Promise.t<array<QuotaData.quotaData>> => {
+): Promise.t<array<Domain.quotaData>> => {
   // Build auth header from credential
   let auth = switch cred {
   | Credential.Api(c) => `Bearer ${c.key}`
@@ -104,7 +104,7 @@ let fetchQuotasOAuth = (
   authedClient.request(req, opts)
   ->Promise.then(json => {
     // Parse json: { rate_limit: { primary_window: {...}, secondary_window: {...} }, credits: {...} }
-    let quotaData: array<QuotaData.quotaData> = []
+    let quotaData: array<Domain.quotaData> = []
     switch json {
     | JSON.Object(dict) =>
       // Primary + secondary windows
@@ -142,7 +142,7 @@ let fetchQuotasOAuth = (
             switch used {
             | Some(u) =>
               let id = key === "primary_window" ? "openai-primary" : "openai-secondary"
-              let entry: QuotaData.quotaData = {
+              let entry: Domain.quotaData = {
                 id,
                 providerName: buildProviderName("OpenAI", concept.concept),
                 used: u < 0.0 ? 0.0 : u > 100.0 ? 100.0 : u,
@@ -178,7 +178,7 @@ let fetchQuotasOAuth = (
             openaiVariant: Some("credits"),
             geminiModel: None,
           })
-          let entry: QuotaData.quotaData = {
+          let entry: Domain.quotaData = {
             id: "openai-credits",
             providerName: buildProviderName("OpenAI", concept.concept),
             used: 0.0,
@@ -204,7 +204,7 @@ let fetchQuotasOAuth = (
                 openaiVariant: Some("credits"),
                 geminiModel: None,
               })
-              let entry: QuotaData.quotaData = {
+              let entry: Domain.quotaData = {
                 id: "openai-credits",
                 providerName: buildProviderName("OpenAI", concept.concept),
                 used: b,
@@ -240,7 +240,7 @@ let maxPages = 20
 let fetchQuotasApiKey = (
   ~cred: Credential.credential,
   ~http: FetchHttp.httpClient,
-): Promise.t<array<QuotaData.quotaData>> => {
+): Promise.t<array<Domain.quotaData>> => {
   // Extract key
   let key = switch cred {
   | Credential.Api(c) => c.key
@@ -253,8 +253,8 @@ let fetchQuotasApiKey = (
   | Credential.OAuth(_) => ""
   }
   let seenIds: ref<array<string>> = ref([])
-  let allEntries: array<QuotaData.quotaData> = []
-  let rec fetchPage = (cursor: option<string>): Promise.t<array<QuotaData.quotaData>> => {
+  let allEntries: array<Domain.quotaData> = []
+  let rec fetchPage = (cursor: option<string>): Promise.t<array<Domain.quotaData>> => {
     let builtUrl = switch cursor {
     | Some(c) => `${platformUrl}?page=${c}`
     | None => platformUrl
@@ -268,7 +268,7 @@ let fetchQuotasApiKey = (
     let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
     http.request(req, opts)
     ->Promise.then(json => {
-      let entries: array<QuotaData.quotaData> = []
+      let entries: array<Domain.quotaData> = []
       switch json {
       | JSON.Object(dict) =>
         switch Dict.get(dict, "data") {
@@ -299,7 +299,7 @@ let fetchQuotasApiKey = (
                     geminiModel: None,
                   })
                   let limitUser = toNum(switch Dict.get(dict, "limit_user") { | Some(v) => v | _ => JSON.Number(0.0) })
-                  let entry: QuotaData.quotaData = {
+                  let entry: Domain.quotaData = {
                     id: `openai-api-${idStr}`,
                     providerName: buildProviderName("OpenAI", concept.concept),
                     used: u,

@@ -5,6 +5,7 @@ type windowType = [
   | #daily
   | #monthly
   | #rolling
+  | #rolling1h
   | #rolling5h
   | #rollingMcp
   | #rollingTokens

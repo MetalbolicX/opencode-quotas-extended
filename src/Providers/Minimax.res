@@ -26,7 +26,7 @@ type quotaProvider = {
   category: string,
   authStrategy: authStrategy,
   isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<QuotaData.quotaData>>,
+  fetchQuotas: unit => promise<array<Domain.quotaData>>,
 }
 
 // --- Helpers -----------------------------------------------------------------
@@ -62,7 +62,7 @@ let extractJson = (out: string): option<string> => {
 }
 
 // Parse mmx quota JSON into QuotaData array.
-let parseMinimaxCli = (out: string): array<QuotaData.quotaData> => {
+let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
   let jsonText = switch extractJson(out) {
   | Some(t) => t
   | None => ""
@@ -77,7 +77,7 @@ let parseMinimaxCli = (out: string): array<QuotaData.quotaData> => {
       | Some(JSON.Array(arr)) => arr
       | _ => []
       }
-      let entries: array<QuotaData.quotaData> = []
+      let entries: array<Domain.quotaData> = []
       // Filter general + video model entries
       let general = remains->Array.filter(m => {
         switch m {
@@ -130,7 +130,7 @@ let parseMinimaxCli = (out: string): array<QuotaData.quotaData> => {
               limit: Some(100.0),
               unit: "%",
               reset: None,
-              window: #"rolling-5h",
+              window: #rolling5h,
               info: Some(intervalConcept.label),
               modelId: None,
             },
@@ -162,7 +162,7 @@ let parseMinimaxCli = (out: string): array<QuotaData.quotaData> => {
               limit: Some(100.0),
               unit: "%",
               reset: None,
-              window: #"rolling-weekly",
+              window: #rollingWeekly,
               info: Some(weeklyConcept.label),
               modelId: None,
             },
