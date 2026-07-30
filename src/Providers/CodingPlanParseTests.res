@@ -349,16 +349,19 @@ test("windowRank rolling is 7 (lowest priority)", () => {
 // --- parseZaiLimits tests --------------------------------------------------------
 
 test("parseZaiLimits handles valid limits array", () => {
+  // New schema: data.limits entries with type/percentage/currentValue/usage/number/nextResetTime
   let json = JSON.Object(Dict.fromArray([
     ("data", JSON.Object(Dict.fromArray([
       ("limits", JSON.Array([
         JSON.Object(Dict.fromArray([
-          ("kind", JSON.String("TIME_LIMIT")),
+          ("type", JSON.String("TIME_LIMIT")),
           ("unit", JSON.Number(5.0)),
-          ("label", JSON.String("5h")),
-          ("used", JSON.Number(50.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(50.0)),
+          ("remaining", JSON.Number(50.0)),
           ("percentage", JSON.Number(50.0)),
-          ("nextResetTime", JSON.Number(0.0)),
+          ("nextResetTime", JSON.Number(1751328000000.0)),
         ]))
       ])),
       ("level", JSON.String("standard")),
@@ -376,6 +379,18 @@ test("parseZaiLimits handles valid limits array", () => {
     (a, b) => a == b,
     first(result).window,
     #\"rolling-5h",
+  )
+  assertion(
+    ~message="limit should be Some(100.0)",
+    (a, b) => a == b,
+    first(result).limit,
+    Some(100.0),
+  )
+  assertion(
+    ~message="reset should be Some ISO string",
+    (a, b) => a == b,
+    first(result).reset->Option.isSome,
+    true,
   )
 })
 
@@ -404,16 +419,20 @@ test("parseZaiLimits handles malformed JSON", () => {
   )
 })
 
-test("parseZaiLimits detects lite plan", () => {
+test("parseZaiLimits lite plan TIME_LIMIT unit 5 becomes rolling-mcp with MCP quota label", () => {
+  // Lite plan: TIME_LIMIT unit:5 → rolling-mcp / label "MCP quota"
   let json = JSON.Object(Dict.fromArray([
     ("data", JSON.Object(Dict.fromArray([
       ("limits", JSON.Array([
         JSON.Object(Dict.fromArray([
-          ("kind", JSON.String("TIME_LIMIT")),
+          ("type", JSON.String("TIME_LIMIT")),
           ("unit", JSON.Number(5.0)),
-          ("label", JSON.String("5h")),
-          ("used", JSON.Number(50.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(50.0)),
+          ("remaining", JSON.Number(50.0)),
           ("percentage", JSON.Number(50.0)),
+          ("nextResetTime", JSON.Number(0.0)),
         ]))
       ])),
       ("level", JSON.String("lite")),
@@ -421,10 +440,226 @@ test("parseZaiLimits detects lite plan", () => {
   ]))
   let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=true)
   assertion(
+    ~message="Should return 1 entry",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
     ~message="Lite plan TIME_LIMIT 5h should be rolling-mcp",
     (a, b) => a == b,
     first(result).window,
     #\"rolling-mcp",
+  )
+  assertion(
+    ~message="Info label should be MCP quota",
+    (a, b) => a == b,
+    first(result).info,
+    Some("MCP quota"),
+  )
+})
+
+test("parseZaiLimits lite plan TOKENS_LIMIT unit 3 becomes rolling-5h", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(3.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(30.0)),
+          ("remaining", JSON.Number(70.0)),
+          ("percentage", JSON.Number(30.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ]))
+      ])),
+      ("level", JSON.String("lite")),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=true)
+  assertion(
+    ~message="Should return 1 entry",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="Lite plan TOKENS_LIMIT unit 3 should be rolling-5h",
+    (a, b) => a == b,
+    first(result).window,
+    #\"rolling-5h",
+  )
+  assertion(
+    ~message="Info label should be 5h rolling window",
+    (a, b) => a == b,
+    first(result).info,
+    Some("5h rolling window"),
+  )
+})
+
+test("parseZaiLimits lite plan TOKENS_LIMIT unit 6 becomes rolling-weekly", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(6.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(80.0)),
+          ("remaining", JSON.Number(20.0)),
+          ("percentage", JSON.Number(80.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ]))
+      ])),
+      ("level", JSON.String("lite")),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=true)
+  assertion(
+    ~message="Lite plan TOKENS_LIMIT unit 6 should be rolling-weekly",
+    (a, b) => a == b,
+    first(result).window,
+    #\"rolling-weekly",
+  )
+  assertion(
+    ~message="Info label should be Weekly quota",
+    (a, b) => a == b,
+    first(result).info,
+    Some("Weekly quota"),
+  )
+})
+
+test("parseZaiLimits derives usage from currentValue/usage when percentage is absent", () => {
+  // When percentage is absent/null, derive from currentValue/usage
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("MCP_LIMIT")),
+          ("unit", JSON.Null),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(200.0)),
+          ("currentValue", JSON.Number(50.0)),
+          ("remaining", JSON.Number(150.0)),
+          ("percentage", JSON.Null),
+          ("nextResetTime", JSON.Number(0.0)),
+        ]))
+      ])),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  assertion(
+    ~message="Should return 1 entry",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  // currentValue=50, usage=200 → (50/200)*100 = 25%
+  assertion(
+    ~message="Used should be 25.0 (derived from currentValue/usage)",
+    (a, b) => a == b,
+    first(result).used,
+    25.0,
+  )
+  assertion(
+    ~message="limit should be Some(100.0)",
+    (a, b) => a == b,
+    first(result).limit,
+    Some(100.0),
+  )
+})
+
+test("parseZaiLimits full plan TIME_LIMIT unit 168 becomes rolling-weekly", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TIME_LIMIT")),
+          ("unit", JSON.Number(168.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(100.0)),
+          ("remaining", JSON.Number(0.0)),
+          ("percentage", JSON.Number(100.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ]))
+      ])),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  assertion(
+    ~message="Full plan TIME_LIMIT unit 168 should be rolling-weekly",
+    (a, b) => a == b,
+    first(result).window,
+    #\"rolling-weekly",
+  )
+})
+
+test("parseZaiLimits output is sorted: rolling-mcp, rolling-5h, rolling-weekly", () => {
+  // Multiple entries should come out in stable sorted order
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TIME_LIMIT")),
+          ("unit", JSON.Number(5.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(50.0)),
+          ("remaining", JSON.Number(50.0)),
+          ("percentage", JSON.Number(50.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ])),
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("MCP_LIMIT")),
+          ("unit", JSON.Null),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(60.0)),
+          ("currentValue", JSON.Number(30.0)),
+          ("remaining", JSON.Number(30.0)),
+          ("percentage", JSON.Number(50.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ])),
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TIME_LIMIT")),
+          ("unit", JSON.Number(200.0)),
+          ("number", JSON.Null),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(100.0)),
+          ("remaining", JSON.Number(0.0)),
+          ("percentage", JSON.Number(100.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ])),
+      ])),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  assertion(
+    ~message="Should return 3 entries",
+    (a, b) => a == b,
+    result->Array.length,
+    3,
+  )
+  // Sorted: rolling-mcp (0) → rolling-5h (1) → rolling-weekly (2)
+  assertion(
+    ~message="First entry should be rolling-mcp",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 0).window,
+    #\"rolling-mcp",
+  )
+  assertion(
+    ~message="Second entry should be rolling-5h",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 1).window,
+    #\"rolling-5h",
+  )
+  assertion(
+    ~message="Third entry should be rolling-weekly",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 2).window,
+    #\"rolling-weekly",
   )
 })
 

@@ -29,10 +29,35 @@ type fetchInit = {
   body: option<string>,
 }
 
-// fetchImpl: tests override this ref to stub fetch responses
+// fetchImpl: tests override this ref to stub fetch responses.
+// Production code calls installRealFetch() to wire it up to the global fetch API.
 let fetchImpl: ref<(string, fetchInit) => promise<JSON.t>> = ref((_url, _init) => {
   Promise.resolve(%raw("null"))
 })
+
+// installRealFetch: replace the default stub with a wrapper around the
+// global `fetch` API (Node 18+). Production CLI/Plugin entry points must
+// call this once during bootstrap; tests leave it on the default stub and
+// override per-test as needed.
+let installRealFetch = (): unit => {
+  let wrapped = (url: string, init: fetchInit): promise<JSON.t> => {
+    let webInit: {..} = {
+      "method": init.method,
+      "headers": init.headers->Option.map(h => h->Dict.toArray->Array.map(((k, v)) => (k, v))),
+      "body": init.body,
+    }
+    Node.globalFetch(url, webInit)
+    ->Promise.then((resp: 'b) => {
+      let status = Node.responseStatus(resp)
+      if status >= 200 && status < 300 {
+        Node.responseJson(resp)
+      } else {
+        Promise.reject(%raw("new Error('HTTP ' + status + ': ' + url)"))
+      }
+    })
+  }
+  fetchImpl := wrapped
+}
 
 let noopLogger: logger = {
   debug: (_, _) => (),
@@ -83,6 +108,7 @@ let request = (
       Some(copy)
     | None => None
     }
+    let _ = redactedHeaders // reserved for future logger-side redaction; never sent on the wire
 
     let bodyStr = switch req.body {
     | Some(b) => Some(JSON.stringify(b))
@@ -91,7 +117,7 @@ let request = (
 
     let init: fetchInit = {
       method: methodStr,
-      headers: redactedHeaders,
+      headers: req.headers,
       body: bodyStr,
     }
 

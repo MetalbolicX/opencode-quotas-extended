@@ -1,7 +1,6 @@
 // src/Providers/CodingPlanParse.res
 // Parses coding-plan provider JSON responses into QuotaData.
 // Ported from src/adapters/providers/coding-plan-parse.ts.
-// Uses SemanticLabels FFI via open SemanticLabels.
 
 // --- QuotaData helpers (local to this module) ----------------------------------
 
@@ -53,6 +52,7 @@ let windowMap = (label: option<string>): windowType => {
 // --- parseZaiLimits -------------------------------------------------------------
 
 // Parses a limit entry from the limits array, extracting usage and limit values.
+// (Kept for internal use; not part of the public API.)
 let parseLimitEntry = (
   acc: array<quotaData>,
   entry: JSON.t,
@@ -257,7 +257,137 @@ let windowRank = (w: windowType): int => {
 
 // --- parseZaiLimits -------------------------------------------------------------
 
+// Stable sort order for Z.Ai output: rolling-mcp → rolling-5h → rolling-weekly → fallback
+let zaiSortRank = (w: windowType): int => {
+  switch w {
+  | #\"rolling-mcp" => 0
+  | #\"rolling-5h" => 1
+  | #\"rolling-weekly" => 2
+  | _ => 3
+  }
+}
+
+// Helper: compute used percentage from a limit dict entry.
+// Uses percentage as source of truth when finite; falls back to currentValue/usage.
+let computeUsed = (limDict: Dict.t<JSON.t>): option<float> => {
+  let pct = switch Dict.get(limDict, "percentage") {
+  | Some(v) => toNum(v)
+  | None => None
+  }
+  switch pct {
+  | Some(p) =>
+    switch Float.isFinite(p) {
+    | true => Some(p)
+    | false => None
+    }
+  | None =>
+    let cv = switch Dict.get(limDict, "currentValue") {
+    | Some(v) => toNum(v)
+    | None => None
+    }
+    let u = switch Dict.get(limDict, "usage") {
+    | Some(v) => toNum(v)
+    | None => None
+    }
+    switch (cv, u) {
+    | (Some(c), Some(uVal)) =>
+      switch uVal !== 0.0 {
+      | true => Some((c /. uVal) *. 100.0)
+      | false => None
+      }
+    | _ => None
+    }
+  }
+}
+
+// Parses one limit dict into a QuotaData entry (or returns None).
+let limitToQuota = (
+  limDict: Dict.t<JSON.t>,
+  idPrefix: string,
+  providerName: string,
+  isLitePlan: bool,
+): option<quotaData> => {
+  let type_ = switch Dict.get(limDict, "type") {
+  | Some(JSON.String(s)) => s
+  | _ => "LIMIT"
+  }
+  let unit = switch Dict.get(limDict, "unit") {
+  | Some(v) => toNum(v)
+  | None => None
+  }
+  let number = switch Dict.get(limDict, "number") {
+  | Some(v) => toNum(v)
+  | None => None
+  }
+  let resetMs = switch Dict.get(limDict, "nextResetTime") {
+  | Some(v) => toNum(v)
+  | None => None
+  }
+  let usedOpt = computeUsed(limDict)
+  switch usedOpt {
+  | None => None
+  | Some(u) =>
+    let normalizedWindow = zaiWindow(type_, unit, isLitePlan)
+    let id = `${idPrefix}-${type_->String.toLowerCase}-${switch unit {
+      | Some(v) => Belt.Float.toString(v)
+      | None => "u"
+    }}-${switch number {
+      | Some(v) => Belt.Float.toString(v)
+      | None => "n"
+    }}`
+    let hints: SemanticLabels.providerPayloadHints = {
+      type_: Some(type_),
+      unit: switch unit {
+      | Some(v) => Some(Belt.Float.toString(v))
+      | None => None
+      },
+      number,
+      modelName: None,
+      weekly: None,
+      openaiVariant: None,
+      geminiModel: None,
+    }
+    let baseConcept = SemanticLabels.enrichQuotaLabel(providerName, hints)
+    let concept: SemanticLabels.enrichedLabel = if isLitePlan {
+      if type_ === "TIME_LIMIT" && unit === Some(5.0) {
+        {label: "MCP quota", concept: SemanticLabels.ZAiMcp}
+      } else if type_ === "TOKENS_LIMIT" && unit === Some(3.0) {
+        {label: "5h rolling window", concept: SemanticLabels.ZAi5HourRolling}
+      } else if type_ === "TOKENS_LIMIT" && unit === Some(6.0) {
+        {label: "Weekly quota", concept: SemanticLabels.ZAiWeeklyRolling}
+      } else {
+        baseConcept
+      }
+    } else {
+      baseConcept
+    }
+    let providerBranded = SemanticLabels.buildProviderName(providerName, concept.concept)
+    let resetStr = switch resetMs {
+    | Some(ms) =>
+      switch ms > 0.0 {
+      | true =>
+        let d = Date.fromTime(ms /. 1000.0)
+        Some(d->Date.toISOString)
+      | false => None
+      }
+    | None => None
+    }
+    Some({
+      id,
+      providerName: providerBranded,
+      used: u,
+      limit: Some(100.0),
+      unit: "%",
+      reset: resetStr,
+      window: normalizedWindow,
+      info: Some(concept.label),
+      modelId: None,
+    })
+  }
+}
+
 // Parses Zai provider limit entries into QuotaData array.
+// Schema: data.limits = Array<{ type, unit, number, usage, currentValue, remaining, percentage, nextResetTime, usageDetails }>
 let parseZaiLimits = (
   ~json: JSON.t,
   ~idPrefix: string,
@@ -274,57 +404,13 @@ let parseZaiLimits = (
       }
     | _ => []
     }
-    let entries = []
-    limits->Array.reduce(entries, (acc, entry) => {
+    let entries: array<quotaData> = Belt.Array.keepMap(limits, (entry) => {
       switch entry {
-      | JSON.Object(limDict) =>
-        let t = switch Dict.get(limDict, "kind") {
-        | Some(JSON.String(s)) => s
-        | _ => ""
-        }
-        let unit = switch Dict.get(limDict, "unit") {
-        | Some(v) => toNum(v)
-        | None => None
-        }
-        let used = switch Dict.get(limDict, "used") {
-        | Some(v) => toNum(v)
-        | None => None
-        }
-        let limit = switch Dict.get(limDict, "limit") {
-        | Some(v) => toNum(v)
-        | None => None
-        }
-        let label = switch Dict.get(limDict, "label") {
-        | Some(JSON.String(s)) => s
-        | _ => ""
-        }
-        let normalizedWindow = zaiWindow(t, unit, isLitePlan)
-        let info = `${providerName} ${label}`
-        let id = `${idPrefix}-${label->String.toLowerCase}`
-        switch used {
-        | Some(u) =>
-          let newEntry: quotaData = {
-            id,
-            providerName: info,
-            used: u,
-            limit,
-            unit: switch normalizedWindow {
-            | #\"rolling-tokens" => "tokens"
-            | #\"rolling-mcp" => "minutes"
-            | _ => "%"
-            },
-            reset: None,
-            window: normalizedWindow,
-            info: Some(info),
-            modelId: None,
-          }
-          Belt.Array.push(acc, newEntry)->ignore
-          acc
-        | None => acc
-        }
-      | _ => acc
+      | JSON.Object(limDict) => limitToQuota(limDict, idPrefix, providerName, isLitePlan)
+      | _ => None
       }
     })
+    entries
   | _ => []
   }
 }

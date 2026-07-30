@@ -40,32 +40,44 @@ let fmtPct = (r: option<float>): string => {
   }
 }
 
-let fmtReset = (d: option<Date.t>): string => {
+// fmtReset accepts an optional Date OR ISO string. The ReScript migration
+// left Providers/* returning reset as option<string> (ISO format) while
+// Domain.quotaData declares option<Date.t>. Both flow into the renderer
+// through Obj.magic in the registry, so we coerce at the boundary.
+let fmtReset = (d: option<'a>): string => {
   switch d {
   | None => "-"
-  | Some(date) =>
-    if date === (Obj.magic(null): Date.t) {
-      "-"
-    } else {
-    let now = Date.now()
-    let diff = Date.getTime(date) -. now
-    if diff <= 0.0 {
+  | Some(v) =>
+    let millis = switch (Obj.magic(v): 'b) {
+    | Some(isoStr) =>
+      let ms = %raw("(s) => Date.parse(s)")
+      Belt.Int.toFloat(ms(isoStr))
+    | _ =>
+      let dateObj = (Obj.magic(v): Date.t)
+      Date.getTime(dateObj)
+    }
+    if millis <= 0.0 {
       "now"
     } else {
-      let m = Math.floor(diff /. 60000.0)
-      if m < 60.0 {
-        `${Float.toString(Math.round(m))}m`
+      let now = Date.now()
+      let diff = millis -. now
+      if diff <= 0.0 {
+        "now"
       } else {
-        let h = Math.floor(m /. 60.0)
-        if h < 24.0 {
-          `${Float.toString(Math.round(h))}h`
-      } else {
-        `${Float.toString(Math.round(h /. 24.0))}d`
+        let m = Math.floor(diff /. 60000.0)
+        if m < 60.0 {
+          `${Float.toString(Math.round(m))}m`
+        } else {
+          let h = Math.floor(m /. 60.0)
+          if h < 24.0 {
+            `${Float.toString(Math.round(h))}h`
+          } else {
+            `${Float.toString(Math.round(h /. 24.0))}d`
+          }
+        }
       }
     }
-    }
   }
-}
 }
 
 let humanize = (n: float): string => {
@@ -145,16 +157,21 @@ let frameWidth = (~terminalWidth: option<float>=?): int => {
 }
 
 // Window label helper
-
+// Domain.quotaData uses camelCase polymorphic variants (#rolling5h) while
+// Providers/* use kebab-case string-tagged variants (#\"rolling-5h"). The
+// registry passes the provider value to the renderer through Obj.magic, so
+// at runtime we may receive either variant. Match both forms here.
 let windowLabelText = (q: Domain.quotaData): string => {
-  switch q.window {
-  | #rolling5h => "rolling-5h"
-  | #rollingMcp => "rolling-mcp"
-  | #rollingTokens => "rolling-tokens"
-  | #rollingWeekly => "rolling-weekly"
+  switch (Obj.magic(q.window): 'a) {
+  | #rolling5h | #\"rolling-5h" => "rolling-5h"
+  | #rollingMcp | #\"rolling-mcp" => "rolling-mcp"
+  | #rollingTokens | #\"rolling-tokens" => "rolling-tokens"
+  | #rollingWeekly | #\"rolling-weekly" => "rolling-weekly"
   | #daily => "daily"
   | #monthly => "monthly"
   | #rolling => "rolling"
+  | #\"rolling-1h" => "rolling-1h"
+  | _ => ""
   }
 }
 
@@ -299,14 +316,16 @@ let tableRenderer: renderer = {
 // JSON renderer
 
 let windowToStr = (w: Domain.windowType): string => {
-  switch w {
-  | #rolling5h => "rolling-5h"
-  | #rollingMcp => "rolling-mcp"
-  | #rollingTokens => "rolling-tokens"
-  | #rollingWeekly => "rolling-weekly"
+  switch (Obj.magic(w): 'a) {
+  | #rolling5h | #\"rolling-5h" => "rolling-5h"
+  | #rollingMcp | #\"rolling-mcp" => "rolling-mcp"
+  | #rollingTokens | #\"rolling-tokens" => "rolling-tokens"
+  | #rollingWeekly | #\"rolling-weekly" => "rolling-weekly"
   | #daily => "daily"
   | #monthly => "monthly"
   | #rolling => "rolling"
+  | #\"rolling-1h" => "rolling-1h"
+  | _ => ""
   }
 }
 
@@ -335,7 +354,16 @@ let jsonRenderer: renderer = {
       | None => Dict.set(obj, "ratio", JSON.Encode.null)
       }
       switch q.reset {
-      | Some(d) => Dict.set(obj, "reset", JSON.Encode.string(Date.getTime(d)->Float.toString))
+      | Some(d) =>
+        let millis = switch (Obj.magic(d): 'a) {
+        | s =>
+          let ms = %raw("(s) => Date.parse(s)")
+          Belt.Int.toFloat(ms(s))
+        | _ =>
+          let dateObj = (Obj.magic(d): Date.t)
+          Date.getTime(dateObj)
+        }
+        Dict.set(obj, "reset", JSON.Encode.string(millis->Float.toString))
       | None => Dict.set(obj, "reset", JSON.Encode.null)
       }
       Dict.set(obj, "window", JSON.Encode.string(windowToStr(q.window)))

@@ -12,8 +12,12 @@ let isMainModule = (): bool => {
 }
 
 let main = (): unit => {
+  // Wire up the production HTTP client (tests override fetchImpl themselves).
+  // Without this, FetchHttp.request hits the default null-returning stub and
+  // every provider returns an empty quota array.
+  FetchHttp.installRealFetch()
   // Cli.main slices argv (drops node/rescript + script path)
-  Cli.main(Node.processArgv)
+  let _ = Cli.main(Node.processArgv)
 }
 
 if isMainModule() {

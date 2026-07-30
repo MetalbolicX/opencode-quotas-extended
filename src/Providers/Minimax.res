@@ -52,7 +52,7 @@ let extractJson = (out: string): option<string> => {
   if idx < 0 {
     None
   } else {
-    let start = String.lastIndexOf(out, "{")
+    let start = %raw("(s, idx) => s.lastIndexOf('{', idx)")(out, idx)
     if start < 0 {
       None
     } else {

@@ -142,7 +142,7 @@ let runList = (_args: ParseArgs.parsedArgs): Promise.t<unit> => {
   })
 }
 
-let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): Promise.t<unit> => {
+let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): unit => {
   let reg = Registry.buildDefaultRegistry()
   let logger = makeReportPipelineLogger()
   let historyStore = makeNoopHistory()
@@ -158,7 +158,6 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): Pr
     let msg = Messages.formatNoCredentialsForProvider(providerId, reg.ids())
     Node.processStderrWrite(`${msg}\n`)->ignore
     Node.processExit(1)
-    Promise.resolve()
   | Some(p) => {
       // Coerce to access isAvailable (structural match, nominal in ReScript)
       let pp: availableFilterProvider = Obj.magic(p)
@@ -167,7 +166,6 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): Pr
         let msg = Messages.formatNoCredentialsForProvider(providerId, reg.ids())
         Node.processStderrWrite(`${msg}\n`)->ignore
         Node.processExit(1)
-        Promise.resolve()
       } else {
         // REQ-PP-1..5: run the full pipeline
         let deps: ReportPipeline.reportDeps = {
@@ -221,32 +219,32 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): Pr
         switch result.errors->Dict.get("_") {
         | Some(msg) =>
           Node.processStdoutWrite(`${msg}\n`)->ignore
-          let _: unit = Node.processExit(1)
-          Promise.resolve()
+          Node.processExit(1)
         | None =>
           Node.processStdoutWrite(`${result.rendered}\n`)->ignore
-          let _: unit = Node.processExit(0)
-          Promise.resolve()
+          Node.processExit(0)
         }
       }
     }
   }
 }
 
-let dispatch = (args: ParseArgs.parsedArgs): unit => {
+let dispatch = (args: ParseArgs.parsedArgs): Promise.t<unit> => {
   if args.help {
     printHelp()
     Node.processExit(0)
+    Promise.resolve()
   } else if args.provider !== None {
-    runProviderFlow(Belt.Option.getExn(args.provider), args)->ignore
+    runProviderFlow(Belt.Option.getExn(args.provider), args)
   } else {
     // REQ-CRED-1: check auth.json before list
     let authPath = Paths.getAuthJsonPath(~env=None)
     if !Node.existsSync(authPath) {
       Node.processStderrWrite(`${Messages.formatMissingAuthJson(authPath)}\n`)->ignore
       Node.processExit(1)
+      Promise.resolve()
     } else {
-      runList(args)->ignore
+      runList(args)
     }
   }
 }
@@ -259,7 +257,7 @@ type runResult = {
   exitCode: int,
 }
 
-let run = (argv: array<string>): runResult => {
+let run = async (argv: array<string>): runResult => {
   let stdout: ref<string> = ref("")
   let stderr: ref<string> = ref("")
   let exitCode: ref<int> = ref(0)
@@ -276,9 +274,7 @@ let run = (argv: array<string>): runResult => {
       Node.processStdoutWrite(`${usageText}\n`)->ignore
       exitCode := 0
     } else {
-      // Actual CLI writes go directly to process.stdout/stderr.
-      // Tests for the full dispatch should use ParseArgs.parse directly.
-      dispatch(args)
+      await dispatch(args)
     }
   }
 
@@ -287,8 +283,8 @@ let run = (argv: array<string>): runResult => {
 
 // ── main — CLI bootstrap ────────────────────────────────────────────────────────
 
-let main = (argv: array<string>): unit => {
+let main = async (argv: array<string>): unit => {
   // Slice off [node, scriptPath] to get the user-facing args
-  let result = run(argv->Belt.Array.sliceToEnd(2))
+  let result = await run(argv->Belt.Array.sliceToEnd(2))
   Node.processExit(result.exitCode)
 }

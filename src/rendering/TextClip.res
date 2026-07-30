@@ -4,7 +4,7 @@
 let sgrRe = %re("/\x1b\\[[0-9;]*m/g")
 
 let stripAnsi = (text: string): string => {
-  Js.String.replaceByRe(sgrRe, text, "")
+  Js.String.replaceByRe(sgrRe, "", text)
 }
 
 let clip = (~width: int, value: string, ~ellipsis: string="…"): string => {
