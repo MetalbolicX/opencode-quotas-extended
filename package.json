@@ -45,7 +45,9 @@
     "test:providers-zai": "node lib/es6/src/Providers/ZaiTests.res.mjs",
     "test:providers-zen": "node lib/es6/src/Providers/ZenTests.res.mjs",
     "test:providers-go": "node lib/es6/src/Providers/GoTests.res.mjs",
-    "test:providers-kimi": "node lib/es6/src/Providers/KimiTests.res.mjs"
+    "test:providers-kimi": "node lib/es6/src/Providers/KimiTests.res.mjs",
+    "test:providers-openai": "node lib/es6/src/Providers/OpenAITests.res.mjs",
+    "test:providers-minimax": "node lib/es6/src/Providers/MinimaxTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

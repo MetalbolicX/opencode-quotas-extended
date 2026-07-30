@@ -33,6 +33,15 @@ external processEnv: Dict.t<string> = "env"
 @module("node:fs") external mkdirSync: string => unit = "mkdirSync"
 @module("node:fs") external rmSync: string => unit = "rmSync"
 
+type execSyncOpts = {
+  encoding: string,
+  timeout: int,
+  stdio: string,
+}
+
+@module("node:child_process")
+external execSync: (string, execSyncOpts) => string = "execSync"
+
 @val external setTimeoutMs: (unit => unit, float) => float = "setTimeout"
 @val external clearTimeoutId: float => unit = "clearTimeout"
 @val external consoleWarnStr: string => unit = "console.warn"

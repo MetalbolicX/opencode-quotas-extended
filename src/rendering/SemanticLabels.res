@@ -56,6 +56,8 @@ let getLabel = (concept: string): string => {
   }
 }
 
+
+
 let enrichQuotaLabel = (_providerId: string, hints: providerPayloadHints): enrichedLabel => {
   let type_ = hints.type_
   let unit = hints.unit
