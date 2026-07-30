@@ -266,7 +266,9 @@ let run = (argv: array<string>): runResult => {
 
   switch ParseArgs.parse(argv) {
   | Error(msg) =>
-    stderr := `${msg}\n${usageText}\n`
+    let errMsg = `${msg}\n${usageText}\n`
+    stderr := errMsg
+    Node.processStderrWrite(errMsg)->ignore
     exitCode := 2
   | Ok(args) =>
     if args.help {
@@ -287,5 +289,6 @@ let run = (argv: array<string>): runResult => {
 
 let main = (argv: array<string>): unit => {
   // Slice off [node, scriptPath] to get the user-facing args
-  run(argv->Belt.Array.sliceToEnd(2))->ignore
+  let result = run(argv->Belt.Array.sliceToEnd(2))
+  Node.processExit(result.exitCode)
 }
