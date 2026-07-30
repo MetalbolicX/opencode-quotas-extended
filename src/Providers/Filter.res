@@ -15,24 +15,23 @@ type quotaProvider = {
 
 // filterAvailableProviders filters providers that successfully returned true on isAvailable.
 // Providers that throw during isAvailable are isolated and excluded.
-let filterAvailableProviders = async (
+let filterAvailableProviders = (
   providers: array<quotaProvider>,
 ): Promise.t<array<quotaProvider>> => {
-  let results = await Promise.all(
-    providers->Array.map(p => {
-      p.isAvailable()->Promise.then(isAvail => {
-        Promise.resolve((p, isAvail))
-      })->Promise.catch(. _err => {
-        Promise.resolve((p, false))
-      })
-    })
-  )
-
-  let filtered = []
-  results->Array.forEach(((prov, isAvail)) => {
+  let collected: array<quotaProvider> = []
+  let pushIfAvail = (p: quotaProvider, isAvail: bool): Promise.t<unit> => {
     if isAvail {
-      filtered->Array.push(prov)->ignore
+      collected->Array.push(p)->ignore
     }
+    Promise.resolve()
+  }
+  let chain: Promise.t<unit> = Promise.resolve()
+  let finalChain = providers->Array.reduce(chain, (acc, p) => {
+    (acc->Promise.then(_ =>
+      p.isAvailable()
+      ->Promise.then(isAvail => pushIfAvail(p, isAvail))
+      ->Promise.catch(. _err => pushIfAvail(p, false))
+    ): Promise.t<unit>)
   })
-  Promise.resolve(filtered)
+  finalChain->Promise.then(. _ => Promise.resolve(collected))
 }

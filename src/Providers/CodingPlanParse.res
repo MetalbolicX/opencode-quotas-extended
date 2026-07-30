@@ -265,9 +265,13 @@ let parseZaiLimits = (
   ~isLitePlan: bool,
 ): array<quotaData> => {
   switch json {
-  | JSON.Object(dict) =>
-    let limits = switch Dict.get(dict, "limits") {
-    | Some(JSON.Array(arr)) => arr
+  | JSON.Object(root) =>
+    let limits = switch Dict.get(root, "data") {
+    | Some(JSON.Object(dataDict)) =>
+      switch Dict.get(dataDict, "limits") {
+      | Some(JSON.Array(arr)) => arr
+      | _ => []
+      }
     | _ => []
     }
     let entries = []
