@@ -41,7 +41,11 @@
     "test:providers-coding-plan": "node lib/es6/src/Providers/CodingPlanParseTests.res.mjs",
     "test:providers-oauth": "node lib/es6/src/Providers/OAuthTests.res.mjs",
     "test:providers-filter": "node lib/es6/src/Providers/FilterTests.res.mjs",
-    "test:providers-semantic-labels": "node lib/es6/src/Providers/SemanticLabelsTests.res.mjs"
+    "test:providers-semantic-labels": "node lib/es6/src/Providers/SemanticLabelsTests.res.mjs",
+    "test:providers-zai": "node lib/es6/src/Providers/ZaiTests.res.mjs",
+    "test:providers-zen": "node lib/es6/src/Providers/ZenTests.res.mjs",
+    "test:providers-go": "node lib/es6/src/Providers/GoTests.res.mjs",
+    "test:providers-kimi": "node lib/es6/src/Providers/KimiTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
