@@ -5,7 +5,7 @@ let isMainModule = (): bool => {
   switch Node.processArgv[1] {
   | None => false
   | Some(argv1) =>
-    let here = Node.realpathSync(Node.fileURLToPath(Node.importMetaUrl()))
+    let here = Node.realpathSync(Node.fileURLToPath(Node.importMetaUrl))
     let invoked = Node.realpathSync(Node.pathResolve(argv1))
     here === invoked
   }

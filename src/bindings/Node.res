@@ -54,7 +54,7 @@ external execSync: (string, execSyncOpts) => string = "execSync"
 @module("node:fs") external realpathSync: (string) => string = "realpathSync"
 @module("node:url") external fileURLToPath: (string) => string = "fileURLToPath"
 @module("node:path") external pathResolve: (string) => string = "resolve"
-let processStdoutWrite = (_s: string): bool => %raw("process.stdout.write(_s)")
-let processStderrWrite = (_s: string): bool => %raw("process.stderr.write(_s)")
-let importMetaUrl = (): string => %raw("import.meta.url")
-let processCwd = (): string => %raw("process.cwd()")
+@val external processStdoutWrite: string => bool = "process.stdout.write"
+@val external processStderrWrite: string => bool = "process.stderr.write"
+@val external processCwd: unit => string = "process.cwd"
+@val external importMetaUrl: string = "import.meta.url"
