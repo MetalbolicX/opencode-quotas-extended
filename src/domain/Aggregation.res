@@ -215,10 +215,4 @@ let aggregate = (
   }
 }
 
-// -- test helpers (pure domain, no I/O) ----------------------------------------
 
-let makeAggregationGroup = (~id: string, ~providerId: string, ~strategy: aggregationStrategy) => {
-  id,
-  providerId,
-  strategy,
-}

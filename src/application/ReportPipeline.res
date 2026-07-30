@@ -170,10 +170,10 @@ let reportQuotas = async (deps: reportDeps, opts: reportOptions): promise<report
       }
     }
 
-    let userGroups: array<Domain.Aggregation.aggregationGroup> = Dict.toArray(
+    let userGroups: array<Aggregation.aggregationGroup> = Dict.toArray(
       deps.config.aggregatedGroups,
     )->Belt.Array.map(((groupId, g)) => {
-      Domain.Aggregation.makeAggregationGroup(
+      DomainFixtures.makeAggregationGroup(
         ~id=groupId,
         ~providerId="",
         ~strategy=switch g.strategy {

@@ -113,42 +113,4 @@ let strategyFromString = (s: string): option<aggregationStrategy> => {
   }
 }
 
-// -- test helpers (pure domain, no I/O) ----------------------------------------
 
-let makeQuotaData = (
-  ~id: string,
-  ~providerName: string,
-  ~used: float,
-  ~limit: option<float>,
-  ~unit: string="requests",
-  ~reset: option<Date.t>=None,
-  ~window: windowType=#daily,
-  ~info: option<string>=None,
-  ~modelId: option<string>=None,
-) => {
-  id,
-  providerName,
-  used,
-  limit,
-  unit,
-  reset,
-  window,
-  info,
-  modelId,
-}
-
-let makeHistoryPoint = (~timestamp: float, ~used: float, ~limit: option<float>=None) => {
-  timestamp,
-  used,
-  limit,
-}
-
-let makeQuotaSnapshot = (
-  ~fetchedAt: Date.t,
-  ~data: array<quotaData>,
-  ~errors: option<dict<string>>=None,
-) => {
-  fetchedAt,
-  data,
-  errors,
-}

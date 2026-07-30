@@ -1,8 +1,9 @@
 // Aggregation domain tests -- verifies pure domain aggregation logic.
 open RescriptTest
+open DomainFixtures
 
 let makeQ = (~id: string, ~used: float, ~limit: option<float>, ~providerName: string="test") =>
-  Domain.makeQuotaData(~id, ~providerName, ~used, ~limit, ~unit="%", ~window=#daily)
+  makeQuotaData(~id, ~providerName, ~used, ~limit, ~unit="%", ~window=#daily)
 
 // ETTL map using fromArray to avoid Js.Dict.empty linker issue
 let makeEttlMap = () => Dict.fromArray([("a", 10.0), ("b", 20.0), ("c", 30.0)])
@@ -193,7 +194,7 @@ test("aggregateMostCritical all infinity ETTL falls back to max", () => {
 
 test("mergeAggregationGroups: user wins on id collision", () => {
   // Override a non-existent id to test append behavior
-  let override = Domain.makeAggregationGroup(
+  let override = makeAggregationGroup(
     ~id="custom-collision",
     ~providerId="zen",
     ~strategy=#min,
@@ -210,7 +211,7 @@ test("mergeAggregationGroups: user wins on id collision", () => {
 })
 
 test("mergeAggregationGroups: new groups appended", () => {
-  let newGroup = Domain.makeAggregationGroup(~id="custom", ~providerId="custom", ~strategy=#min)
+  let newGroup = makeAggregationGroup(~id="custom", ~providerId="custom", ~strategy=#min)
   let defaults = Domain.defaultAggregationGroups
   let result = Domain.mergeAggregationGroups([newGroup], defaults)
   assertion(

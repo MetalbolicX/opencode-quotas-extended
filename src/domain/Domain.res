@@ -40,8 +40,4 @@ let renderModeFromString = Types.renderModeFromString
 let strategyToString = Types.strategyToString
 let strategyFromString = Types.strategyFromString
 
-// Re-export factory helpers from submodules (for use in test files)
-let makeQuotaData = Types.makeQuotaData
-let makeHistoryPoint = Types.makeHistoryPoint
-let makeQuotaSnapshot = Types.makeQuotaSnapshot
-let makeAggregationGroup = Aggregation.makeAggregationGroup
+

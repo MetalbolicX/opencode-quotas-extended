@@ -22,12 +22,12 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 
 ## Phase 1: Test Factory Extraction + Domain `.resi`
 
-- [ ] 1.1 RED: Add `src/testing/DomainFixturesTests.res`; assert four factories/shapes.
-- [ ] 1.2 GREEN: Create `src/testing/DomainFixtures.res`/`.resi` with the four named factories.
-- [ ] 1.3 REFACTOR: Remove factories from `src/domain/{Types,Aggregation}.res` and `Domain.res` exports.
-- [ ] 1.4 RED: Add `tests/architecture/resi-coverage.test.ts` for domain consumers.
-- [ ] 1.5 GREEN: Create `.resi` for `Types`, `Aggregation`, `Prediction`, `Reset`, `AggregationDefaults`, `Domain`.
-- [ ] 1.6 REFACTOR: Update all test imports to `DomainFixtures`; run build and `pnpm test`.
+- [x] 1.1 RED: Add `src/testing/DomainFixturesTests.res`; assert four factories/shapes.
+- [x] 1.2 GREEN: Create `src/testing/DomainFixtures.res`/`.resi` with the four named factories.
+- [x] 1.3 REFACTOR: Remove factories from `src/domain/{Types,Aggregation}.res` and `Domain.res` exports.
+- [x] 1.4 RED: Add `tests/architecture/resi-coverage.test.ts` for domain consumers.
+- [x] 1.5 GREEN: Create `.resi` for `Types`, `Aggregation`, `Prediction`, `Reset`, `AggregationDefaults`, `Domain`.
+- [x] 1.6 REFACTOR: Update all test imports to `DomainFixtures`; run build and `pnpm test`.
 
 ## Phase 2: Provider Type Unification
 
