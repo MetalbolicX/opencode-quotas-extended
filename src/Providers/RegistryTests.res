@@ -63,4 +63,29 @@ test("registry.all() returns 8 providers", () => {
   )
 })
 
+test("buildDefaultRegistryWith accepts deps and returns same registry", () => {
+  let deps: deps = {credentialResolver: None, httpClient: None}
+  let reg = buildDefaultRegistryWith(deps)
+  assertion(
+    ~message="injected registry has 8 providers",
+    (a, b) => a == b,
+    reg.ids()->Array.length,
+    8,
+  )
+})
+
+test("buildDefaultRegistryWith with Some(deps) returns same registry", () => {
+  let deps: deps = {
+    credentialResolver: Some("stub-resolver"),
+    httpClient: Some("stub-http"),
+  }
+  let reg = buildDefaultRegistryWith(deps)
+  assertion(
+    ~message="injected registry with deps still has 8 providers",
+    (a, b) => a == b,
+    reg.ids()->Array.length,
+    8,
+  )
+})
+
 let () = runTests()

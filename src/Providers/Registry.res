@@ -54,3 +54,21 @@ let buildDefaultRegistry = (): providerRegistry => {
     all: () => providers,
   }
 }
+
+// --- Injected registry builder -------------------------------------------------
+// Wiring point for credential resolver + http client. Currently returns the same
+// providers as buildDefaultRegistry (the providers themselves hardcode their
+// CredentialResolver.resolve call). The signature documents the intended
+// dependency-injection surface so future provider refactors can thread through
+// the resolver + http client without changing this call site.
+
+type deps = {
+  credentialResolver: option<string>,
+  httpClient: option<string>,
+}
+
+let buildDefaultRegistryWith = (_deps: deps): providerRegistry => {
+  // Future: pass deps to each provider creator. For now, providers use the
+  // hardcoded CredentialResolver, so _deps is unused.
+  buildDefaultRegistry()
+}

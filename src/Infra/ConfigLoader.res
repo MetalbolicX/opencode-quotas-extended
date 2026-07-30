@@ -326,7 +326,30 @@ let loadConfig = (
       | Some(a) => a
       | None => defaults.disabled
       },
-      aggregatedGroups: defaults.aggregatedGroups,
+      aggregatedGroups: {
+        // Access raw JSON directly to correctly extract aggregatedGroups
+        // (coerceToPartial incorrectly types array fields as dict<string>)
+        let rawGroups: option<{..}> = %raw("raw && raw.aggregatedGroups === undefined ? undefined : raw.aggregatedGroups")
+        switch rawGroups {
+        | Some(groups) =>
+          let result: dict<aggregationGroup> = Dict.make()
+          let groupKeys = Dict.keysToArray(groups->Obj.magic)
+          let _ = groupKeys->Array.forEach(key => {
+            let groupObj = %raw("groups[key]")->Obj.magic
+            let strategy = switch groupObj["strategy"]->Obj.magic {
+            | Some(s) => s
+            | None => "max"
+            }
+            let members: array<string> = switch groupObj["members"]->Obj.magic {
+            | Some(arr) => arr
+            | None => []
+            }
+            let _ = Dict.set(result, key, {strategy, members})
+          })
+          result
+        | None => defaults.aggregatedGroups
+        }
+      },
       historyMaxAgeHours: switch partial.historyMaxAgeHours {
       | Some(h) => h
       | None => defaults.historyMaxAgeHours
