@@ -66,6 +66,11 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 - [ ] 5.2 GREEN: Create those interfaces; expose only cross-module APIs.
 - [ ] 5.3 REFACTOR: Compile and run affected ReScript tests.
 
+### Phase 5a: ParseArgs + Renderers Obj.magic Reduction (apply session)
+
+- [x] 5a.1 ParseArgs.res: type `node:util.parseArgs` FFI with `@get` externals; remove 7× `Obj.magic`
+- [x] 5a.2 Renderers.res: remove `Obj.magic(null)` sentinel; ConfigLoader.res: fix `progressBar` `== null` to treat both null and undefined as absent
+
 ## Phase 6: Barrel `.resi` and Verification
 
 - [ ] 6.1 REFACTOR: Create/update `src/{domain/Domain,Providers/Providers,Auth/Auth,Infra/Infra}.resi`.

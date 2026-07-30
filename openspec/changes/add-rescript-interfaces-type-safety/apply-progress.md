@@ -152,6 +152,45 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 
 ---
 
+## Phase 5a: ParseArgs + Renderers Obj.magic Reduction
+
+### TDD Cycle Evidence
+
+| Task | Phase | Test File | Test Command | Result |
+|------|-------|-----------|--------------|--------|
+| 5a.1 | GREEN | N/A | `pnpm res:build` | ✅ Build clean, 0 warnings (ParseArgs typed FFI: `parseArgsValues` closed type + `@get` externals for values + 5 fields; all `Obj.magic` removed) |
+| 5a.1 | GREEN | `tests/unit/cli/parse-args.test.ts` | `pnpm test tests/unit/cli/parse-args.test.ts` | ✅ All 22 tests pass |
+| 5a.2 | GREEN | N/A | `pnpm res:build` | ✅ Build clean (ConfigLoader: `== null` for progressBar; Renderers: `Some(v) => v` simplification) |
+| 5a.2 | GREEN | `tests/unit/config/config-loader.test.ts` | `pnpm test tests/unit/config/config-loader.test.ts` | ✅ All 12 tests pass |
+| 5a.3 | GATE | N/A | `pnpm res:build` + `pnpm test` + grep Obj.magic | ✅ Build exit 0 (0 warnings), 655/655 tests green, `Obj.magic` in ParseArgs.res: 0, Renderers.res: 0, ConfigLoader.res: 0 |
+
+### Obj.magic Elimination Summary
+
+**ParseArgs.res** — 7 → 0:
+- `Obj.magic({...})` on options object → removed (ReScript object literals work with `{..}` external)
+- `Obj.magic(result["values"])` → replaced with `@get external valuesOf: {..} => parseArgsValues = "values"`
+- 5 field `Obj.magic` casts → replaced with typed `@get` externals returning `Nullable.t<_>`, converted via `Nullable.toOption`
+
+**Renderers.res** — 1 → 0:
+- `Obj.magic(null)` sentinel removed (defended against `Some(null)` from ConfigLoader)
+- Root cause fixed in ConfigLoader: `progressBar: %raw("_raw.progressBar == null ? undefined : _raw.progressBar")` treats both null and undefined as absent → produces `None` instead of `Some(null)`
+
+### Rollback Boundary
+
+- `src/Cli/ParseArgs.res` — revert git diff: restore original `Obj.magic` casts + remove typed externals + `parseArgsValues` type
+- `src/rendering/Renderers.res` — revert git diff: restore `Obj.magic(null)` sentinel check
+- `src/Infra/ConfigLoader.res` — revert `== null` to `=== undefined` for progressBar
+
+### Deviations from Plan
+
+1. **`Js.t<{..}>` type alias fails**: `type X = Js.t<{..}>` fails with "unbound type variable". Used closed `parseArgsValues` record type instead (`{list: option<bool>, provider: option<string>, ...}`) with `@get` externals for field access.
+
+2. **`Js.Nullable.t` deprecated**: `Js.Nullable.t<'a>` deprecated in favor of `Nullable.t<'a>`. Used `Nullable.t` and `Nullable.toOption`.
+
+3. **`getWithDefault` for booleans**: Since `Nullable.toOption` returns `option<bool>`, used `Belt.Option.getWithDefault(..., false)` for `rawList` and `rawHelp` (which were `bool` in original code, compared with `=== true`).
+
+---
+
 ## Phase 1 Summary
 
 **Created:**

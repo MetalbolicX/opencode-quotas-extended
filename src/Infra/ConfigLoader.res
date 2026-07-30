@@ -248,7 +248,8 @@ let coerceToPartial = (_raw: JSON.t): partialConfig => {
     show: %raw("_raw.show === undefined ? undefined : _raw.show"),
     filterByCurrentModel: %raw("_raw.filterByCurrentModel === undefined ? undefined : _raw.filterByCurrentModel"),
     // progressBar: use %raw to access nested fields since JSON module lacks Bool variant
-    progressBar: %raw("_raw.progressBar === undefined ? undefined : _raw.progressBar"),
+    // Use == null (loose equality) so both null and undefined map to None (absent config)
+    progressBar: %raw("_raw.progressBar == null ? undefined : _raw.progressBar"),
     credentials: Dict.get(d, "credentials"),
     anthropic: switch Dict.get(d, "anthropic") {
     | Some(JSON.Object(a)) => Some({orgId: _optStr(Dict.get(a, "orgId"))})

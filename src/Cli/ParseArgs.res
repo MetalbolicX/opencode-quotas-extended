@@ -14,14 +14,35 @@ type parsedArgs = {
   help: bool,
 }
 
+// Types for typed FFI with node:util.parseArgs
+// parseArgs returns an object with a 'values' field containing parsed options.
+// We use a closed type with optional fields for the values object.
+type parseArgsValues = {
+  list: option<bool>,
+  provider: option<string>,
+  color: option<string>,
+  mode: option<string>,
+  help: option<bool>,
+}
+
 // Use @module to generate ESM import - node:util.parseArgs is a named export
 @module("node:util")
 external parseArgsFn: {..} => {..} = "parseArgs"
 
+// Accessors for the values object and its fields
+// All option fields are Nullable.t because JS parseArgs returns undefined when
+// a flag is not provided. Nullable.toOption converts to ReScript option.
+@get external valuesOf: {..} => parseArgsValues = "values"
+@get external getList: parseArgsValues => Nullable.t<bool> = "list"
+@get external getProvider: parseArgsValues => Nullable.t<string> = "provider"
+@get external getColor: parseArgsValues => Nullable.t<string> = "color"
+@get external getMode: parseArgsValues => Nullable.t<string> = "mode"
+@get external getHelp: parseArgsValues => Nullable.t<bool> = "help"
+
 let parse = (argv: array<string>): result<parsedArgs, string> => {
   // node:util.parseArgs throws in strict mode for unknown flags - catch it
   let parseResult: result<{..}, string> = try {
-    let r = parseArgsFn(Obj.magic({
+    let r = parseArgsFn({
       "args": argv,
       "options": {
         "list": {"type": "boolean", "short": "l"},
@@ -32,7 +53,7 @@ let parse = (argv: array<string>): result<parsedArgs, string> => {
       },
       "strict": true,
       "allowPositionals": false,
-    }))
+    })
     Ok(r)
   } catch {
   | JsExn(e) => Error(String.make(e))
@@ -42,14 +63,14 @@ let parse = (argv: array<string>): result<parsedArgs, string> => {
   switch parseResult {
   | Error(msg) => Error(msg)
   | Ok(result) =>
-    let values: {..} = Obj.magic(result["values"])
+    let values = valuesOf(result)
 
-    // Extract fields from values (JS undefined becomes None in ReScript option)
-    let rawList: bool = Obj.magic(values["list"])
-    let rawProvider: option<string> = Obj.magic(values["provider"])
-    let rawColor: option<string> = Obj.magic(values["color"])
-    let rawMode: option<string> = Obj.magic(values["mode"])
-    let rawHelp: bool = Obj.magic(values["help"])
+    // Extract fields from values (JS undefined → None via Nullable.toOption)
+    let rawList: bool = Belt.Option.getWithDefault(Nullable.toOption(getList(values)), false)
+    let rawProvider: option<string> = Nullable.toOption(getProvider(values))
+    let rawColor: option<string> = Nullable.toOption(getColor(values))
+    let rawMode: option<string> = Nullable.toOption(getMode(values))
+    let rawHelp: bool = Belt.Option.getWithDefault(Nullable.toOption(getHelp(values)), false)
 
     // REQ-CLI-1: default to list=true when no provider is given
     let hasList = rawList === true

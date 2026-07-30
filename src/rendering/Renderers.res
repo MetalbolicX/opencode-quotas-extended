@@ -198,7 +198,7 @@ let tableRenderer: renderer = {
     let tw = ctx.terminalWidth
     let hdr = ctx.header
     let barOpts: progressBarConfig = switch ctx.progressBar {
-    | Some(v) => if v === (Obj.magic(null): progressBarConfig) { defaultBarOpts } else { v }
+    | Some(v) => v
     | None => defaultBarOpts
     }
     let w = frameWidth(~terminalWidth=?tw)
