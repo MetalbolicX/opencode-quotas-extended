@@ -1,0 +1,74 @@
+schema: spec-driven
+
+context: |
+  Project: opencode-quotas-extended — CLI quota hub plugin, SOLID/hexagonal rewrite
+  Tech stack: ReScript 12.3.0 + TypeScript 7, pnpm, rolldown (bundler), Node 18+
+  Architecture: Hexagonal — pure domain (src/domain/) depends only on ports (src/ports/*.resi),
+    with adapters in src/Providers/, src/Infra/, src/Auth/, src/Cli/, src/rendering/
+  Testing: 641 vitest unit tests (TS layer) + ~30 rescript-test scripts (ReScript layer),
+    architecture tests in tests/architecture/ enforce domain purity and scaffold invariants
+  Style: No CI, no lint/format tool (lean toolchain), conventional commits
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+      - ReScript (src/**/*.res, .resi); TypeScript tests (tests/**/*.test.ts)
+      - Architecture tests enforce domain purity — never add I/O imports to src/domain/
+      - Never add CI or lint/format tools (user opted out)
+    tdd: true
+    test_command: "pnpm test"
+    build_command: "pnpm build"
+  verify:
+    test_command: "pnpm test"
+    build_command: "pnpm build"
+    typecheck_command: "pnpm typecheck"
+    coverage_command: "pnpm test:coverage"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+testing:
+  strict_tdd: true
+  detected: "2026-07-30"
+  test_runner:
+    command: "pnpm test"
+    framework: vitest (TypeScript layer, 641 tests)
+  test_layers:
+    unit:
+      available: true
+      tools:
+        - "vitest (tests/**/*.test.ts — 641 tests)"
+        - "rescript-test (node lib/es6/**/*.test.res.mjs — ~30 scripts)"
+    integration:
+      available: false
+      tools: []
+    e2e:
+      available: false
+      tools: []
+  coverage:
+    available: true
+    command: "pnpm test:coverage"
+    tool: "@vitest/coverage-v8"
+  quality:
+    linter:
+      available: false
+      command: null
+    type_checker:
+      available: true
+      command: "pnpm typecheck"
+      tool: "tsc --noEmit (TypeScript layer)"
+    formatter:
+      available: false
+      command: null
