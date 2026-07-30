@@ -37,7 +37,11 @@
     "test:auth-env": "node lib/es6/src/Auth/EnvSourceTests.res.mjs",
     "test:auth-config": "node lib/es6/src/Auth/ConfigSourceTests.res.mjs",
     "test:auth-json": "node lib/es6/src/Auth/AuthJsonSourceTests.res.mjs",
-    "test:auth-resolver": "node lib/es6/src/Auth/CredentialResolverTests.res.mjs"
+    "test:auth-resolver": "node lib/es6/src/Auth/CredentialResolverTests.res.mjs",
+    "test:providers-coding-plan": "node lib/es6/src/Providers/CodingPlanParseTests.res.mjs",
+    "test:providers-oauth": "node lib/es6/src/Providers/OAuthTests.res.mjs",
+    "test:providers-filter": "node lib/es6/src/Providers/FilterTests.res.mjs",
+    "test:providers-semantic-labels": "node lib/es6/src/Providers/SemanticLabelsTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
