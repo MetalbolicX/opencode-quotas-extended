@@ -6,23 +6,9 @@
 // Paginated via has_more/next_page cursor, capped at 20 pages.
 // 401/403 throws fail-fast (admin scope required).
 
-// --- Local type declarations (mirrors port interfaces) -----------------------
-
-type authStrategy = [#api | #oauth | #wellknown | #env]
-
-type quotaProvider = {
-  id: string,
-  displayName: string,
-  category: string,
-  authStrategy: authStrategy,
-  isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<Domain.quotaData>>,
-}
-
 // --- Constants ----------------------------------------------------------------
 
 let usageUrl = "https://api.anthropic.com/v1/organizations/{org_id}/usage"
-let maxPages = 20
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -42,13 +28,6 @@ let toNum = (json: JSON.t): option<float> => {
       }
     }
   | _ => None
-  }
-}
-
-let isObj = (v: JSON.t): bool => {
-  switch v {
-  | JSON.Object(_) => true
-  | _ => false
   }
 }
 
@@ -153,7 +132,7 @@ let mapRow = (row: dict<JSON.t>, idx: int): option<Domain.quotaData> => {
 
 // --- Provider ----------------------------------------------------------------
 
-let createAnthropicProvider = (): quotaProvider => {
+let createAnthropicProvider = (): Provider.quotaProvider => {
   id: "anthropic",
   displayName: "Anthropic",
   category: "api-spend",

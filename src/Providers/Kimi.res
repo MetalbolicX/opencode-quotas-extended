@@ -2,19 +2,6 @@
 // Kimi / Moonshot provider.
 // Endpoint: https://api.moonshot.cn/api/usage/quota (placeholder — no public quota API).
 
-// --- Local type declarations (mirrors port interfaces) -----------------------
-
-type authStrategy = [#api | #oauth | #wellknown | #env]
-
-type quotaProvider = {
-  id: string,
-  displayName: string,
-  category: string,
-  authStrategy: authStrategy,
-  isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<Domain.quotaData>>,
-}
-
 // -----------------------------------------------------------------------------
 
 let usageUrl = "https://api.moonshot.cn/api/usage/quota"
@@ -33,7 +20,7 @@ let extractBearerToken = (cred: Credential.credential): string => {
   }
 }
 
-let createKimiProvider = (): quotaProvider => {
+let createKimiProvider = (): Provider.quotaProvider => {
   id: "kimi",
   displayName: "Kimi / Moonshot",
   category: "coding-plan",

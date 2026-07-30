@@ -5,19 +5,6 @@
 
 open SemanticLabels
 
-// --- Local type declarations (mirrors port interfaces) -----------------------
-
-type authStrategy = [#api | #oauth | #wellknown | #env]
-
-type quotaProvider = {
-  id: string,
-  displayName: string,
-  category: string,
-  authStrategy: authStrategy,
-  isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<Domain.quotaData>>,
-}
-
 // --- Helpers -----------------------------------------------------------------
 
 // Converts any JSON value to option<float>, supporting numeric strings.
@@ -235,7 +222,6 @@ let fetchQuotasOAuth = (
 // --- API key path: cursor-based pagination ------------------------------------
 
 let platformUrl = "https://api.openai.com/v1/usage"
-let maxPages = 20
 
 let fetchQuotasApiKey = (
   ~cred: Credential.credential,
@@ -354,7 +340,7 @@ let fetchQuotasApiKey = (
 
 // --- Provider ----------------------------------------------------------------
 
-let createOpenAIProvider = (): quotaProvider => {
+let createOpenAIProvider = (): Provider.quotaProvider => {
   id: "openai",
   displayName: "OpenAI",
   category: "subscription",

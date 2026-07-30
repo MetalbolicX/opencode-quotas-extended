@@ -2,19 +2,6 @@
 // opencode Go provider — api variant.
 // Endpoint: https://opencode.ai/api/billing/balance
 
-// --- Local type declarations (mirrors port interfaces) -----------------------
-
-type authStrategy = [#api | #oauth | #wellknown | #env]
-
-type quotaProvider = {
-  id: string,
-  displayName: string,
-  category: string,
-  authStrategy: authStrategy,
-  isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<Domain.quotaData>>,
-}
-
 // -----------------------------------------------------------------------------
 
 let usageUrl = "https://opencode.ai/api/billing/balance"
@@ -33,7 +20,7 @@ let extractBearerToken = (cred: Credential.credential): string => {
   }
 }
 
-let createGoProvider = (): quotaProvider => {
+let createGoProvider = (): Provider.quotaProvider => {
   id: "go",
   displayName: "opencode Go",
   category: "coding-plan",

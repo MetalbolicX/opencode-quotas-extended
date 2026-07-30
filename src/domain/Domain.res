@@ -17,6 +17,7 @@ type renderMode = Types.renderMode
 type windowType = Types.windowType
 type aggregationStrategy = Types.aggregationStrategy
 // aggregationGroup intentionally omitted -- use Aggregation.aggregationGroup directly.
+// Provider port types (authStrategy, quotaProvider) live in the Provider module, not here.
 
 let aggregate = Aggregation.aggregate
 let aggregateMax = Aggregation.aggregateMax

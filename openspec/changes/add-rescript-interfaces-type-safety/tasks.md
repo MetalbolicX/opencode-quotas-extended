@@ -40,12 +40,13 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 - [x] 2a.5: Remove 9× `Obj.magic`/`%raw Date.parse` from Renderers.res (`fmtReset`, `windowLabelText`, `windowToStr`, jsonRenderer reset)
 - [x] 2a.6: Full gate — `pnpm res:build` clean, 655/655 tests green, Renderers warning #11 gone
 
-- [ ] 2b: Remove provider-local `quotaProvider` types; replace Registry `private_coerce`/`Obj.magic`; update provider type identity (not done — deferred)
-- [ ] 2.1 RED: Update `src/Providers/RegistryTests.res`; require `array<Provider.quotaProvider>`, no coercion.
-- [ ] 2.2 GREEN: Return `Provider.quotaProvider` from `OpenAI`, `Zen`, `Go`, `Zai`, `Kimi`, `Minimax`, `Anthropic`, `Gemini`.
-- [ ] 2.3 REFACTOR: Remove `sharedProvider`/`private_coerce` from `Registry.res`; update `QuotaData.res`, `CodingPlanParse.res`, `Filter.res`, `ReportPipeline.res`.
-- [ ] 2.4 REFACTOR: Remove provider-boundary `Obj.magic` from `Renderers.res`, `Cli.res`, `ParseArgs.res`; add `src/Providers/{OpenAI,Zen,Go,Zai,Kimi,Minimax,Anthropic,Gemini,Registry}.resi`.
-- [ ] 2.5 REFACTOR: Run build and provider/CLI/rendering tests.
+- [x] 2b: Provider type identity — unified `Provider.quotaProvider` (Phase 2b complete)
+  - [x] 2b.1: All 8 providers return `Provider.quotaProvider` (local types deleted)
+  - [x] 2b.2: `Registry.res` — removed `sharedProvider`/`private_coerce`, uses `Provider.quotaProvider` directly
+  - [x] 2b.3: `ReportPipeline.res` — replaced local `quotaProvider` with `type quotaProvider = Provider.quotaProvider`
+  - [x] 2b.4: `Cli.res` — removed 4× `Obj.magic`, updated filter/render functions
+  - [x] 2b.5: Created 8 provider `.resi` files
+  - [x] 2b.6: Full gate — `pnpm res:build` exit 0, 655 tests, `private_coerce`=0, Cli `Obj.magic`=0
 
 ## Phase 3: Manual JSON Decoders
 

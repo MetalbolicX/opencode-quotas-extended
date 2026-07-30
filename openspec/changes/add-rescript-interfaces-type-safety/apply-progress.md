@@ -1,4 +1,4 @@
-# Apply Progress: add-rescript-interfaces-type-safety — Phase 1 & 2a
+# Apply Progress: add-rescript-interfaces-type-safety — Phase 1, 2a, 2b
 
 ## TDD Cycle Evidence
 
@@ -75,6 +75,47 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 2. **`jsDateParse` placed in `Node.res`**: Placed in `src/bindings/Node.res` (shared infra) rather than per-provider, since only Gemini reads ISO strings from the API and other providers may benefit.
 3. **CodingPlanParseTests.res updated alongside CodingPlanParse.res**: Test file used old kebab variants in assertions; updated to camelCase to match new `Domain.windowType`.
 4. **`windowRank`/`zaiSortRank` updated**: These helper functions used kebab variants internally for pattern matching; updated to camelCase to match the new `Domain.windowType`.
+
+---
+
+## Phase 2b: Provider TYPE Identity Unification
+
+### TDD Cycle Evidence
+
+| Task | Phase | Test File | Test Command | Result |
+|------|-------|-----------|--------------|--------|
+| 2b.1 | RED | N/A (type change) | `pnpm res:build` (expected: Provider module not found) | ✅ `Provider` module created at `src/Provider.{res,resi}` after discovering ReScript requires both .res and .resi for a module |
+| 2b.1 | GREEN | N/A | `pnpm res:build` after all 8 providers updated | ✅ All 8 providers (OpenAI, Zen, Go, Zai, Kimi, Minimax, Anthropic, Gemini) return `Provider.quotaProvider`; local type declarations deleted |
+| 2b.2 | GREEN | N/A | `pnpm res:build` after Registry update | ✅ `Registry.res` updated: `sharedProvider`/`private_coerce` deleted; `allProviders` returns `array<Provider.quotaProvider>` directly |
+| 2b.3 | GREEN | N/A | `pnpm res:build` after ReportPipeline update | ✅ `ReportPipeline.res` local `quotaProvider` replaced with `type quotaProvider = Provider.quotaProvider` alias |
+| 2b.4 | GREEN | N/A | `pnpm res:build` after Cli update | ✅ All 4 `Obj.magic` calls removed from `Cli.res`; `availableFilterProvider`/`listProvider` local types removed; `filterAvailableProvidersInline` and `renderListTable` updated to use `Provider.quotaProvider` |
+| 2b.5 | GREEN | N/A | `pnpm res:build` after .resi creation | ✅ Created 8 provider `.resi` files (OpenAI, Zen, Go, Zai, Kimi, Minimax, Anthropic, Gemini); each exposes `createXProvider: unit => Provider.quotaProvider` |
+| 2b.6 | GATE | N/A | `pnpm res:build` + `pnpm test` + grep checks | ✅ Build exit 0, 655 tests green, `private_coerce` count: 0, `Obj.magic` in Cli.res: 0 |
+
+### Work Unit Evidence
+
+| Unit | Focused test command | Runtime harness | Result |
+|------|---------------------|-----------------|--------|
+| 2b (Provider type unification) | `pnpm res:build` | `pnpm test` (655 vitest) | ✅ Clean build (only pre-existing warnings), 655/655 pass |
+
+### Rollback Boundary
+
+- `src/Provider.{res,resi}` — new files; delete to remove Provider module
+- `src/domain/Domain.res` — added `authStrategy` and `quotaProvider` type definitions; revert git diff
+- `src/domain/Domain.resi` — added `authStrategy` and `quotaProvider` type aliases; revert git diff
+- `src/Providers/{OpenAI,Zen,Go,Zai,Kimi,Minimax,Anthropic,Gemini}.res` — removed local type declarations; revert git diff
+- `src/Providers/Registry.res` — removed `sharedProvider`/`private_coerce`; revert git diff
+- `src/application/ReportPipeline.res` — replaced local `quotaProvider` with alias; revert git diff
+- `src/Cli/Cli.res` — removed 4× `Obj.magic`, local types, updated filter/render functions; revert git diff
+- `src/Providers/{OpenAI,Zen,Go,Zai,Kimi,Minimax,Anthropic,Gemini}.resi` — new files; delete to remove interfaces
+
+### Deviations from Plan
+
+1. **`Provider` module creation**: ReScript requires both `.res` and `.resi` files to create a module. `src/ports/Provider.resi` existed without a paired `.res`, so created `src/Provider.{res,resi}` at the project root to make `Provider.quotaProvider` accessible directly. The `src/ports/Provider.resi` was removed (no longer needed as a standalone interface).
+
+2. **`Provider.res` minimal**: The implementation file is intentionally minimal — types are defined in `Provider.res` (not `.resi`) so the module is valid. `Provider.resi` redeclares the types so consumers see the interface.
+
+3. **`Domain` also defines `quotaProvider`**: Added `authStrategy` and `quotaProvider` to `Domain.res`/`Domain.resi` as type aliases (pointing to same definitions as `Provider`). This was needed because `Provider.res` opens `Domain` for `quotaData`, and Domain needed to know about the `quotaProvider` type for structural compatibility across the codebase. The types are identical in both modules.
 
 ---
 

@@ -8,17 +8,6 @@ open ParseArgs
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
-type listProvider = {
-  id: string,
-  displayName: string,
-}
-
-type availableFilterProvider = {
-  isAvailable: unit => promise<bool>,
-  id: string,
-  displayName: string,
-}
-
 // historyPoint is already defined in ReportPipeline — reuse it via local alias
 type historyPoint = ReportPipeline.historyPoint
 
@@ -40,7 +29,7 @@ Flags:
 
 // ── List table renderer ────────────────────────────────────────────────────────
 
-let renderListTable = (providers: array<listProvider>): string => {
+let renderListTable = (providers: array<Provider.quotaProvider>): string => {
   let rows = providers->Array.mapWithIndex((p, idx) => {
     let num = Int.toString(idx + 1)
     [num, p.id, p.displayName, "—", "—", "available"]->Array.join("  ")
@@ -80,12 +69,12 @@ let makeReportPipelineLogger = (): ReportPipeline.logger => {
 // Filters providers that successfully return true on isAvailable.
 // Isolates provider failures — one bad provider doesn't kill the list.
 let filterAvailableProvidersInline = (
-  providers: array<availableFilterProvider>,
-): Promise.t<array<listProvider>> => {
-  let collected: array<listProvider> = []
-  let pushIfAvail = (p: availableFilterProvider, isAvail: bool): Promise.t<unit> => {
+  providers: array<Provider.quotaProvider>,
+): Promise.t<array<Provider.quotaProvider>> => {
+  let collected: array<Provider.quotaProvider> = []
+  let pushIfAvail = (p: Provider.quotaProvider, isAvail: bool): Promise.t<unit> => {
     if isAvail {
-      collected->Array.push({id: p.id, displayName: p.displayName})->ignore
+      collected->Array.push(p)->ignore
     }
     Promise.resolve()
   }
@@ -119,9 +108,7 @@ let printHelp = (): unit => {
 let runList = (_args: ParseArgs.parsedArgs): Promise.t<unit> => {
   let reg = Registry.buildDefaultRegistry()
   let all = reg.all()
-  // Coerce Registry providers to availableFilterProvider (structural match, nominal in ReScript)
-  let filterable: array<availableFilterProvider> = Obj.magic(all)
-  filterAvailableProvidersInline(filterable)
+  filterAvailableProvidersInline(all)
   ->Promise.then(avail => {
     if avail->Array.length === 0 {
       let msg = Messages.formatNoSubscriptions()
@@ -159,9 +146,7 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
     Node.processStderrWrite(`${msg}\n`)->ignore
     Node.processExit(1)
   | Some(p) => {
-      // Coerce to access isAvailable (structural match, nominal in ReScript)
-      let pp: availableFilterProvider = Obj.magic(p)
-      let isAvail = await pp.isAvailable()
+      let isAvail = await p.isAvailable()
       if !isAvail {
         let msg = Messages.formatNoCredentialsForProvider(providerId, reg.ids())
         Node.processStderrWrite(`${msg}\n`)->ignore
@@ -174,8 +159,8 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
           },
           httpClient: stubHttp,
           registry: {
-            list: () => Obj.magic(reg.all()),
-            get: (id: string) => Obj.magic(reg.get(id)),
+            list: () => reg.all(),
+            get: (id: string) => reg.get(id),
           },
           historyStore: (historyStore :> ReportPipeline.historyStore),
           config: {

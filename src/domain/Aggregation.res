@@ -12,9 +12,7 @@ type aggregationGroup = {
 
 // -- helpers -----------------------------------------------------------------
 
-let floatMax = (a: float, b: float): float => a > b ? a : b
-
-// -- ratio helper --------------------------------------------------------------
+// -- ratio helper--------------------------------------------------------------
 
 // Normalise used/limit to [0,1] so strategies work regardless of absolute scale.
 // Null limit = unlimited → treated as ratio 0 so max/min strategies skip it.

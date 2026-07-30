@@ -11,6 +11,8 @@ type renderMode = Types.renderMode
 type windowType = Types.windowType
 type aggregationStrategy = Types.aggregationStrategy
 
+// Provider port types (authStrategy, quotaProvider) live in the Provider module, not here.
+
 let aggregate: (array<quotaData>, aggregationStrategy, ~ettlMap: dict<float>=?) => option<quotaData>
 let aggregateMax: array<quotaData> => option<quotaData>
 let aggregateMin: array<quotaData> => option<quotaData>

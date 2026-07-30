@@ -27,14 +27,8 @@ type credential =
   | Wellknown({key: string, token: string})
   | Env({envVar: string})
 
-type quotaProvider = {
-  id: string,
-  displayName: string,
-  category: string,
-  authStrategy: authStrategy,
-  isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<quotaData>>,
-}
+// Alias the port type — this is the canonical provider type used throughout the pipeline.
+type quotaProvider = Provider.quotaProvider
 
 type credentialSource = {
   get: string => promise<option<credential>>,

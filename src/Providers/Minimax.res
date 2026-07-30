@@ -16,19 +16,6 @@ type execOpts = {
 @module("node:child_process")
 external runExec: (string, execOpts) => string = "execSync"
 
-// --- Local type declarations (mirrors port interfaces) -----------------------
-
-type authStrategy = [#api | #oauth | #wellknown | #env]
-
-type quotaProvider = {
-  id: string,
-  displayName: string,
-  category: string,
-  authStrategy: authStrategy,
-  isAvailable: unit => promise<bool>,
-  fetchQuotas: unit => promise<array<Domain.quotaData>>,
-}
-
 // --- Helpers -----------------------------------------------------------------
 
 // Converts any JSON value to option<float>, supporting numeric strings.
@@ -231,7 +218,7 @@ let assertMmxBinary = (): string => {
 
 // --- Provider ----------------------------------------------------------------
 
-let createMinimaxProvider = (): quotaProvider => {
+let createMinimaxProvider = (): Provider.quotaProvider => {
   id: "minimax",
   displayName: "Minimax Coding Plan",
   category: "subscription",
