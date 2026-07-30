@@ -9,7 +9,7 @@ let join3 = (a: string, b: string, c: string): string =>
 let getDataHome = (~env: option<dict<string>>) => {
   let source = switch env {
   | Some(v) => v
-  | None => %raw("process.env")
+  | None => Node.processEnv
   }
   switch Dict.get(source, "XDG_DATA_HOME") {
   | Some(v) if v !== "" => Some(v)

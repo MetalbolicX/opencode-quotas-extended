@@ -135,7 +135,7 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
   let historyStore = makeNoopHistory()
   // ReportPipeline.httpClient is declared but never used — pass a stub to satisfy the type
   let stubHttp: ReportPipeline.httpClient = {
-    request: (_url, _opts) => Promise.resolve(%raw("undefined"))
+    request: (_url, _opts) => Promise.resolve()
   }
 
   // REQ-CRED-3: check provider is registered

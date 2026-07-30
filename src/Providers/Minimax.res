@@ -39,7 +39,12 @@ let extractJson = (out: string): option<string> => {
   if idx < 0 {
     None
   } else {
-    let start = %raw("(s, idx) => s.lastIndexOf('{', idx)")(out, idx)
+    let start = {
+      // Search for '{' within the prefix [0, idx] of out
+      let prefix = String.slice(out, ~start=0, ~end=idx + 1)
+      let pos = Js.String.lastIndexOf("{", prefix)
+      if pos >= 0 { pos } else { -1 }
+    }
     if start < 0 {
       None
     } else {

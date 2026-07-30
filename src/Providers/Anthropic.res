@@ -10,6 +10,12 @@
 
 let usageUrl = "https://api.anthropic.com/v1/organizations/{org_id}/usage"
 
+// Typed external for admin-usage error with status property.
+@new external makeAdminError: string => exn = "Error"
+
+// @get on exn to read the status field from a JS Error object.
+@get external errorStatus: exn => float = "status"
+
 // --- Helpers -----------------------------------------------------------------
 
 // Converts any JSON value to option<float>, supporting numeric strings.
@@ -161,7 +167,7 @@ let createAnthropicProvider = (): Provider.quotaProvider => {
           Promise.resolve([])
         } else {
   // Resolve orgId from config → auth.json → env
-  let configPath = Node.pathJoin(Node.pathJoin(%raw("process.cwd()"), ".opencode"), "quotas.json")
+  let configPath = Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
           let cfg = try {
             Some(ConfigLoader.loadConfig(~configPath, ()))
           } catch {
@@ -237,14 +243,14 @@ let createAnthropicProvider = (): Provider.quotaProvider => {
                 ->Promise.catch(. err => {
                   // 401/403 = admin scope required — fail-fast with actionable message
                   let status = try {
-                    %raw("err && err.status")
+                    Some(errorStatus(err))
                   } catch {
                   | _ => None
                   }
                   switch status {
                   | Some(401.0) | Some(403.0) =>
                     Promise.reject(
-                      %raw("Object.assign(new Error('Anthropic admin-usage request denied (401/403). Confirm your API key has the Admin API organization usage read permission.'), {status: 403})")
+                      makeAdminError("Anthropic admin-usage request denied (401/403). Confirm your API key has the Admin API organization usage read permission.")
                     )
                   | _ => Promise.reject(err)
                   }

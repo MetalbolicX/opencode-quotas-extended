@@ -11,7 +11,7 @@ let resolve = (providerId: string): Promise.t<option<Credential.credential>> => 
       switch EnvSource.getCredential(providerId, Node.processEnv) {
       | Some(c) => Some(c)
       | None =>
-        let configPath = Node.pathJoin(Node.pathJoin(%raw("process.cwd()"), ".opencode"), "quotas.json")
+        let configPath = Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
         let config = ConfigLoader.loadConfig(~configPath, ())
         ConfigSource.getCredential(config, providerId)
       }

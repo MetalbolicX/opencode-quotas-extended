@@ -29,10 +29,13 @@ type fetchInit = {
   body: option<string>,
 }
 
+// Typed external for creating JS Error objects.
+@new external makeFetchError: string => exn = "Error"
+
 // fetchImpl: tests override this ref to stub fetch responses.
 // Production code calls installRealFetch() to wire it up to the global fetch API.
 let fetchImpl: ref<(string, fetchInit) => promise<JSON.t>> = ref((_url, _init) => {
-  Promise.resolve(%raw("null"))
+  Promise.resolve(JSON.Null)
 })
 
 // installRealFetch: replace the default stub with a wrapper around the
@@ -52,7 +55,7 @@ let installRealFetch = (): unit => {
       if status >= 200 && status < 300 {
         Node.responseJson(resp)
       } else {
-        Promise.reject(%raw("new Error('HTTP ' + status + ': ' + url)"))
+        Promise.reject(makeFetchError("HTTP " ++ Int.toString(status) ++ ": " ++ url))
       }
     })
   }

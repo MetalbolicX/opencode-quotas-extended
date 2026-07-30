@@ -22,6 +22,9 @@ type antigravityAccount = {
 let oauthTokenUrl = "https://oauth2.googleapis.com/token"
 let quotaUrl = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels"
 
+// Typed external for creating Gemini-specific Error objects.
+@new external makeGeminiError: string => exn = "Error"
+
 // Tracked model names (from Antigravity response).
 // These must match the keys in the fetchAvailableModels response.
 let trackedModels = ["gemini-3-pro-high", "gemini-3-pro-low", "gemini-3-flash", "gemini-3-pro-image"]
@@ -152,9 +155,9 @@ let refreshAccessToken = (
     | JSON.Object(dict) =>
       switch Dict.get(dict, "access_token") {
       | Some(JSON.String(token)) => Promise.resolve(token)
-      | _ => Promise.reject(%raw("new Error('[gemini] OAuth refresh response missing access_token')"))
+      | _ => Promise.reject(makeGeminiError("[gemini] OAuth refresh response missing access_token"))
       }
-    | _ => Promise.reject(%raw("new Error('[gemini] OAuth refresh response missing access_token')"))
+    | _ => Promise.reject(makeGeminiError("[gemini] OAuth refresh response missing access_token"))
     }
   })
 }

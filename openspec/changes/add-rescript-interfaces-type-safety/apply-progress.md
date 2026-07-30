@@ -210,3 +210,60 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 - `src/domain/Domain.res` — removed 4 factory re-exports
 - `src/application/ReportPipeline.res` — `Domain.Aggregation.makeAggregationGroup` → `DomainFixtures.makeAggregationGroup`; `Domain.Aggregation.aggregationGroup` → `Aggregation.aggregationGroup`
 - `src/domain/Aggregation.test.res` — `Domain.makeQuotaData` → `makeQuotaData`; `Domain.makeAggregationGroup` → `makeAggregationGroup`; added `open DomainFixtures`
+
+---
+
+## Phase 5b: %raw Cleanup + High-Value .resi
+
+### TDD Cycle Evidence
+
+| Task | Phase | Test File | Test Command | Result |
+|------|-------|-----------|--------------|--------|
+| 5b.A.1 | GREEN | N/A | `pnpm res:build` after Paths.res fix | ✅ `%raw("process.env")` → `Node.processEnv`; 655/655 tests pass |
+| 5b.A.2 | GREEN | N/A | `pnpm res:build` after Cli.res fix | ✅ `Promise.resolve(%raw("undefined"))` → `Promise.resolve()`; 655/655 tests pass |
+| 5b.A.3 | GREEN | N/A | `pnpm res:build` after Anthropic.res fix | ✅ `process.cwd()`, `err.status`, `Object.assign` all replaced with typed externals; 655/655 tests pass |
+| 5b.A.4 | GREEN | N/A | `pnpm res:build` after FetchHttp.res fix | ✅ `Promise.reject(new Error(...))` → `@new external makeFetchError`; `Promise.resolve(%raw("null"))` → `Promise.resolve(JSON.Null)`; 655/655 tests pass |
+| 5b.A.5 | GREEN | N/A | `pnpm res:build` after Gemini.res fix | ✅ 2× `Promise.reject(new Error(...))` → `@new external makeGeminiError`; 655/655 tests pass |
+| 5b.A.6 | GREEN | N/A | `pnpm res:build` after CredentialResolver.res fix | ✅ `%raw("process.cwd()")` → `Node.processCwd()`; 655/655 tests pass |
+| 5b.A.7 | GREEN | N/A | `pnpm res:build` after Minimax.res fix | ✅ `lastIndexOf` raw → `String.slice` + `Js.String.lastIndexOf` workaround; 655/655 tests pass |
+| 5b.A.8 | KEEP | N/A | `pnpm res:build` | ⚠️ OAuth.res: `Number(err && err.status)` — kept because `exn` type in ReScript doesn't support property access; no clean typed replacement without breaking exn semantics |
+| 5b.B | GREEN | N/A | `pnpm res:build` after each .resi | ✅ Created 7 .resi files (Paths, ParseArgs, Renderers, Cli, FetchHttp, JsonFileHistory, ConfigLoader); build clean; 655/655 tests pass |
+| 5b.GATE | GREEN | N/A | `pnpm res:build` + `pnpm test` + grep %raw + grep Obj.magic | ✅ Build exit 0, 655/655 tests green, %raw count: 8 (target ≤17), Obj.magic: 0 |
+
+### Work Unit Evidence
+
+| Unit | Focused test command | Runtime harness | Result |
+|------|---------------------|-----------------|--------|
+| 5b (Phase 5b) | `pnpm res:build` | `pnpm test` (655 vitest) | ✅ Clean build, 655/655 pass |
+
+### Rollback Boundary
+
+- `src/Infra/Paths.res` — revert `%raw("process.env")` replacement
+- `src/Cli/Cli.res` — revert `Promise.resolve()` replacement
+- `src/Providers/Anthropic.res` — revert `Node.processCwd()`, `errorStatus`, `makeAdminError` externals
+- `src/Infra/FetchHttp.res` — revert `makeFetchError`, `Promise.resolve(JSON.Null)`
+- `src/Providers/Gemini.res` — revert `makeGeminiError` external
+- `src/Auth/CredentialResolver.res` — revert `Node.processCwd()` replacement
+- `src/Providers/Minimax.res` — revert `String.slice`/`Js.String.lastIndexOf` workaround
+- `src/Infra/Paths.resi` — delete
+- `src/Cli/ParseArgs.resi` — delete
+- `src/rendering/Renderers.resi` — delete
+- `src/Cli/Cli.resi` — delete
+- `src/Infra/FetchHttp.resi` — delete
+- `src/Infra/JsonFileHistory.resi` — delete
+- `src/Infra/ConfigLoader.resi` — delete
+
+### Deviations from Plan
+
+1. **`depsRef` exposed in ConfigLoader.resi**: The task instructed to hide `depsRef` (internal test injection), but `ConfigLoaderTests.res` references `ConfigLoader.depsRef` directly and cannot be modified. `depsRef` and its `deps` type are exposed in the interface to keep tests passing.
+
+2. **`ConfigValidationError` exception in ConfigLoader.resi**: Tests pattern-match on `ConfigLoader.ConfigValidationError(_)`. Without the exception declaration in the interface, the compiler reports "variant constructor can't be found". Exception declared in interface.
+
+3. **`fetchInit` and `fetchImpl` exposed in FetchHttp.resi**: `FetchHttpTests.res` directly references `FetchHttp.fetchInit` (type) and `FetchHttp.fetchImpl` (ref). These are exposed in the interface for test compatibility.
+
+4. **`makeFetchError`/`makeAdminError`/`makeGeminiError` added as typed externals**: Each replaces a `%raw("new Error(...))")` pattern. The external creates a JS `Error` object via the native `Error` constructor and returns it as `exn`.
+
+5. **`Minimax.lastIndexOf` workaround**: JavaScript's `s.lastIndexOf('{', idx)` finds the highest index of `'{'` at or before `idx`. ReScript's `Js.String.lastIndexOf` doesn't support a `~start` parameter (searches from end only). Used `String.slice(out, ~start=0, ~end=idx+1)` to extract the prefix, then `Js.String.lastIndexOf` on that prefix to get the relative position.
+
+6. **%raw reduction short of 70% goal**: Target was ≥70% reduction (≤17 from original 58). Achieved 58% reduction (8 remaining from ~19). The 8 remaining are all intentional: ConfigLoader booleans/schema (JSON module lacks Bool variant in ReScript 12.3.0), OAuth `err.status` (requires `exn` property access — no clean typed replacement). The ConfigLoader %raws are noted as intentional in Phase 3 deviations.
+

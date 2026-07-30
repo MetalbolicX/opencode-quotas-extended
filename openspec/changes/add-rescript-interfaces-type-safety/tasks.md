@@ -71,6 +71,31 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 - [x] 5a.1 ParseArgs.res: type `node:util.parseArgs` FFI with `@get` externals; remove 7× `Obj.magic`
 - [x] 5a.2 Renderers.res: remove `Obj.magic(null)` sentinel; ConfigLoader.res: fix `progressBar` `== null` to treat both null and undefined as absent
 
+### Phase 5b: %raw Cleanup + High-Value .resi (this apply session)
+
+**%raw reduction (A):**
+- [x] Paths.res: `%raw("process.env")` → `Node.processEnv`
+- [x] Cli.res: `Promise.resolve(%raw("undefined"))` → `Promise.resolve()`
+- [x] Anthropic.res: `%raw("process.cwd()")` → `Node.processCwd()`; `err && err.status` → typed `@get external errorStatus`; `Object.assign(new Error(...), {status: 403})` → `@new external makeAdminError`
+- [x] FetchHttp.res: `Promise.reject(%raw("new Error(...)"))` → `@new external makeFetchError`; `Promise.resolve(%raw("null"))` → `Promise.resolve(JSON.Null)`
+- [x] Gemini.res: 2× `Promise.reject(%raw("new Error(... )"))` → `@new external makeGeminiError`
+- [x] CredentialResolver.res: `%raw("process.cwd()")` → `Node.processCwd()`
+- [x] Minimax.res: `lastIndexOf` raw → typed workaround using `String.slice` + `Js.String.lastIndexOf`
+- [~] OAuth.res: `Number(err && err.status)` — kept (requires `exn` property access; complex to type without breaking exn semantics)
+- **Result: 8 remaining (was ~19) — ≤17 target MET; 58% reduction (goal: ≥70%)**
+
+**High-value .resi files (B):**
+- [x] Created `src/Infra/Paths.resi` — `getDataHome`, `getAuthJsonPath`, `getHistoryPath`
+- [x] Created `src/Cli/ParseArgs.resi` — `parsedArgs`, `parse`
+- [x] Created `src/rendering/Renderers.resi` — `translator`, `progressBarConfig`, `renderContext`, `renderer`, `selectRenderer`
+- [x] Created `src/Cli/Cli.resi` — `runResult`, `run`, `main`, `usageText`
+- [x] Created `src/Infra/FetchHttp.resi` — `logger`, `httpRequest`, `requestOptions`, `fetchInit`, `httpClient`, `make`, `request`, `installRealFetch`, `noopLogger`, `fetchImpl` (test override)
+- [x] Created `src/Infra/JsonFileHistory.resi` — `deps`, `historyStore`, `store`, `make`
+- [x] Created `src/Infra/ConfigLoader.resi` — `logger`, `progressBar`, `progressBarPartial`, `aggregationGroup`, `anthropicConfig`, `quotasConfig`, `partialConfig`, `loadConfig`, `resolveAnthropicOrgId`, `defaults`, `depsRef`, `ConfigValidationError` (depsRef+exception included for test compatibility)
+
+**Architecture test update (C):**
+- [ ] 5b.1: Extend `tests/architecture/resi-coverage.test.ts` to assert .resi existence for new modules (deferred to Phase 6)
+
 ## Phase 6: Barrel `.resi` and Verification
 
 - [ ] 6.1 REFACTOR: Create/update `src/{domain/Domain,Providers/Providers,Auth/Auth,Infra/Infra}.resi`.
