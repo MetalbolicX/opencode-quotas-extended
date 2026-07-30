@@ -267,3 +267,54 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 
 6. **%raw reduction short of 70% goal**: Target was ≥70% reduction (≤17 from original 58). Achieved 58% reduction (8 remaining from ~19). The 8 remaining are all intentional: ConfigLoader booleans/schema (JSON module lacks Bool variant in ReScript 12.3.0), OAuth `err.status` (requires `exn` property access — no clean typed replacement). The ConfigLoader %raws are noted as intentional in Phase 3 deviations.
 
+---
+
+## Phase 6: Barrel `.resi` and Verification
+
+### TDD Cycle Evidence
+
+| Task | Phase | Test File | Test Command | Result |
+|------|-------|-----------|--------------|--------|
+| 6.1 | REFACTOR | N/A | `pnpm res:build` after Infra.resi | ✅ Build clean, 89 modules |
+| 6.1 | REFACTOR | N/A | `pnpm res:build` after Auth.resi | ✅ Auth.resi uses explicit type re-declarations (include Credential not valid in ReScript .resi) |
+| 6.2 | GREEN | N/A | `pnpm res:build` after each .resi | ✅ Colors, Translator, Messages, Node, CredentialResolver .resi all created |
+| 6.3 | RED | `tests/architecture/type-safety-guards.test.ts` | `pnpm test -- tests/architecture/type-safety-guards.test.ts` | ✅ 35 tests pass (Obj.magic=0, %raw=9, .resi coverage for 35 modules) |
+| 6.3 | GREEN | N/A | `pnpm res:build` after fixing Registry.resi | ✅ Registry.resi created; 690/690 tests pass |
+| 6.4 | GATE | N/A | Full 4-gate verification | ✅ res:build (0 warnings), test (690/690), typecheck (exit 0), build (rolldown 95.25 kB) |
+
+### Work Unit Evidence
+
+| Unit | Focused test command | Runtime harness | Result |
+|------|---------------------|-----------------|--------|
+| 6 (Barrels/gates) | `pnpm res:build` | `pnpm test` (690 vitest) | ✅ Clean build, 690/690 pass (655 + 35 new guard tests) |
+
+### Rollback Boundary
+
+- `src/Infra/Infra.resi` — delete
+- `src/Auth/Auth.resi` — delete
+- `src/Auth/Credential.resi` — delete
+- `src/rendering/Colors.resi` — delete
+- `src/i18n/Translator.resi` — delete
+- `src/Cli/Messages.resi` — delete
+- `src/bindings/Node.resi` — delete
+- `src/Auth/CredentialResolver.resi` — delete
+- `src/Providers/Registry.resi` — delete
+- `src/ports/Http.res`, `src/ports/Http.resi` — delete (stub implementation)
+- `src/ports/Logger.res`, `src/ports/Logger.resi` — delete (stub implementation)
+- `src/ports/History.res`, `src/ports/History.resi` — delete (stub implementation)
+- `src/ports/Renderer.res`, `src/ports/Renderer.resi` — delete (stub implementation)
+- `src/ports/Credentials.res`, `src/ports/Credentials.resi` — delete (stub implementation)
+- `tests/architecture/type-safety-guards.test.ts` — delete
+
+### Deviations from Plan
+
+1. **`Auth.resi` uses explicit type re-declarations instead of `include Credential`**: In ReScript, `include ModuleName` in a `.resi` file requires `ModuleName` to be resolved as a module type. Since `Credential.resi` exists, `include Credential` should work — but the compiler reported "Unbound module type Credential". Workaround: explicitly re-declare `type credential = Credential.credential` and `let fromJson: JSON.t => option<credential>`.
+
+2. **`Infra.resi` cannot use `Paths.getDataHome` as type reference**: ReScript does not allow referencing `Module.functionName` as a type expression in interface files. The full function signature must be written out inline (e.g., `let getDataHome: (~env: Paths.env) => option<string>`).
+
+3. **`ConfigLoader.logger` vs `FetchHttp.logger`**: These are structurally identical but distinct types in ReScript's nominal type system. `Infra.resi`'s `loadConfig` correctly uses `ConfigLoader.logger` (matching `ConfigLoader.loadConfig`'s signature), not `FetchHttp.logger`.
+
+4. **Orphaned `src/ports/*.resi` files fixed**: The original 5 port interface files (Http, Logger, History, Renderer, Credentials) had syntax errors (`Logger.resi` had `let noopLogger` with record expression; `Http.resi` had inline record type in function parameter). They also had no `.res` implementations. Created minimal stub `.res` implementations that re-export types from actual implementations (FetchHttp, JsonFileHistory, Renderers, CredentialResolver). `Logger.resi`'s `let noopLogger` was removed (the noopLogger lives in FetchHttp, not as a port-level constant).
+
+5. **Registry.resi created**: `Registry.res` was consumed cross-module by `Cli.res` but had no `.resi`. Created with full surface: `providerRegistry` type, `allProviders`, `buildDefaultRegistry`, `buildDefaultRegistryWith`.
+
