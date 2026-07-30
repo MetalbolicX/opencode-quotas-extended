@@ -35,7 +35,8 @@ describe("rolldown build config", () => {
 
   it("rolldown.config.ts must point at the CLI entry and target Node", () => {
     const content = readFileSync(CONFIG_FILE, "utf-8");
-    expect(content, "configures src/cli/index.ts as the entry").toContain("src/cli/index.ts");
+    // ReScript migration: entry is now lib/es6/src/Bootstrap.res.mjs (compiled ReScript bootstrap)
+    expect(content, "configures Bootstrap.res.mjs as the entry").toContain("Bootstrap.res.mjs");
     expect(content, "declares node platform").toMatch(/platform:\s*"node"/);
     expect(content, "uses a node shebang banner").toContain("#!/usr/bin/env node");
   });

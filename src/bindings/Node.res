@@ -45,3 +45,13 @@ external execSync: (string, execSyncOpts) => string = "execSync"
 @val external setTimeoutMs: (unit => unit, float) => float = "setTimeout"
 @val external clearTimeoutId: float => unit = "clearTimeout"
 @val external consoleWarnStr: string => unit = "console.warn"
+
+// CLI bindings
+@val external processArgv: array<string> = "process.argv"
+@module("node:fs") external realpathSync: (string) => string = "realpathSync"
+@module("node:url") external fileURLToPath: (string) => string = "fileURLToPath"
+@module("node:path") external pathResolve: (string) => string = "resolve"
+let processStdoutWrite = (_s: string): bool => %raw("process.stdout.write(_s)")
+let processStderrWrite = (_s: string): bool => %raw("process.stderr.write(_s)")
+let importMetaUrl = (): string => %raw("import.meta.url")
+let processCwd = (): string => %raw("process.cwd()")

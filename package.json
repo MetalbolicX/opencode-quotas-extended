@@ -52,7 +52,8 @@
     "test:providers-gemini": "node lib/es6/src/Providers/GeminiTests.res.mjs",
     "test:providers-registry": "node lib/es6/src/Providers/RegistryTests.res.mjs",
     "test:cli-parse-args": "node lib/es6/src/Cli/ParseArgsTests.res.mjs",
-    "test:cli-messages": "node lib/es6/src/Cli/MessagesTests.res.mjs"
+    "test:cli-messages": "node lib/es6/src/Cli/MessagesTests.res.mjs",
+    "test:cli": "node lib/es6/src/Cli/CliTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

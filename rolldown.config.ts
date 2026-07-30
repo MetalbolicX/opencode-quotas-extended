@@ -1,7 +1,7 @@
 import { defineConfig } from "rolldown";
 
 export default defineConfig({
-  input: "src/cli/index.ts",
+  input: "lib/es6/src/Bootstrap.res.mjs",
   output: {
     dir: "dist",
     format: "esm",
