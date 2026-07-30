@@ -47,7 +47,9 @@
     "test:providers-go": "node lib/es6/src/Providers/GoTests.res.mjs",
     "test:providers-kimi": "node lib/es6/src/Providers/KimiTests.res.mjs",
     "test:providers-openai": "node lib/es6/src/Providers/OpenAITests.res.mjs",
-    "test:providers-minimax": "node lib/es6/src/Providers/MinimaxTests.res.mjs"
+    "test:providers-minimax": "node lib/es6/src/Providers/MinimaxTests.res.mjs",
+    "test:providers-anthropic": "node lib/es6/src/Providers/AnthropicTests.res.mjs",
+    "test:providers-gemini": "node lib/es6/src/Providers/GeminiTests.res.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
