@@ -119,6 +119,39 @@ Rollback: restore the factory functions to Types.res (lines 116–154), Aggregat
 
 ---
 
+## Phase 3: Manual JSON Decoders
+
+### TDD Cycle Evidence
+
+| Task | Phase | Test File | Test Command | Result |
+|------|-------|-----------|--------------|--------|
+| 3.1 | RED | `src/Infra/ConfigLoaderTests.res` | `pnpm res:build` + tests | ✅ Added test 11 (aggregatedGroups strategy+ members) and test 12 (partial config defaults); both pass |
+| 3.2 | GREEN | `src/Infra/ConfigLoader.res` | `pnpm res:build` + `node lib/es6/src/Infra/ConfigLoaderTests.res.mjs` | ✅ 12/12 pass; coerceToPartial uses typed `_optStr`, `_optFloat`, `_objDict` + `%raw` for booleans (JSON module lacks `Bool` variant in ReScript 12.3.0) |
+| 3.3 | GREEN | `src/Infra/JsonFileHistory.res` | `pnpm res:build` + `pnpm test` | ✅ 655/655 pass; replaced 4 `%raw` calls with typed `JSON.t` decoders |
+| 3.4 | GATE | N/A | `pnpm res:build` + `pnpm test` + grep Obj.magic + grep %raw | ✅ Build clean (0 warnings), 655 tests green, `Obj.magic` in ConfigLoader.res+JsonFileHistory.res = 0 |
+
+### Work Unit Evidence
+
+| Unit | Focused test command | Runtime harness | Result |
+|------|---------------------|-----------------|--------|
+| 3 (JSON decoders) | `pnpm res:build` | `pnpm test` (655 vitest) | ✅ Clean build, 655/655 pass |
+
+### Rollback Boundary
+
+- `src/Infra/ConfigLoader.res` — revert git diff for `coerceToPartial` and `loadConfig` JSON.parse replacement
+- `src/Infra/JsonFileHistory.res` — revert git diff for `load` function typed decoder replacement
+- `src/Infra/ConfigLoaderTests.res` — revert git diff for added tests 11 and 12
+
+### Deviations from Plan
+
+1. **`JSON.Bool` does not exist in ReScript 12.3.0 JSON module**: The task description claims `JSON.Bool(b)` is available but the ReScript 12.3.0 compiler reports "The variant constructor JSON.Bool can't be found." Boolean fields (`showUnaggregated`, `show`, `filterByCurrentModel`, `color`, `gradients`) still use `%raw` because there's no typed way to decode them without `JSON.Bool`. The `progressBar` field also uses `%raw` because it contains nested booleans.
+
+2. **`aggregatedGroups` `%raw` preserved**: The `aggregatedGroups` field in `partialConfig` is typed as `option<dict<dict<string>>>` which doesn't match the JSON structure (objects with `strategy`/`members` fields). The typed decoding is done in `loadConfig` via the `aggregatedGroups` block, so the `%raw` in `coerceToPartial` is just a placeholder that doesn't affect correctness.
+
+3. **JSON.parseOrThrow used instead of JSON.parse**: `JSON.parse` doesn't exist in this ReScript JSON module; `JSON.parseOrThrow` is the available function.
+
+---
+
 ## Phase 1 Summary
 
 **Created:**

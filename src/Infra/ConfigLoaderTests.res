@@ -261,4 +261,65 @@ test("anthropicOrgId missing throws", () => {
   )
 })
 
+// ─── Test 11: aggregatedGroups with strategy and members decoded correctly ─────────
+
+test("aggregatedGroups decoded with strategy and members", () => {
+  let mock = makeMockDeps()
+  Dict.set(
+    mock.files.contents,
+    "/test/quotas.json",
+    `{"aggregatedGroups": {"group1": {"strategy": "max", "members": ["a", "b"]}}}`,
+  )
+  Dict.set(mock.exists.contents, "/test/quotas.json", true)
+  installDeps(mock)
+  let result = ConfigLoader.loadConfig(~configPath="/test/quotas.json", ())
+  let groups = result.aggregatedGroups
+  assertion(
+    ~message="aggregatedGroups keys should include group1",
+    (a, b) => a == b,
+    Dict.keysToArray(groups),
+    ["group1"],
+  )
+  let group1 = switch Dict.get(groups, "group1") {
+  | Some(g) => g
+  | None => {strategy: "", members: []}
+  }
+  assertion(~message="strategy should be max", (a, b) => a == b, group1.strategy, "max")
+  assertion(~message="members should be [a, b]", (a, b) => a == b, group1.members, ["a", "b"])
+})
+
+// ─── Test 12: partial config missing optional fields returns defaults ─────────────
+
+test("partial config missing optional fields returns defaults", () => {
+  let mock = makeMockDeps()
+  Dict.set(mock.files.contents, "/test/quotas.json", `{}`)
+  Dict.set(mock.exists.contents, "/test/quotas.json", true)
+  installDeps(mock)
+  let result = ConfigLoader.loadConfig(~configPath="/test/quotas.json", ())
+  assertion(
+    ~message="showUnaggregated should be default false",
+    (a, b) => a == b,
+    result.showUnaggregated,
+    false,
+  )
+  assertion(
+    ~message="predictionWindowMinutes should be default 60",
+    (a, b) => a == b,
+    result.predictionWindowMinutes,
+    60.0,
+  )
+  assertion(
+    ~message="predictionShortWindowMinutes should be default 5",
+    (a, b) => a == b,
+    result.predictionShortWindowMinutes,
+    5.0,
+  )
+  assertion(
+    ~message="aggregatedGroups should be empty dict from defaults",
+    (a, b) => a == b,
+    Dict.keysToArray(result.aggregatedGroups)->Array.length,
+    0,
+  )
+})
+
 let () = runTests()

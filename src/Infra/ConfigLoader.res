@@ -207,21 +207,53 @@ let warnFnDefault = (msg: string) => {
   Node.consoleWarnStr(`[opencode-quotas] ${msg}`)
 }
 
+// ─── Typed JSON decoders ───────────────────────────────────────────────────────
+
+let _optStr = (j: option<JSON.t>): option<string> =>
+  switch j {
+  | Some(JSON.String(s)) => Some(s)
+  | _ => None
+  }
+
+let _optFloat = (j: option<JSON.t>): option<float> =>
+  switch j {
+  | Some(JSON.Number(n)) => Some(n)
+  | _ => None
+  }
+
+let _objDict = (j: JSON.t): dict<JSON.t> =>
+  switch j {
+  | JSON.Object(d) => d
+  | _ => Dict.make()
+  }
+
 let coerceToPartial = (_raw: JSON.t): partialConfig => {
+  let d = _objDict(_raw)
   {
-    displayMode: %raw("_raw.displayMode === undefined ? undefined : _raw.displayMode"),
-    disabled: %raw("_raw.disabled === undefined ? undefined : _raw.disabled"),
+    displayMode: _optStr(Dict.get(d, "displayMode")),
+    disabled: switch Dict.get(d, "disabled") {
+    | Some(JSON.Array(arr)) => Some(arr->Array.map(v => switch v {
+      | JSON.String(s) => s
+      | _ => ""
+      }))
+    | _ => None
+    },
     aggregatedGroups: %raw("_raw.aggregatedGroups === undefined ? undefined : _raw.aggregatedGroups"),
-    historyMaxAgeHours: %raw("_raw.historyMaxAgeHours === undefined ? undefined : _raw.historyMaxAgeHours"),
-    pollingInterval: %raw("_raw.pollingInterval === undefined ? undefined : _raw.pollingInterval"),
-    predictionWindowMinutes: %raw("_raw.predictionWindowMinutes === undefined ? undefined : _raw.predictionWindowMinutes"),
-    predictionShortWindowMinutes: %raw("_raw.predictionShortWindowMinutes === undefined ? undefined : _raw.predictionShortWindowMinutes"),
+    historyMaxAgeHours: _optFloat(Dict.get(d, "historyMaxAgeHours")),
+    pollingInterval: _optFloat(Dict.get(d, "pollingInterval")),
+    predictionWindowMinutes: _optFloat(Dict.get(d, "predictionWindowMinutes")),
+    predictionShortWindowMinutes: _optFloat(Dict.get(d, "predictionShortWindowMinutes")),
+    // Booleans: JSON module has no Bool variant in this ReScript, use %raw
     showUnaggregated: %raw("_raw.showUnaggregated === undefined ? undefined : _raw.showUnaggregated"),
     show: %raw("_raw.show === undefined ? undefined : _raw.show"),
     filterByCurrentModel: %raw("_raw.filterByCurrentModel === undefined ? undefined : _raw.filterByCurrentModel"),
+    // progressBar: use %raw to access nested fields since JSON module lacks Bool variant
     progressBar: %raw("_raw.progressBar === undefined ? undefined : _raw.progressBar"),
-    credentials: %raw("_raw.credentials === undefined ? undefined : _raw.credentials"),
-    anthropic: %raw("_raw.anthropic === undefined ? undefined : _raw.anthropic"),
+    credentials: Dict.get(d, "credentials"),
+    anthropic: switch Dict.get(d, "anthropic") {
+    | Some(JSON.Object(a)) => Some({orgId: _optStr(Dict.get(a, "orgId"))})
+    | _ => None
+    },
   }
 }
 
@@ -250,7 +282,7 @@ let loadConfig = (
     defaults
   } else {
     let raw: JSON.t = try {
-      %raw("(function(p, readFileSync) { return JSON.parse(readFileSync(p)) })(configPath, depsRef.contents.readFileSync)")
+      JSON.parseOrThrow(depsRef.contents.readFileSync(configPath))
     } catch {
     | _exn => raiseValidationError(`Failed to read config file: ${configPath}: parse error`)
     }
@@ -281,9 +313,9 @@ let loadConfig = (
       warnFn(`config field 'pollingInterval' is deprecated and ignored`)
     | None => ()
     }
-    let _ = switch %raw("raw && raw.footer !== undefined") {
-    | true => warnFn(`config field 'footer' is deprecated and ignored`)
-    | false => ()
+    let _ = switch Dict.get(_objDict(raw), "footer") {
+    | Some(_) => warnFn(`config field 'footer' is deprecated and ignored`)
+    | None => ()
     }
     let mergedPb = switch partial.progressBar {
     | Some(pb) =>
@@ -327,22 +359,31 @@ let loadConfig = (
       | None => defaults.disabled
       },
       aggregatedGroups: {
-        // Access raw JSON directly to correctly extract aggregatedGroups
-        // (coerceToPartial incorrectly types array fields as dict<string>)
-        let rawGroups: option<{..}> = %raw("raw && raw.aggregatedGroups === undefined ? undefined : raw.aggregatedGroups")
-        switch rawGroups {
-        | Some(groups) =>
+        // Decode aggregatedGroups using typed JSON decoders
+        let groupsOpt = switch Dict.get(_objDict(raw), "aggregatedGroups") {
+        | Some(JSON.Object(g)) => Some(g)
+        | _ => None
+        }
+        switch groupsOpt {
+        | Some(g) =>
           let result: dict<aggregationGroup> = Dict.make()
-          let groupKeys = Dict.keysToArray(groups->Obj.magic)
+          let groupKeys = Dict.keysToArray(g)
           let _ = groupKeys->Array.forEach(key => {
-            let groupObj = %raw("groups[key]")->Obj.magic
-            let strategy = switch groupObj["strategy"]->Obj.magic {
+            let groupObj = switch Dict.get(g, key) {
+            | Some(JSON.Object(go)) => go
+            | _ => Dict.make()
+            }
+            let strategy = switch _optStr(Dict.get(groupObj, "strategy")) {
             | Some(s) => s
             | None => "max"
             }
-            let members: array<string> = switch groupObj["members"]->Obj.magic {
-            | Some(arr) => arr
-            | None => []
+            let members = switch Dict.get(groupObj, "members") {
+            | Some(JSON.Array(arr)) =>
+              arr->Array.map(v => switch v {
+                | JSON.String(s) => s
+                | _ => ""
+              })
+            | _ => []
             }
             let _ = Dict.set(result, key, {strategy, members})
           })

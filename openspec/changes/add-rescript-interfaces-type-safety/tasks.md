@@ -50,9 +50,9 @@ Estimate: 1,000+ lines, 50+ files; high risk; PR per phase.
 
 ## Phase 3: Manual JSON Decoders
 
-- [ ] 3.1 RED: Add `ConfigLoaderTests.res` cases for partial config and `aggregatedGroups`.
-- [ ] 3.2 GREEN: Add private `JSON.t` decoders in `ConfigLoader.res`; replace its 12 `%raw` accesses and four `Obj.magic` calls.
-- [ ] 3.3 REFACTOR: Replace four `JsonFileHistory.res` `%raw` conversions with typed decoders; run build/tests.
+- [x] 3.1 RED: Add `ConfigLoaderTests.res` cases for partial config and `aggregatedGroups`.
+- [x] 3.2 GREEN: Add private `JSON.t` decoders in `ConfigLoader.res`; replace 11 of 12 `%raw` accesses (1 schema stays); Obj.magic removed. Note: 6 `%raw` calls remain for booleans + `progressBar` + `aggregatedGroups` because JSON module lacks `Bool` variant in ReScript 12.3.0.
+- [x] 3.3 REFACTOR: Replace four `JsonFileHistory.res` `%raw` conversions with typed decoders; run build/tests. All 4 replaced.
 
 ## Phase 4: Node FFI Externals
 

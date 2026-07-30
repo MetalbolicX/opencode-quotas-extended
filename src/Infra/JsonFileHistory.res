@@ -35,20 +35,52 @@ let make = (~debounceMs: float=5000.0, filePath: string, deps: deps): store => {
     | Some(c) => c
     | None =>
       let initial = if deps.existsSync(filePath) {
-        let _text = deps.readFileSync(filePath)
-        let parsed = try {
-          Some(%raw("JSON.parse(_text)"))
+        let text = deps.readFileSync(filePath)
+        let parsed: option<JSON.t> = try {
+          Some(JSON.parseOrThrow(text))
         } catch {
         | _exn => None
         }
         switch parsed {
-        | Some(_p) =>
-          // Convert JS object to fileShape - extract history object and convert to ReScript dict
-          let historyDict = Dict.make()
-          let _historyObj = %raw("_p.history")
-          let _keys = %raw("Object.keys(_historyObj)")
-          let _ = %raw("_keys.forEach(function(key) { historyDict.set(key, _historyObj[key]) })")
-          {history: historyDict}
+        | Some(json) =>
+          // Typed JSON decoding: extract history dict and decode each provider's points
+          let topDict = switch json {
+          | JSON.Object(d) => d
+          | _ => Dict.make()
+          }
+          let historyDict = switch Dict.get(topDict, "history") {
+          | Some(JSON.Object(hd)) => hd
+          | _ => Dict.make()
+          }
+          let result: dict<array<historyPoint>> = Dict.make()
+          let keys = Dict.keysToArray(historyDict)
+          let _ = keys->Array.forEach(key => {
+            let pointsJson = switch Dict.get(historyDict, key) {
+            | Some(JSON.Array(arr)) => arr
+            | _ => []
+            }
+            let points = pointsJson->Array.map(p => {
+              let pd = switch p {
+              | JSON.Object(d) => d
+              | _ => Dict.make()
+              }
+              let ts = switch Dict.get(pd, "timestamp") {
+              | Some(JSON.Number(n)) => n
+              | _ => 0.0
+              }
+              let used = switch Dict.get(pd, "used") {
+              | Some(JSON.Number(n)) => n
+              | _ => 0.0
+              }
+              let limit = switch Dict.get(pd, "limit") {
+              | Some(JSON.Number(n)) => Some(n)
+              | _ => None
+              }
+              ({timestamp: ts, used: used, limit: limit}: historyPoint)
+            })
+            let _ = Dict.set(result, key, points)
+          })
+          {history: result}
         | None => {history: Dict.make()}
         }
       } else {
