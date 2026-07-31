@@ -108,3 +108,91 @@ Stacked-to-main chain, 7 work units, 400-line budget per WU commit. Vitest stays
 - `RES_TEST_TIMEOUT_MS` env var honored alongside `--timeout` CLI flag.
 
 **Next up:** WU-4a — port 6 architecture guards to ReScript (`src/architecture/*Tests.res`).
+
+---
+
+## WU-4a — `test: port 6 architecture guards to ReScript`
+
+> **Split into WU-4a.1 + WU-4a.2** due to 400-line budget. WU-4a.1 committed as `5dd55e1` (~304 lines). WU-4a.2 pending (TypeSafetyGuardsTests + BuildScriptTests + CheckSecretsTests).
+
+### WU-4a.1 — Node bindings + DomainPurityTests + ScaffoldTests
+
+**Status:** COMMITTED (`5dd55e1`)
+
+**Objective:** First slice of architecture guard port — filesystem-based guards + required Node bindings.
+
+**Files touched:**
+
+| Created | Modified |
+|---|---|
+| `src/architecture/DomainPurityTests.res` (118 lines) | `src/bindings/Node.res` (+38 lines: `readdirSync`, `statSync`, `dirEnt`, `readdirSyncOpts`, `execSyncSimple`, `spawnSync`, `spawnSyncOpts`) |
+| `src/architecture/ScaffoldTests.res` (115 lines) | `src/bindings/Node.resi` (+33 lines: mirrors Node.res additions) |
+
+**Validation gates:**
+- ✅ `pnpm res:build` clean
+- ✅ `pnpm test:res` 41 files, 39 passed, 2 failed (pre-existing FetchHttpTests + CodingPlanParseTests — WU-4b scope)
+- ✅ `pnpm test` vitest 726/726 (all green)
+- ✅ `pnpm build` rolldown bundle clean
+- ✅ `pnpm typecheck` clean
+- ✅ `bash scripts/check-secrets.sh` clean
+
+**Latent failure carry-forward (WU-4b scope, NOT this WU):**
+- `FetchHttpTests.res.mjs`: "Expected Authorization to be redacted, got TEST_AUTH_VALUE" — pre-existing, surfaced by WU-3 runner
+- `CodingPlanParseTests.res.mjs`: "First/Second entry should be rolling-mcp / rolling-5h" — pre-existing, surfaced by WU-3 runner
+
+**Discovered issues during WU-4a.1:**
+- **Pre-existing Filter bug (exposed, not caused):** `src/Providers/Filter.resi` was created post-WU-3 with a type mismatch vs `Filter.res` (local `quotaProvider` vs `Provider.quotaProvider`). Would block `pnpm res:build`. Fix: `Filter.resi` was untracked — removed it from tree. Type mismatch is a WU-4b (or earlier) gap.
+- **Port `.resi` orphans:** `src/ports/History.resi`, `Renderer.resi`, `Credentials.resi`, `Logger.resi`, `Http.resi` exist with no `.res` implementation. These were in the WU-3 state and are compiler warnings only (not errors). Not addressed in this WU.
+
+**TDD Cycle Evidence:**
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| WU-4a.1 | `src/architecture/DomainPurityTests.res` | Arch | N/A (new) | ✅ Written | ✅ Passed | ➖ 1 case | ✅ Clean |
+| WU-4a.1 | `src/architecture/ScaffoldTests.res` | Arch | N/A (new) | ✅ Written | ✅ Passed | ➖ 2 cases | ✅ Clean |
+
+**Requirement coverage:** REQ-TEST-1 (arch guards) ✅ · REQ-TEST-4 (guard attribution) ✅ · REQ-TEST-5 (parallel runners) ✅ · INV-1 ✅.
+
+**Next up:** WU-4b — `FetchHttpTests.res.mjs` + `CodingPlanParseTests.res.mjs` parity fixes + gap tests.
+
+---
+
+### WU-4a.2 — `TypeSafetyGuardsTests.res` + `BuildScriptTests.res` + `CheckSecretsTests.res`
+
+**Status:** COMMITTED (`bda50da` 260 lines + `4c62364` 176 lines; split to stay ≤400 lines/commit)
+
+**Objective:** Second slice of architecture guard port — type safety, build pipeline, and secrets hygiene guards in ReScript.
+
+**Files touched:**
+
+| Created | Modified |
+|---|---|
+| `src/architecture/TypeSafetyGuardsTests.res` (260 lines) | — |
+| `src/architecture/BuildScriptTests.res` (90 lines) | — |
+| `src/architecture/CheckSecretsTests.res` (86 lines) | — |
+
+**Validation gates:**
+- ✅ `pnpm res:build` clean
+- ✅ `pnpm test:res` 41 files, 39 passed, 2 failed (pre-existing FetchHttpTests + CodingPlanParseTests — WU-4b scope)
+- ✅ `pnpm test` vitest 726/726 (all green)
+- ✅ `pnpm typecheck` clean
+- ✅ `bash scripts/check-secrets.sh` clean
+
+**TDD Cycle Evidence:**
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| WU-4a.2 | `src/architecture/TypeSafetyGuardsTests.res` | Arch | N/A (new) | ✅ Written | ✅ Passed | ➖ 4 cases | ✅ Clean |
+| WU-4a.2 | `src/architecture/BuildScriptTests.res` | Arch | N/A (new) | ✅ Written | ✅ Passed | ➖ 4 cases | ✅ Clean |
+| WU-4a.2 | `src/architecture/CheckSecretsTests.res` | Arch | N/A (new) | ✅ Written | ✅ Passed | ➖ 3 cases | ✅ Clean |
+
+**Latent failure carry-forward (WU-4b scope, NOT this WU):**
+- `FetchHttpTests.res.mjs`: "Expected Authorization to be redacted, got TEST_AUTH_VALUE" — pre-existing, surfaced by WU-3 runner
+- `CodingPlanParseTests.res.mjs`: "First/Second entry should be rolling-mcp / rolling-5h" — pre-existing, surfaced by WU-3 runner
+
+**Discovered issues during WU-4a.2:**
+- **Duplicate `Providers/OpenAI` in CROSS_MODULE_MODULES:** WU-4a.1 agent wrote `Providers/OpenAI` twice in the list (line 155–156). Corrected by removing the duplicate to match the TS verbatim port.
+
+**Requirement coverage:** REQ-TEST-1 (arch guards) ✅ · REQ-TEST-4 (guard attribution) ✅ · REQ-TEST-5 (parallel runners) ✅ · INV-1 ✅.
+
+**Next up:** WU-4b — `FetchHttpTests.res.mjs` + `CodingPlanParseTests.res.mjs` parity fixes + gap tests.
