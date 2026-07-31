@@ -131,8 +131,8 @@ testAsync("request retries then succeeds", callback => {
     })
 })
 
-// 6. redaction
-testAsync("Authorization header is redacted to *** before fetch is called", callback => {
+// 6. Authorization is forwarded unchanged on the wire (NOT redacted before fetch)
+testAsync("real Authorization header is forwarded unchanged on the wire", callback => {
   let seenAuth: ref<option<string>> = ref(None)
   stubFetch((_url, init) => {
     switch init.headers {
@@ -145,7 +145,7 @@ testAsync("Authorization header is redacted to *** before fetch is called", call
     }
     Promise.resolve(jsonResp([]))
   })
-  let headers = Dict.fromArray([("Authorization", "TEST_AUTH_VALUE")])
+  let headers = Dict.fromArray([("Authorization", "Bearer TEST_AUTH_VALUE")])
   let req: FetchHttp.httpRequest = {
     url: "https://api.test/quota",
     method: #get,
@@ -158,10 +158,10 @@ testAsync("Authorization header is redacted to *** before fetch is called", call
       switch seenAuth.contents {
       | Some(v) =>
         assertion(
-          ~message=`Expected Authorization to be redacted, got "${v}"`,
+          ~message=`Expected real Authorization to reach fetch, got "${v}"`,
           (a, b) => a == b,
           v,
-          "***",
+          "Bearer TEST_AUTH_VALUE",
         )
       | None =>
         assertion(
@@ -170,6 +170,139 @@ testAsync("Authorization header is redacted to *** before fetch is called", call
           true,
           false,
         )
+      }
+      callback()
+      Promise.resolve()
+    })
+    ->Promise.catch((. _err) => {
+      callback()
+      Promise.resolve()
+    })
+})
+
+// 7. non-Authorization headers are preserved verbatim
+testAsync("Non-Authorization headers preserved verbatim", callback => {
+  let seenHeaders: ref<option<Dict.t<string>>> = ref(None)
+  stubFetch((_url, init) => {
+    switch init.headers {
+    | Some(h) => seenHeaders := Some(h)
+    | None => seenHeaders := Some(Dict.make())
+    }
+    Promise.resolve(jsonResp([]))
+  })
+  let headers = Dict.fromArray([("X-Custom", "foo"), ("Content-Type", "application/json")])
+  let req: FetchHttp.httpRequest = {
+    url: "https://api.test/quota",
+    method: #get,
+    headers: Some(headers),
+    body: None,
+  }
+  let opts: FetchHttp.requestOptions = {timeoutMs: 5000.0, retries: 0.0, redact: true}
+  let _ = FetchHttp.request(~logger=FetchHttp.noopLogger, req, opts)
+    ->Promise.then(_ => {
+      switch seenHeaders.contents {
+      | Some(h) =>
+        assertion(
+          ~message=`Expected X-Custom to be foo, got "${Dict.get(h, "X-Custom")->Option.getWithDefault("")}"`,
+          (a, b) => a == b,
+          Dict.get(h, "X-Custom")->Option.getWithDefault(""),
+          "foo",
+        )
+        assertion(
+          ~message=`Expected Content-Type to be application/json, got "${Dict.get(h, "Content-Type")->Option.getWithDefault("")}"`,
+          (a, b) => a == b,
+          Dict.get(h, "Content-Type")->Option.getWithDefault(""),
+          "application/json",
+        )
+      | None =>
+        assertion(~message="Expected headers to be Some", (a, b) => a == b, true, false)
+      }
+      callback()
+      Promise.resolve()
+    })
+    ->Promise.catch((. _err) => {
+      callback()
+      Promise.resolve()
+    })
+})
+
+// 8. no headers at all → init.headers === None
+testAsync("No headers at all sends None to fetch", callback => {
+  let seenHeaders: ref<option<option<Dict.t<string>>>> = ref(None)
+  stubFetch((_url, init) => {
+    seenHeaders := Some(init.headers)
+    Promise.resolve(jsonResp([]))
+  })
+  let req: FetchHttp.httpRequest = {
+    url: "https://api.test/quota",
+    method: #get,
+    headers: None,
+    body: None,
+  }
+  let opts: FetchHttp.requestOptions = {timeoutMs: 5000.0, retries: 0.0, redact: true}
+  let _ = FetchHttp.request(~logger=FetchHttp.noopLogger, req, opts)
+    ->Promise.then(_ => {
+      switch seenHeaders.contents {
+      | Some(None) =>
+        assertion(~message="Expected headers to be None", (a, b) => a == b, true, true)
+      | Some(Some(_)) =>
+        assertion(~message="Expected headers to be None, got Some", (a, b) => a == b, false, true)
+      | None =>
+        assertion(~message="Expected headers callback to have fired", (a, b) => a == b, false, true)
+      }
+      callback()
+      Promise.resolve()
+    })
+    ->Promise.catch((. _err) => {
+      callback()
+      Promise.resolve()
+    })
+})
+
+// 9. Authorization + other headers → all reach fetch, in original order
+testAsync("Authorization plus other headers all reach fetch unchanged", callback => {
+  let seenAuth: ref<option<string>> = ref(None)
+  let seenAccept: ref<option<string>> = ref(None)
+  stubFetch((_url, init) => {
+    switch init.headers {
+    | Some(h) =>
+      seenAuth := Dict.get(h, "Authorization")
+      seenAccept := Dict.get(h, "Accept")
+    | None => ()
+    }
+    Promise.resolve(jsonResp([]))
+  })
+  let headers = Dict.fromArray([("Authorization", "Bearer T"), ("Accept", "application/json")])
+  let req: FetchHttp.httpRequest = {
+    url: "https://api.test/quota",
+    method: #get,
+    headers: Some(headers),
+    body: None,
+  }
+  let opts: FetchHttp.requestOptions = {timeoutMs: 5000.0, retries: 0.0, redact: true}
+  let _ = FetchHttp.request(~logger=FetchHttp.noopLogger, req, opts)
+    ->Promise.then(_ => {
+      switch seenAuth.contents {
+      | Some(v) =>
+        assertion(
+          ~message=`Expected Authorization to be Bearer T, got "${v}"`,
+          (a, b) => a == b,
+          v,
+          "Bearer T",
+        )
+      | None =>
+        assertion(~message="Expected Authorization header", (a, b) => a == b, false, true)
+      }
+      switch seenAccept.contents {
+      | Some(v) =>
+        assertion(
+          ~message=`Expected Accept to be application/json, got "${v}"`,
+          (a, b) => a == b,
+          v,
+          "application/json",
+        )
+      | None =>
+        assertion(~message="Expected Accept header", (a, b) => a == b, false, true)
       }
       callback()
       Promise.resolve()

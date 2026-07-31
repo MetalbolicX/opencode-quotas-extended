@@ -101,18 +101,6 @@ let request = (
     | #delete => "DELETE"
     }
 
-    let redactedHeaders = switch req.headers {
-    | Some(h) =>
-      let copy = Dict.fromArray(Dict.toArray(h))
-      switch Dict.get(copy, "Authorization") {
-      | Some(_) => Dict.set(copy, "Authorization", "***")
-      | None => ()
-      }
-      Some(copy)
-    | None => None
-    }
-    let _ = redactedHeaders // reserved for future logger-side redaction; never sent on the wire
-
     let bodyStr = switch req.body {
     | Some(b) => Some(JSON.stringify(b))
     | None => None
@@ -120,7 +108,7 @@ let request = (
 
     let init: fetchInit = {
       method: methodStr,
-      headers: redactedHeaders,
+      headers: req.headers,
       body: bodyStr,
     }
 
