@@ -90,6 +90,10 @@ type ajvError = {
 @send external compile: (ajvInstance, JSON.t) => validator = "compile"
 @get external validatorErrors: validator => option<array<ajvError>> = "errors"
 
+// Generated schema module (produced by scripts/codegen.mjs)
+// Schema.res lives in src/Infra/ConfigLoader/ (subdirectory of ConfigLoader),
+// making it accessible as Schema (a submodule of ConfigLoader).
+
 // Module-scoped compiled validator cache
 let _validatorCache: ref<option<validator>> = ref(None)
 
@@ -99,71 +103,8 @@ let _getValidate = (): validator => {
   | None =>
     let inst = ajv()
     let _ = addFormats(inst)
-    // Embedded JSON schema — copy of schemas/quotas.schema.json
-    let schema: JSON.t = %raw(`{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://opencode.ai/schemas/quotas.json",
-  "title": "opencode-quotas configuration",
-  "type": "object",
-  "additionalProperties": false,
-  "definitions": {
-    "displayMode": { "type": "string", "enum": ["table", "json", "markdown"] },
-    "progressBar": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "width": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 },
-        "filledChar": { "type": "string", "default": "█" },
-        "emptyChar": { "type": "string", "default": "." },
-        "color": { "type": "boolean", "default": true },
-        "gradients": { "type": "boolean", "default": false }
-      }
-    },
-    "tableConfig": {
-      "type": "object", "additionalProperties": false,
-      "properties": {
-        "columns": { "type": "array", "items": { "type": "string", "enum": ["name", "used", "limit", "percent", "reset", "status", "bar"] }, "default": ["name", "bar", "percent", "reset", "status"] },
-        "header": { "type": "boolean", "default": true }
-      }
-    },
-    "footerConfig": { "type": "object", "additionalProperties": false, "deprecated": true, "description": "DEPRECATED: footerConfig is no longer used.", "properties": { "show": { "type": "boolean", "default": true, "deprecated": true }, "compact": { "type": "boolean", "default": true } } },
-    "aggregationStrategy": { "type": "string", "enum": ["most_critical", "max", "min", "mean", "median"] },
-    "aggregatedGroups": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object", "additionalProperties": false, "required": ["strategy", "members"],
-        "properties": {
-          "strategy": { "$ref": "#/definitions/aggregationStrategy" },
-          "members": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
-        }
-      }
-    },
-    "credentialEntry": {
-      "oneOf": [
-        { "type": "object", "additionalProperties": false, "required": ["type", "key"], "properties": { "type": { "const": "api" }, "key": { "type": "string", "minLength": 1 } } },
-        { "type": "object", "additionalProperties": false, "required": ["type", "envVar"], "properties": { "type": { "const": "env" }, "envVar": { "type": "string", "minLength": 1 } } }
-      ]
-    },
-    "credentials": { "type": "object", "additionalProperties": { "$ref": "#/definitions/credentialEntry" } }
-  },
-  "properties": {
-    "displayMode": { "$ref": "#/definitions/displayMode" },
-    "progressBar": { "$ref": "#/definitions/progressBar" },
-    "table": { "$ref": "#/definitions/tableConfig" },
-    "footer": { "$ref": "#/definitions/footerConfig", "deprecated": true, "description": "DEPRECATED: Footer config is no longer used." },
-    "filterByCurrentModel": { "type": "boolean", "default": false },
-    "disabled": { "type": "array", "items": { "type": "string" }, "default": [] },
-    "credentials": { "$ref": "#/definitions/credentials" },
-    "aggregatedGroups": { "$ref": "#/definitions/aggregatedGroups" },
-    "historyMaxAgeHours": { "type": "integer", "minimum": 1, "maximum": 720, "default": 24 },
-    "pollingInterval": { "type": "integer", "minimum": 0, "default": 0, "deprecated": true, "description": "DEPRECATED: pollingInterval is no longer used." },
-    "predictionWindowMinutes": { "type": "integer", "minimum": 1, "maximum": 1440, "default": 60 },
-    "predictionShortWindowMinutes": { "type": "integer", "minimum": 1, "maximum": 60, "default": 5 },
-    "showUnaggregated": { "type": "boolean", "default": false },
-    "show": { "type": "boolean", "default": true, "deprecated": true, "description": "DEPRECATED: show is no longer used." },
-    "anthropic": { "type": "object", "additionalProperties": false, "properties": { "orgId": { "type": "string", "minLength": 1 } } }
-  }
-}`)
-    let v = compile(inst, schema)
+    // Schema imported from generated ConfigLoader.Schema module (produced by scripts/codegen.mjs)
+    let v = compile(inst, Schema.schema)
     _validatorCache := Some(v)
     v
   }

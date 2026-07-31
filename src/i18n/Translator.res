@@ -1,5 +1,9 @@
 // I18n translator: pure function over a loaded catalog.
 
+// Generated catalog module (produced by scripts/codegen.mjs)
+// EnCatalog.res lives in src/i18n/Translator/ (subdirectory of Translator),
+// making it accessible as EnCatalog (a submodule of Translator).
+
 type translator = {
   t: (string, option<dict<string>>) => string,
 }
@@ -45,37 +49,5 @@ let createI18nTranslator = (catalog: dict<string>): translator => {
   }
 }
 
-// Embedded English catalog (en.json)
-let enCatalog: dict<string> = Dict.fromArray([
-  ("status.OK", "OK"),
-  ("status.WRN", "WRN"),
-  ("status.ERR", "ERR"),
-  ("status.UNK", "UNK"),
-  ("header.name", "Name"),
-  ("header.used", "Used"),
-  ("header.limit", "Limit"),
-  ("header.bar", "Bar"),
-  ("header.percent", "%"),
-  ("header.reset", "Reset"),
-  ("header.ettl", "ETTL"),
-  ("header.status", "Status"),
-  ("footer.compact", "Compact quota summary"),
-  ("unit.req", "req"),
-  ("unit.credits", "credits"),
-  ("unit.calls", "calls"),
-  ("unit.%", "%"),
-  ("concept.z.ai-5-hour-rolling", "5h rolling window"),
-  ("concept.z.ai-mcp", "MCP quota"),
-  ("concept.z.ai-token", "Token quota"),
-  ("concept.minimax-daily-request", "Daily request quota"),
-  ("concept.minimax-weekly-request", "Weekly limit"),
-  ("concept.minimax-5h-window", "5h rolling limit"),
-  ("concept.minimax-video", "Video generation"),
-  ("concept.z.ai-weekly-rolling", "Weekly quota"),
-  ("concept.z.ai-generic-rolling", "Generic rolling limit"),
-  ("concept.openai-primary-rate", "Primary rate limit"),
-  ("concept.openai-secondary-rate", "Secondary rate limit"),
-  ("concept.openai-credits", "Credit balance"),
-  ("concept.openai-token-usage", "Token usage"),
-  ("concept.gemini-model-quota", "Model quota"),
-])
+// enCatalog is imported from EnCatalog submodule (produced by scripts/codegen.mjs)
+let enCatalog: dict<string> = EnCatalog.enCatalog
