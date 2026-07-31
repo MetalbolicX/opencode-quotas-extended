@@ -21,9 +21,10 @@ let dirExists = (dir: string): bool => {
 
 // ── Expected directories ───────────────────────────────────────────────────────
 //
-// WU-5 will add:
+// WU-5 added:
 //   "legacy"
-// after WU-5 merges. Until then, this guard only asserts the pre-legacy layout.
+// WU-6 removed vitest tests/ directory. The test runner is now the ReScript
+// aggregate runner (scripts/run-tests.mjs) which discovers src/**/*Tests.res.mjs.
 let expectedDirs: array<string> = [
   "src/domain",
   "src/ports",
@@ -34,16 +35,8 @@ let expectedDirs: array<string> = [
   "src/rendering",
   "src/i18n/locales",
   "src/cli",
-  "tests/unit/config",
-  "tests/unit/domain",
-  "tests/unit/credentials",
-  "tests/unit/rendering",
-  "tests/unit/providers",
-  "tests/characterization",
-  "tests/integration",
-  "tests/architecture",
-  "tests/fixtures/reference",
-  "tests/fixtures/providers",
+  "src/integration",
+  "legacy",
   "schemas",
   "scripts",
 ]

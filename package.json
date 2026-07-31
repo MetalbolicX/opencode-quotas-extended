@@ -20,9 +20,6 @@
     "postinstall": "pnpm run codegen",
     "test": "node scripts/run-tests.mjs",
     "test:res": "node scripts/run-tests.mjs",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
     "build": "rolldown -c",
     "prepublishOnly": "pnpm build",
     "res:build": "rescript build",
@@ -70,11 +67,8 @@
   "devDependencies": {
     "@rescript/runtime": "12.3.0",
     "@types/node": "^26.1.2",
-    "@vitest/coverage-v8": "^4.1.10",
     "rescript": "12.3.0",
     "rescript-test": "^8.0.1",
-    "rolldown": "^1.2.0",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "rolldown": "^1.2.0"
   }
 }
