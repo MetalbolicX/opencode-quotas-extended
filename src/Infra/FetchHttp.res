@@ -120,7 +120,7 @@ let request = (
 
     let init: fetchInit = {
       method: methodStr,
-      headers: req.headers,
+      headers: redactedHeaders,
       body: bodyStr,
     }
 

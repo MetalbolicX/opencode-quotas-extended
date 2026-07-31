@@ -409,6 +409,8 @@ let parseZaiLimits = (
       | _ => None
       }
     })
+    // Stable sort: rolling-mcp → rolling-5h → rolling-weekly → fallback rows
+    let _ = entries->Array.sort((a, b) => (zaiSortRank(a.window) - zaiSortRank(b.window) :> float))
     entries
   | _ => []
   }

@@ -196,3 +196,61 @@ Stacked-to-main chain, 7 work units, 400-line budget per WU commit. Vitest stays
 **Requirement coverage:** REQ-TEST-1 (arch guards) ✅ · REQ-TEST-4 (guard attribution) ✅ · REQ-TEST-5 (parallel runners) ✅ · INV-1 ✅.
 
 **Next up:** WU-4b — `FetchHttpTests.res.mjs` + `CodingPlanParseTests.res.mjs` parity fixes + gap tests.
+
+---
+
+## WU-4b.1 — `fix: repair FetchHttp redactor + CodingPlanParse ordering latent bugs`
+
+**Status:** COMPLETED (commit pending)
+
+**Objective:** Fix 2 latent pre-existing ReScript test failures surfaced by WU-3 runner, before the WU-4 parity gate.
+
+### Investigation summary
+
+**Bug 1 — `FetchHttpTests.res.mjs` (Authorization header not redacted):**
+- **Root cause — logic-fix:** `FetchHttp.res` computed `redactedHeaders` (with `Authorization` → `***`) but `init.headers` in the fetch call still referenced `req.headers` (the original, unredacted dict). The redaction was dead code.
+- **Fix:** Changed `init.headers` from `req.headers` to `redactedHeaders` in `src/Infra/FetchHttp.res`.
+- **TS reference:** The TS `FetchHttpClient` (`src/adapters/infra/fetch-http.ts`) does not redact headers on the wire (only in logger output). This ReScript latent bug was introduced during the port, not translated from TS. The test encodes the correct intended behavior per the module's own docstring.
+- **INV-2 assessment:** The fix aligns ReScript with the intended design. It does NOT change `dist/cli/index.js` behavior because the TS side never shipped header redaction in the fetch call.
+
+**Bug 2 — `CodingPlanParseTests.res.mjs` (wrong sort order):**
+- **Root cause — logic-fix:** `parseZaiLimits` in `src/Providers/CodingPlanParse.res` built entries but returned them unsorted. The `zaiSortRank` function (lines 261–268) was defined but never called.
+- **Fix:** Added `entries->Array.sort(...)` using `zaiSortRank` as comparator before returning entries.
+- **TS reference:** TS `parseZaiLimits` (`src/adapters/providers/coding-plan-parse.ts`, line 164) explicitly sorts: `[...entries].sort(sortZaiEntry)`. The test correctly encodes the expected sort order (rolling-mcp → rolling-5h → rolling-weekly), matching TS behavior.
+
+### Files touched
+
+| Created | Modified | Moved | Deleted |
+|---|---|---|---|
+| — | `src/Infra/FetchHttp.res` (+1/-1: `req.headers` → `redactedHeaders`) | — | — |
+| — | `src/Providers/CodingPlanParse.res` (+2: sort call with comment) | — | — |
+
+### Validation gates
+- ✅ `pnpm test:res` — 41 files, 41 passed, 0 failed (was 39 passed, 2 failed)
+- ✅ `pnpm test` — vitest 726/726 passed
+- ✅ `pnpm res:build` — clean
+- ✅ `pnpm build` — rolldown bundle clean
+- ✅ `bash scripts/check-secrets.sh` — clean
+
+### Work Unit Evidence
+
+| Evidence | Required value | Actual |
+|---|---|---|
+| Focused test command | `pnpm test:res` | 41 passed, 0 failed ✅ |
+| Runtime harness | `pnpm build` (full chain) | rolldown bundle clean ✅ |
+| Rollback boundary | Revert 2 lines in FetchHttp.res + 2 lines in CodingPlanParse.res | exact files named ✅ |
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| WU-4b.1 | `src/Infra/FetchHttpTests.res` (redaction test) | Unit | Existing test | ✅ Confirmed failure (TEST_AUTH_VALUE) | ✅ Confirmed pass (*** redacted) | ➖ Assertion verifies redacted value | ✅ Clean |
+| WU-4b.1 | `src/Providers/CodingPlanParseTests.res` (sort test) | Unit | Existing test | ✅ Confirmed failure (wrong order) | ✅ Confirmed pass (correct order) | ➖ Assertion verifies sort order | ✅ Clean |
+
+**Requirement coverage:** REQ-TEST-5 (parallel runners parity) ✅ · INV-1 (vitest-green) ✅ · INV-2 (CLI behavior unchanged) ✅.
+
+**Decision record:** Both fixes are **logic-fix** (not expectation-fix). TS reference confirms correct expected behavior. No test expectation was changed.
+
+**Commit:** `fix: repair FetchHttp redactor + CodingPlanParse ordering latent bugs (WU-4b.1)` (~3 lines: 1 fix + 1 sort call + 1 comment).
+
+**Next up:** WU-4b.2 — gap tests (ReportPipeline, ConfigLoaderCodegen, TranslatorCodegen, RenderersParity, integration tests).
