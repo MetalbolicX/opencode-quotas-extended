@@ -14,6 +14,10 @@
     "package.json"
   ],
   "scripts": {
+    "codegen": "node scripts/codegen.mjs",
+    "prebuild": "pnpm run codegen && pnpm run res:build",
+    "preres:build": "pnpm run codegen",
+    "postinstall": "pnpm run codegen",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
