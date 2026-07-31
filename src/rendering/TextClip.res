@@ -1,10 +1,41 @@
 // ANSI-aware text clip: scans value preserving ANSI SGR codes,
 // truncates to (width - ellipsis.length) visible chars, pads to width.
 
-let sgrRe = %re("/\x1b\\[[0-9;]*m/g")
+// ESC character for ANSI SGR detection
+let escChar = "\u001b"
 
+// Manually strip ANSI SGR codes from text.
+// Algorithm: scan for ESC + '[' + digits/+';' + 'm', skip those bytes.
+// Returns only the visible (non-ANSI) characters.
 let stripAnsi = (text: string): string => {
-  Js.String.replaceByRe(sgrRe, "", text)
+  let result = ref("")
+  let i = ref(0)
+  while i.contents < String.length(text) {
+    let c = switch String.get(text, i.contents) {
+    | Some(ch) => ch
+    | None => ""
+    }
+    let nextC = switch String.get(text, i.contents + 1) {
+    | Some(ch) => ch
+    | None => ""
+    }
+    if c === escChar && nextC === "[" {
+      // Skip the entire SGR sequence: ESC [ ... m
+      let remaining = Js.String.substring(text, ~from=i.contents + 2, ~to_=String.length(text))
+      let endM = String.indexOf(remaining, "m")
+      if endM === -1 {
+        // Unterminated SGR — skip remaining
+        i := String.length(text)
+      } else {
+        // Skip past ESC + '[' + digits + 'm'
+        i := i.contents + 2 + endM + 1
+      }
+    } else {
+      result := result.contents ++ c
+      i := i.contents + 1
+    }
+  }
+  result.contents
 }
 
 let clip = (~width: int, value: string, ~ellipsis: string="…"): string => {
