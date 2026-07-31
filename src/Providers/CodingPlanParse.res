@@ -391,7 +391,6 @@ let parseZaiLimits = (
   ~json: JSON.t,
   ~idPrefix: string,
   ~providerName: string,
-  ~isLitePlan: bool,
 ): array<quotaData> => {
   switch json {
   | JSON.Object(root) =>
@@ -402,6 +401,17 @@ let parseZaiLimits = (
       | _ => []
       }
     | _ => []
+    }
+    // Lite plan encodes MCP / 5h / weekly on different type+unit combinations than
+    // the full plan (no MCP_LIMIT, no TIME_LIMIT unit=168). Detect via data.level so
+    // we can map the right human label to each row.
+    let isLitePlan = switch Dict.get(root, "data") {
+    | Some(JSON.Object(dataDict)) =>
+      switch Dict.get(dataDict, "level") {
+      | Some(JSON.String("lite")) => true
+      | _ => false
+      }
+    | _ => false
     }
     let entries: array<quotaData> = Belt.Array.keepMap(limits, (entry) => {
       switch entry {

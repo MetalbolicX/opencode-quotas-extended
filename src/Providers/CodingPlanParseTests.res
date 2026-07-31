@@ -367,7 +367,7 @@ test("parseZaiLimits handles valid limits array", () => {
       ("level", JSON.String("standard")),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return 1 entry",
     (a, b) => a == b,
@@ -400,7 +400,7 @@ test("parseZaiLimits handles empty limits", () => {
       ("limits", JSON.Array([])),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return empty array",
     (a, b) => a == b,
@@ -410,7 +410,7 @@ test("parseZaiLimits handles empty limits", () => {
 })
 
 test("parseZaiLimits handles malformed JSON", () => {
-  let result = parseZaiLimits(~json=JSON.Null, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  let result = parseZaiLimits(~json=JSON.Null, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return empty for null",
     (a, b) => a == b,
@@ -438,7 +438,7 @@ test("parseZaiLimits lite plan TIME_LIMIT unit 5 becomes rolling-mcp with MCP qu
       ("level", JSON.String("lite")),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=true)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return 1 entry",
     (a, b) => a == b,
@@ -477,7 +477,7 @@ test("parseZaiLimits lite plan TOKENS_LIMIT unit 3 becomes rolling-5h", () => {
       ("level", JSON.String("lite")),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=true)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return 1 entry",
     (a, b) => a == b,
@@ -516,7 +516,7 @@ test("parseZaiLimits lite plan TOKENS_LIMIT unit 6 becomes rolling-weekly", () =
       ("level", JSON.String("lite")),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=true)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Lite plan TOKENS_LIMIT unit 6 should be rolling-weekly",
     (a, b) => a == b,
@@ -549,7 +549,7 @@ test("parseZaiLimits derives usage from currentValue/usage when percentage is ab
       ])),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return 1 entry",
     (a, b) => a == b,
@@ -588,7 +588,7 @@ test("parseZaiLimits full plan TIME_LIMIT unit 168 becomes rolling-weekly", () =
       ])),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Full plan TIME_LIMIT unit 168 should be rolling-weekly",
     (a, b) => a == b,
@@ -635,7 +635,7 @@ test("parseZaiLimits output is sorted: rolling-mcp, rolling-5h, rolling-weekly",
       ])),
     ]))),
   ]))
-  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai", ~isLitePlan=false)
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
     ~message="Should return 3 entries",
     (a, b) => a == b,
@@ -660,6 +660,68 @@ test("parseZaiLimits output is sorted: rolling-mcp, rolling-5h, rolling-weekly",
     (a, b) => a == b,
     Belt.Array.getExn(result, 2).window,
     #rollingWeekly,
+  )
+})
+
+// Regression: lite plan detection must come from data.level, not a caller flag.
+// Guards against the bug where Zai.res hard-coded isLitePlan=false and
+// lite-plan rows rendered as `Token quota #N` instead of MCP/5h/Weekly.
+test("parseZaiLimits data.level pro yields full-plan labels for TOKENS_LIMIT", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(3.0)),
+          ("number", JSON.Number(5.0)),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(1.0)),
+          ("remaining", JSON.Number(99.0)),
+          ("percentage", JSON.Number(1.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ])),
+      ])),
+      ("level", JSON.String("pro")),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
+  assertion(
+    ~message="level=pro TOKENS_LIMIT unit 3 should keep full-plan token label",
+    (a, b) => a == b,
+    first(result).info,
+    Some("Token quota #5"),
+  )
+  assertion(
+    ~message="level=pro TOKENS_LIMIT unit 3 should map to rolling-tokens (not 5h)",
+    (a, b) => a == b,
+    first(result).window,
+    #rollingTokens,
+  )
+})
+
+test("parseZaiLimits missing level field defaults to full-plan labels", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("limits", JSON.Array([
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(3.0)),
+          ("number", JSON.Number(5.0)),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(1.0)),
+          ("remaining", JSON.Number(99.0)),
+          ("percentage", JSON.Number(1.0)),
+          ("nextResetTime", JSON.Number(0.0)),
+        ])),
+      ])),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
+  assertion(
+    ~message="missing level field should treat as full-plan token row",
+    (a, b) => a == b,
+    first(result).info,
+    Some("Token quota #5"),
   )
 })
 

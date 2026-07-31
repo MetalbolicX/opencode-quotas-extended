@@ -49,7 +49,6 @@ let createZaiProvider = (): Provider.quotaProvider => {
             ~json,
             ~idPrefix="zai",
             ~providerName="z.ai",
-            ~isLitePlan=false
           ))
         })
       }
