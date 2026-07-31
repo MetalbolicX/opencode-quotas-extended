@@ -684,3 +684,100 @@ Stacked-to-main chain, 7 work units, 400-line budget per WU commit. Vitest stays
 **All authored-line batches under 400 lines** (deletion batches excluded from budget per WU-6c sub-split decision).
 
 **Next up:** WU-7 — rewrite workflow documentation (README.md + CLAUDE.md).
+
+---
+
+## WU-7 — `docs: rewrite README.md and CLAUDE.md for ReScript production stack`
+
+**Status:** COMMITTED (`8909059`)
+
+**Objective:** Rewrite operational docs to accurately describe the ReScript + rolldown production stack after vitest removal.
+
+### Changes
+
+**README.md:**
+- Replaced "Standalone TypeScript CLI" with "ReScript-based CLI"
+- Replaced "Pure TypeScript — zero I/O imports" with "Pure ReScript"
+- Updated build chain description to show `codegen → res:build → rolldown`
+- Replaced vitest/typecheck references with `pnpm test` (ReScript runner), `pnpm codegen`, `pnpm res:build`, `pnpm res:dev`
+- Updated status table: 47/47 ReScript test files, removed typecheck gate
+- Added `legacy/` section documenting archived TypeScript source (46 files, not built/tested)
+- Kept `node dist/cli/index.js --help` smoke test reference
+
+**CLAUDE.md (agent-context):**
+- Replaced "Standalone TypeScript CLI" with "ReScript-based CLI"
+- Stack: removed TypeScript and vitest; added ReScript 12.3, `rescript build`, `scripts/run-tests.mjs`
+- Removed `tsc --noEmit` from build commands
+- Updated directory layout to reflect `.res` files and `legacy/` archive
+- Updated domain purity guard reference from `tests/architecture/domain-purity.test.ts` to `src/architecture/DomainPurityTests.res`
+- Added `legacy/` note: archived TypeScript source, 46 files, not built/tested
+- Added build pipeline diagram (codegen → rescript build → rolldown)
+- Updated "When picking up a task" to reference `pnpm test` + `pnpm build` as the two gates
+
+### Validation gates
+
+| Gate | Result |
+|---|---|
+| `pnpm test` | ✅ 47/47 files passed |
+| `pnpm res:build` | ✅ clean |
+| `pnpm build` | ✅ rolldown bundle clean |
+| `bash scripts/check-secrets.sh` | ✅ clean |
+| `node dist/cli/index.js --help` | ✅ exits 0 |
+
+### Git diff stats
+
+| File | Lines changed |
+|---|---|
+| `README.md` | +52/−41 |
+| `CLAUDE.md` | +59/−48 |
+| **Total** | **111 changes (200 lines)** — under 400-line budget ✅ |
+
+### Requirement coverage (documentation)
+
+| Requirement | Satisfying WU |
+|---|---|
+| PIPELINE-1..4 (operational) | WU-7 ✅ (README build pipeline section) |
+| TEST-1..5 (operational) | WU-7 ✅ (README dev section) |
+| INV-2 (CLI smoke) | WU-7 ✅ (README smoke test) |
+
+**Commit:** `docs: rewrite README.md and CLAUDE.md for ReScript + rolldown production stack` (~200 lines)
+
+---
+
+## CYCLE COMPLETE — `rescript-cutover`
+
+All 8 work units merged to `main`. The production stack is now **ReScript + rolldown**, vitest is fully removed, the `legacy/` archive preserves the pre-cutover TypeScript source, and operational documentation reflects the final state.
+
+### Final status
+
+| WU | Status | Commit |
+|---|---|---|
+| WU-1 | ✅ MERGED | `a0b539d`, `8fede85`, `e6f9d5f` |
+| WU-2 | ✅ MERGED | `build: wire codegen into prebuild + postinstall` |
+| WU-3 | ✅ MERGED | `test: aggregate ReScript test runner (parallel with vitest)` |
+| WU-4a.1 | ✅ MERGED | `5dd55e1` |
+| WU-4a.2 | ✅ MERGED | `bda50da`, `4c62364` |
+| WU-4b.1 | ✅ MERGED | `fix: repair FetchHttp redactor + CodingPlanParse ordering latent bugs` |
+| WU-4b.2a | ✅ MERGED | `360bfd4` |
+| WU-4b.2b | ✅ MERGED | `851054f` |
+| WU-4b.2c | ✅ MERGED | `f6bec8f` |
+| WU-4b.3 | ✅ MERGED | `test: port CLI-entrypoint integration + finalize gap matrix` |
+| WU-5 | ✅ MERGED | `35b8c24` |
+| WU-6a | ✅ MERGED | `1fbad37` |
+| WU-6b | ✅ MERGED | `d2084b3` |
+| WU-6c | ✅ MERGED | `3cac947`, `c5022db`, `e6ff4fa`, `5681f37`, `d080ccd`, `c6538d1`, `9810148`, `d159a20`, `7533dde`, `cc0fa58`, `db948e8`, `22fdd00`, `4e66651`, `05c9ce4` |
+| WU-7 | ✅ MERGED | `8909059` |
+
+### Invariants held
+
+- **INV-1 (vitest-green-until-removed):** Vitest stayed green through WU-5; WU-6 deleted it.
+- **INV-2 (no CLI behavior change):** `dist/cli/index.js` smoke verified in every WU.
+
+### What was delivered
+
+- ReScript-only production source (zero TypeScript in `src/`)
+- Deterministic asset codegen wired into build lifecycle
+- Aggregate ReScript test runner as the sole test command (`pnpm test`)
+- `legacy/` archive: 46 archived TypeScript files preserved, not built
+- Operational docs (README + CLAUDE) accurate for the ReScript stack
+

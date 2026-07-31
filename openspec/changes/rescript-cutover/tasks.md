@@ -101,7 +101,7 @@ WU-4 and WU-6 are budget gates: split into WU-4c or WU-6a+ when authored additio
 
 - **Objective:** Document ReScript + rolldown as production, the codegen lifecycle, the aggregate runner, and the committed `legacy/` archive.
 - **Files:** **Modified** `README.md`, `CLAUDE.md`.
-- **Tasks:** `[ ]` replace stale TypeScript/Vitest/typecheck commands; `[ ]` document `pnpm codegen`, `pnpm res:build`, `pnpm build`, `pnpm test`, `pnpm test:res`, `pnpm postinstall`, smoke/secret gates, archive rollback, and no-CI/no-lint constraints.
+- **Tasks:** `[x]` replace stale TypeScript/Vitest/typecheck commands; `[x]` document `pnpm codegen`, `pnpm res:build`, `pnpm build`, `pnpm test`, `pnpm test:res`, `pnpm postinstall`, smoke/secret gates, archive rollback, and no-CI/no-lint constraints.
 - **Validation:** `pnpm test`, `pnpm build`, `node scripts/codegen.mjs --check`, `node dist/cli/index.js --help`, and `bash scripts/check-secrets.sh` exit `0`; documentation paths and commands match the final tree.
 - **Map-to-spec:** PIPELINE-1..4, TEST-1..5, CODEGEN-1..6, and **INV-2** operational guidance. **Estimate:** ~200 lines. **Commit:** `docs: document ReScript production cutover`. **Worktree:** none; `docs/rescript-cutover` targets `main`.
 
