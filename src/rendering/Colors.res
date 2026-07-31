@@ -5,22 +5,22 @@ type ansiColor = string
 type colorMap = dict<ansiColor>
 
 let colorMap: colorMap = Dict.fromArray([
-  ("black", "\u001b[30m"),
-  ("red", "\u001b[31m"),
-  ("green", "\u001b[32m"),
-  ("yellow", "\u001b[33m"),
-  ("blue", "\u001b[34m"),
-  ("magenta", "\u001b[35m"),
-  ("cyan", "\u001b[36m"),
-  ("white", "\u001b[37m"),
-  ("brightBlack", "\u001b[90m"),
-  ("brightRed", "\u001b[91m"),
-  ("brightGreen", "\u001b[92m"),
-  ("brightYellow", "\u001b[93m"),
-  ("brightBlue", "\u001b[94m"),
-  ("brightMagenta", "\u001b[95m"),
-  ("brightCyan", "\u001b[96m"),
-  ("brightWhite", "\u001b[97m"),
+  ("black", "30"),
+  ("red", "31"),
+  ("green", "32"),
+  ("yellow", "33"),
+  ("blue", "34"),
+  ("magenta", "35"),
+  ("cyan", "36"),
+  ("white", "37"),
+  ("brightBlack", "90"),
+  ("brightRed", "91"),
+  ("brightGreen", "92"),
+  ("brightYellow", "93"),
+  ("brightBlue", "94"),
+  ("brightMagenta", "95"),
+  ("brightCyan", "96"),
+  ("brightWhite", "97"),
 ])
 
 let validColorNames: array<string> = Dict.keysToArray(colorMap)
@@ -34,7 +34,12 @@ let ansiColor = (name: string, text: string): string => {
     let valid = validColorNames->Array.joinUnsafe(", ")
     let msg = `Invalid color name: "${name}". Valid: ${valid}`
     JsError.throwWithMessage(msg)
-  | Some(code) => `\u001b[${code}m${text}\u001b[0m`
+  | Some(code) => {
+      // colorMap stores the full ANSI SGR code (e.g. "30" for black).
+      // Build the sequence: ESC + [ + code + m + text + ESC + [ + 0 + m
+      let esc = "\u001b"
+      `${esc}[${code}m${text}${esc}[0m`
+    }
   }
 }
 
