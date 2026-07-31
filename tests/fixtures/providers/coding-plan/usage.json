@@ -1,7 +1,0 @@
-{
-  "windows": [
-    { "label": "Primary", "used": 73.5, "limit": 100 },
-    { "label": "Secondary", "used": 31.2, "limit": 100 }
-  ],
-  "credits": { "balance": 8.5, "unlimited": false }
-}

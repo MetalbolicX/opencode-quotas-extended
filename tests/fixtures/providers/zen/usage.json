@@ -1,7 +1,0 @@
-{
-  "windows": [
-    { "label": "Daily", "used": 40, "limit": 100 },
-    { "label": "Monthly", "used": 320, "limit": 1000 }
-  ],
-  "credits": { "balance": 12.5, "unlimited": false }
-}

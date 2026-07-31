@@ -1,7 +1,0 @@
-{
-  "windows": [
-    { "label": "RPM", "used": 58, "limit": 60 },
-    { "label": "RPD", "used": 1420, "limit": 5000 }
-  ],
-  "credits": { "balance": 3.2, "unlimited": false }
-}
