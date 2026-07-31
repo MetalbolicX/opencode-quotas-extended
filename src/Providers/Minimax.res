@@ -32,6 +32,22 @@ let toNum = (json: JSON.t): option<float> => {
   }
 }
 
+// Builds a reset Date by adding `remainsMs` (ms) to the current time.
+// Returns None when the value is missing or non-positive. The mmx CLI returns
+// `remains_time` / `weekly_remains_time` in ms relative to "now", which is
+// clock-independent and avoids the precision pitfalls of absolute timestamps.
+let resetFromRemainsMs = (remainsMs: option<float>): option<Date.t> => {
+  switch remainsMs {
+  | Some(ms) =>
+    if ms > 0.0 {
+      Some(Date.fromTime(Date.now() +. ms))
+    } else {
+      None
+    }
+  | None => None
+  }
+}
+
 // Extracts JSON blob from mmx stdout — the JSON starts at the opening `{`
 // of the unique "model_remains" key (which appears after a human-readable table).
 let extractJson = (out: string): option<string> => {
@@ -113,6 +129,14 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               geminiModel: None,
             },
           )
+          let intervalReset = resetFromRemainsMs(
+            toNum(
+              switch Dict.get(mdict, "remains_time") {
+              | Some(v) => v
+              | _ => JSON.Number(0.0)
+              },
+            ),
+          )
           let _ = Belt.Array.push(
             entries,
             {
@@ -121,7 +145,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               used: 100.0 -. intervalPct,
               limit: Some(100.0),
               unit: "%",
-              reset: None,
+              reset: intervalReset,
               window: #rolling5h,
               info: Some(intervalConcept.label),
               modelId: None,
@@ -145,6 +169,14 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               geminiModel: None,
             },
           )
+          let weeklyReset = resetFromRemainsMs(
+            toNum(
+              switch Dict.get(mdict, "weekly_remains_time") {
+              | Some(v) => v
+              | _ => JSON.Number(0.0)
+              },
+            ),
+          )
           let _ = Belt.Array.push(
             entries,
             {
@@ -153,7 +185,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               used: 100.0 -. weeklyPct,
               limit: Some(100.0),
               unit: "%",
-              reset: None,
+              reset: weeklyReset,
               window: #rollingWeekly,
               info: Some(weeklyConcept.label),
               modelId: None,
@@ -191,6 +223,14 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               geminiModel: None,
             },
           )
+          let videoReset = resetFromRemainsMs(
+            toNum(
+              switch Dict.get(mdict, "remains_time") {
+              | Some(v) => v
+              | _ => JSON.Number(0.0)
+              },
+            ),
+          )
           let _ = Belt.Array.push(
             entries,
             {
@@ -199,7 +239,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               used: videoPct,
               limit: Some(100.0),
               unit: "%",
-              reset: None,
+              reset: videoReset,
               window: #daily,
               info: Some(concept.label),
               modelId: None,

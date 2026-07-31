@@ -366,7 +366,7 @@ let limitToQuota = (
     | Some(ms) =>
       switch ms > 0.0 {
       | true =>
-        Some(Date.fromTime(ms /. 1000.0))
+        Some(Date.fromTime(ms))
       | false => None
       }
     | None => None

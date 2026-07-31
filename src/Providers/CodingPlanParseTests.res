@@ -392,6 +392,19 @@ test("parseZaiLimits handles valid limits array", () => {
     first(result).reset->Option.isSome,
     true,
   )
+  // Regression: z.ai API returns nextResetTime in ms (13 digits like 1785809056980).
+  // The legacy TS treated it as ms directly via `new Date(resetMs)`. The ReScript
+  // port was dividing by 1000, which (combined with JS Date storing only integer ms)
+  // collapsed real future dates to 1970 — making the reset column show "now".
+  assertion(
+    ~message="reset ms should equal the raw nextResetTime value (no /1000 conversion)",
+    (a, b) => a == b,
+    switch first(result).reset {
+    | Some(d) => Date.getTime(d)
+    | None => -1.0
+    },
+    1751328000000.0,
+  )
 })
 
 test("parseZaiLimits handles empty limits", () => {

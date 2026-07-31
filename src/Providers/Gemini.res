@@ -208,7 +208,7 @@ let parseQuotaResponse = (response: JSON.t): array<Domain.quotaData> => {
             | _ => None
             }
             let resetDateOpt = switch resetStr {
-            | Some(iso) => Some(Date.fromTime(Node.jsDateParse(iso) /. 1000.0))
+            | Some(iso) => Some(Date.fromTime(Node.jsDateParse(iso)))
             | None => None
             }
             let concept = enrichQuotaLabel("gemini", {
