@@ -18,7 +18,7 @@
     "prebuild": "pnpm run codegen && pnpm run res:build",
     "preres:build": "pnpm run codegen",
     "postinstall": "pnpm run codegen",
-    "test": "vitest run",
+    "test": "node scripts/run-tests.mjs",
     "test:res": "node scripts/run-tests.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
