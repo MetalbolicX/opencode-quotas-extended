@@ -203,15 +203,15 @@ testAsync("Non-Authorization headers preserved verbatim", callback => {
       switch seenHeaders.contents {
       | Some(h) =>
         assertion(
-          ~message=`Expected X-Custom to be foo, got "${Dict.get(h, "X-Custom")->Option.getWithDefault("")}"`,
+          ~message=`Expected X-Custom to be foo, got "${Dict.get(h, "X-Custom")->Belt.Option.getWithDefault("")}"`,
           (a, b) => a == b,
-          Dict.get(h, "X-Custom")->Option.getWithDefault(""),
+          Dict.get(h, "X-Custom")->Belt.Option.getWithDefault(""),
           "foo",
         )
         assertion(
-          ~message=`Expected Content-Type to be application/json, got "${Dict.get(h, "Content-Type")->Option.getWithDefault("")}"`,
+          ~message=`Expected Content-Type to be application/json, got "${Dict.get(h, "Content-Type")->Belt.Option.getWithDefault("")}"`,
           (a, b) => a == b,
-          Dict.get(h, "Content-Type")->Option.getWithDefault(""),
+          Dict.get(h, "Content-Type")->Belt.Option.getWithDefault(""),
           "application/json",
         )
       | None =>
