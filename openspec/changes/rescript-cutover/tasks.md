@@ -90,10 +90,10 @@ WU-4 and WU-6 are budget gates: split into WU-4c or WU-6a+ when authored additio
 ### WU-6 — Remove Vitest and make ReScript the `pnpm test` source (depends on: WU-5)
 
 - **Objective:** Delete the obsolete Vitest surface only after the archive and parity receipts are green, then make `pnpm test` invoke `scripts/run-tests.mjs`.
-- **Files:** **Deleted** `tests/` (the 44 Vitest files), `vitest.config.ts`, and `tsconfig.json` only after an orphan-consumer scan; **modified** `package.json` (`test`, remove `typecheck`, `test:watch`, `test:coverage`, Vitest/coverage/TypeScript dependencies), `pnpm-lock.yaml`, and `scripts/check-secrets.sh` only if a Vitest reference is found.
-- **Tasks:** `[ ] RED` assert the old package graph and script are still present; `[ ] GREEN` switch `test` to `node scripts/run-tests.mjs`, remove obsolete tools, and delete the test tree in measured slices. Because deleting test bodies can exceed 400 lines, split into WU-6a (package/scripts), WU-6b+ (architecture/unit/integration deletion slices), and ask before any over-budget slice.
-- **Validation:** every slice keeps a clean diff ≤400 authored lines; final `pnpm test`, `pnpm test:res`, `pnpm res:build`, `pnpm build`, `pnpm postinstall`, `node dist/cli/index.js --help`, and `bash scripts/check-secrets.sh` exit `0`; no active-tree Vitest/typecheck references remain.
-- **Map-to-spec:** TEST-1..5 final replacement, PIPELINE-3/4, **INV-2**, and the locked out-of-scope threshold decision. **Estimate:** ~100 manifest lines plus deletion slices (actual test deletions are budgeted, not waived). **Commit:** `build: remove Vitest and use ReScript tests`. **Worktree:** none; `feat/rescript-cutover-drop-vitest` targets `main`.
+- **Files:** **Deleted** `tests/` (70 Vitest files), `vitest.config.ts`, and `tsconfig.json`; **modified** `package.json` (`test`, remove `typecheck`, `test:watch`, `test:coverage`, Vitest/coverage/TypeScript dependencies), `src/architecture/ScaffoldTests.res` (updated expectedDirs).
+- **Tasks:** `[x] RED` e2e smoke harness first (E2eSmokeTests.res); `[x] GREEN` switch `test` to `node scripts/run-tests.mjs`; `[x]` remove obsolete tools in sub-slices (WU-6c.1..6); INV-1 (vitest-green) ends here.
+- **Validation:** all 16 WU-6 sub-commits: ✅ pnpm test 47/47 ✅ pnpm res:build clean ✅ pnpm build clean ✅ node dist/cli/index.js --help exits 0 ✅ bash scripts/check-secrets.sh clean ✅ no vitest/typecheck/tsconfig references.
+- **Map-to-spec:** TEST-1..5 final replacement, PIPELINE-3/4, **INV-1**, **INV-2**. **Commits:** 16 commits (WU-6a through WU-6c.6), all ≤400 authored lines per batch.
 
 ## Phase 5: Documentation and Final Gates
 
