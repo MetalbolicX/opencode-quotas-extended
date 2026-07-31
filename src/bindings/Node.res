@@ -31,10 +31,27 @@ external processEnv: Dict.t<string> = "env"
 @send external responseJson: 'response => promise<JSON.t> = "json"
 
 @module("node:fs") external readFileSync: string => string = "readFileSync"
+// Overload: read with explicit UTF-8 encoding so result is always string.
+type readFileSyncUtf8Opts = { encoding: string }
+@module("node:fs")
+external readFileSyncUtf8: (string, readFileSyncUtf8Opts) => string = "readFileSync"
 @module("node:fs") external writeFileSync: (string, string) => unit = "writeFileSync"
 @module("node:fs") external existsSync: string => bool = "existsSync"
 @module("node:fs") external mkdirSync: string => unit = "mkdirSync"
 @module("node:fs") external rmSync: string => unit = "rmSync"
+
+type dirEnt = {
+  name: string,
+  isDirectory: unit => bool,
+  isFile: unit => bool,
+}
+
+type readdirSyncOpts = { withFileTypes: bool }
+
+@module("node:fs")
+external readdirSync: (string, readdirSyncOpts) => array<dirEnt> = "readdirSync"
+
+@module("node:fs") external statSync: string => dirEnt = "statSync"
 
 type execSyncOpts = {
   encoding: string,
@@ -44,6 +61,27 @@ type execSyncOpts = {
 
 @module("node:child_process")
 external execSync: (string, execSyncOpts) => string = "execSync"
+
+// Simpler execSync that runs a command string with default options (for check-secrets.sh).
+@module("node:child_process")
+external execSyncSimple: string => string = "execSync"
+
+// spawnSync for synchronous process execution with exit code.
+type spawnSyncOpts = {
+  encoding: string,
+  stdio: string,
+}
+
+// Full spawnSync result fields — status is int|null (null if signaled).
+type spawnSyncResult = {
+  status: option<int>,
+  signal: option<string>,
+  output: array<string>,
+  pid: int,
+}
+
+@module("node:child_process")
+external spawnSync: (string, spawnSyncOpts) => spawnSyncResult = "spawnSync"
 
 @val external setTimeoutMs: (unit => unit, float) => float = "setTimeout"
 @val external clearTimeoutId: float => unit = "clearTimeout"
