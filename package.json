@@ -19,6 +19,7 @@
     "preres:build": "pnpm run codegen",
     "postinstall": "pnpm run codegen",
     "test": "vitest run",
+    "test:res": "node scripts/run-tests.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
