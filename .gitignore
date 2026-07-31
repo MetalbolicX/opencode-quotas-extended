@@ -34,3 +34,7 @@ antigravity-accounts.json
 *.swo
 
 .opencode/
+
+# Generated ReScript modules (produced by scripts/codegen.mjs — do not commit)
+src/Infra/ConfigLoader/Schema.res
+src/i18n/Translator/EnCatalog.res
