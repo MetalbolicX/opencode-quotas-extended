@@ -13,7 +13,7 @@ function deps() {
   };
 }
 
-const loadHistory = () => import("../../../src/adapters/infra/json-file-history.js");
+const loadHistory = () => import("../../../legacy/adapters/infra/json-file-history.js");
 
 describe("json-file-history", () => {
   beforeEach(() => { vi.resetAllMocks(); mockExists.mockReturnValue(true); mockRead.mockReturnValue(JSON.stringify(historyFIXTURE)); mockWrite.mockImplementation(() => {}); });

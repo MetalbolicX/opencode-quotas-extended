@@ -2,11 +2,11 @@
 // REQ-LIST-2,3: unavailable providers excluded AND fetchQuotas never called.
 // D-3: filter extracted from plugin/index.ts to src/adapters/providers/filter.ts.
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import type { QuotaProvider } from "../../../../src/ports/provider.js";
+import type { QuotaProvider } from "../../../../legacy/ports/provider.js";
 
 // This import proves the filter is in the shared adapter (not duplicated inline).
 // RED: this import fails until filter.ts is created in GREEN.
-import { filterAvailableProviders } from "../../../../src/adapters/providers/filter.js";
+import { filterAvailableProviders } from "../../../../legacy/adapters/providers/filter.js";
 
 // ── stdout/stderr capture ────────────────────────────────────────────────────
 

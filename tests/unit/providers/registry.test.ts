@@ -1,9 +1,9 @@
 // RED → GREEN: provider registry + buildDefaultRegistry (all 8 providers).
 import { describe, it, expect, vi } from "vitest";
-import type { CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import type { QuotaProvider } from "../../../src/ports/provider.js";
-import { createProviderRegistry, buildDefaultRegistry } from "../../../src/adapters/providers/registry.js";
+import type { CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import type { QuotaProvider } from "../../../legacy/ports/provider.js";
+import { createProviderRegistry, buildDefaultRegistry } from "../../../legacy/adapters/providers/registry.js";
 
 const dummy = (id: string): QuotaProvider => ({
   id, displayName: id, category: "api-spend", authStrategy: "api",

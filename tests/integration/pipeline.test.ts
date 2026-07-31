@@ -4,7 +4,7 @@
 // how: each provider is independently mocked to return 1+ QuotaData
 //      entries; the pipeline aggregates and renders them all.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { QuotaData } from "../../src/domain/types.js";
+import type { QuotaData } from "../../legacy/domain/types.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +110,7 @@ describe("8-provider pipeline (integration)", () => {
   it("SCENARIO 1 — all 8 providers mocked → pipeline renders 8 rows", async () => {
     // REQ-TEST-ALIGN-HEADER-PROVIDER: providerName appears ONLY in the header line,
     // never on data lines. Call renderer directly with header to verify brand placement.
-    const { TableRenderer } = await import("../../src/rendering/index.js");
+    const { TableRenderer } = await import("../../legacy/rendering/index.js");
     const renderer = new TableRenderer();
     const NOOP_T = (key: string) => key;
     ALL8.forEach((q) => {
@@ -137,7 +137,7 @@ describe("8-provider pipeline (integration)", () => {
   it("SCENARIO 2 — per-provider row count: each provider's data appears in output", async () => {
     // REQ-TEST-ALIGN-HEADER-PROVIDER: 8 distinct brands appear in header lines;
     // each provider emits ≥1 data row; no brand in data rows.
-    const { TableRenderer } = await import("../../src/rendering/index.js");
+    const { TableRenderer } = await import("../../legacy/rendering/index.js");
     const renderer = new TableRenderer();
     const NOOP_T = (key: string) => key;
     // Group ALL8_DOUBLE by base brand.
@@ -184,7 +184,7 @@ describe("8-provider pipeline (integration)", () => {
   it("SCENARIO 3 — registry.size === 8 (all 8 providers registered)", async () => {
     // RED: buildDefaultRegistry must produce a registry with exactly 8 entries.
     // This is asserted by counting the list() output.
-    const { buildDefaultRegistry } = await import("../../src/adapters/providers/registry.js");
+    const { buildDefaultRegistry } = await import("../../legacy/adapters/providers/registry.js");
     const fakeCred = { get: async () => null } as any;
     const fakeHttp = { request: vi.fn() } as any;
     const r = buildDefaultRegistry(fakeCred, fakeHttp);
@@ -193,7 +193,7 @@ describe("8-provider pipeline (integration)", () => {
 
   it("SCENARIO 4 — each of the 8 provider IDs is present in the registry", async () => {
     // RED: get() returns a provider for each of the canonical 8 IDs.
-    const { buildDefaultRegistry } = await import("../../src/adapters/providers/registry.js");
+    const { buildDefaultRegistry } = await import("../../legacy/adapters/providers/registry.js");
     const fakeCred = { get: async () => null } as any;
     const fakeHttp = { request: vi.fn() } as any;
     const r = buildDefaultRegistry(fakeCred, fakeHttp);
@@ -207,7 +207,7 @@ describe("8-provider pipeline (integration)", () => {
 
   it("SCENARIO 5 — JSON mode: 8-provider data parses to array with 8 entries", async () => {
     // RED: when in JSON mode, the output must be parseable and contain 8 quota objects.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps(ALL8), { mode: "json", now: Date.now() });
     const parsed = JSON.parse(result.rendered) as { fetchedAt: string; quotas: unknown[] };
     expect(parsed.quotas).toHaveLength(8);
@@ -215,7 +215,7 @@ describe("8-provider pipeline (integration)", () => {
 
   it("SCENARIO 6 — markdown mode: 8 providers render as a markdown table", async () => {
     // RED: markdown renderer produces a table with pipe characters and all 8 names.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps(ALL8), { mode: "markdown", now: Date.now() });
     expect(result.rendered).toContain("|");
     ALL8.forEach((q) => { expect(result.rendered).toContain(q.providerName); });
@@ -227,7 +227,7 @@ describe("8-provider pipeline (integration)", () => {
     // RED: when pipeline passes a real (non-empty) translator, MarkdownRenderer must NOT emit
     // literal "header.name", "header.status", "header.percent", "header.reset", "header.ettl".
     // The fix: report-pipeline.ts must call loadCatalog("en") and pass the catalog to createI18nTranslator.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps(ALL8), { mode: "markdown", now: Date.now() });
     // Pipeline must not leak literal i18n key names — this was the WU-6 regression.
     expect(result.rendered).not.toMatch(/header\./);
@@ -239,7 +239,7 @@ describe("8-provider pipeline (integration)", () => {
   it("SCENARIO 8 — pipeline loads i18n catalog: JSON mode has no header.* keys", async () => {
     // RED: JSON renderer doesn't use translator keys, but the pipeline should still
     // load the catalog correctly (no crashes, no literal header.* in any intermediate output).
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps(ALL8), { mode: "json", now: Date.now() });
     expect(result.rendered).not.toMatch(/header\./);
   });

@@ -1,10 +1,10 @@
 // RED → GREEN: Anthropic admin-usage parser.
 // isAvailable gating + orgId resolution priority + defensive pagination + fail-fast auth errors.
 import { describe, it, expect, vi } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import type { QuotasConfig } from "../../../src/adapters/infra/config-loader.js";
-import { createAnthropicProvider } from "../../../src/adapters/providers/anthropic.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import type { QuotasConfig } from "../../../legacy/adapters/infra/config-loader.js";
+import { createAnthropicProvider } from "../../../legacy/adapters/providers/anthropic.js";
 import usageFIXTURE from "../../../tests/fixtures/providers/anthropic/usage.json";
 import page2FIXTURE from "../../../tests/fixtures/providers/anthropic/usage-page-2.json";
 import page2TerminalFIXTURE from "../../../tests/fixtures/providers/anthropic/usage-page-2-terminal.json";

@@ -1,18 +1,18 @@
 // RED → GREEN: 5 coding-plan provider adapters (Zen, Go, z.ai, Kimi, Minimax).
 // URLs are now pinned; tests cover fixture-based parsing and failure isolation.
 import { describe, it, expect, vi } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
 import zenFIXTURE from "../../../tests/fixtures/providers/zen/usage.json";
 import goFIXTURE from "../../../tests/fixtures/providers/go/usage.json";
 import zaiFIXTURE from "../../../tests/fixtures/providers/zai/usage.json";
 import kimiFIXTURE from "../../../tests/fixtures/providers/kimi/usage.json";
 import minimaxFIXTURE from "../../../tests/fixtures/providers/minimax/usage.json";
-import { createZenProvider } from "../../../src/adapters/providers/zen.js";
-import { createGoProvider } from "../../../src/adapters/providers/go.js";
-import { createZaiProvider } from "../../../src/adapters/providers/zai.js";
-import { createKimiProvider } from "../../../src/adapters/providers/kimi.js";
-import { createMinimaxProvider } from "../../../src/adapters/providers/minimax.js";
+import { createZenProvider } from "../../../legacy/adapters/providers/zen.js";
+import { createGoProvider } from "../../../legacy/adapters/providers/go.js";
+import { createZaiProvider } from "../../../legacy/adapters/providers/zai.js";
+import { createKimiProvider } from "../../../legacy/adapters/providers/kimi.js";
+import { createMinimaxProvider } from "../../../legacy/adapters/providers/minimax.js";
 
 function makeSource(cred: Credential | null): CredentialSource {
   return { get: () => Promise.resolve(cred) } as unknown as CredentialSource;

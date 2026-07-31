@@ -14,7 +14,7 @@ let ansiColor!: (name: string, text: string) => string;
 let dim!: (text: string) => string;
 
 beforeAll(async () => {
-  const colors = await import("../../../src/rendering/colors.js");
+  const colors = await import("../../../legacy/rendering/colors.js");
   COLOR_MAP = colors.COLOR_MAP;
   isValidColor = colors.isValidColor;
   ansiColor = colors.ansiColor;

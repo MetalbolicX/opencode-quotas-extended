@@ -3,11 +3,11 @@
 // All HTTP is mocked; credential files are mocked via vi.spyOn on node:fs.
 // RED first: tests written to fail → GREEN: minimal implementation → REFACTOR: good-comments.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
 import antigravityModelsFIXTURE from "../../../tests/fixtures/providers/gemini/antigravity-models.json";
 import oauthTokenFIXTURE from "../../../tests/fixtures/providers/gemini/oauth-token-response.json";
-import { createGeminiProvider } from "../../../src/adapters/providers/gemini.js";
+import { createGeminiProvider } from "../../../legacy/adapters/providers/gemini.js";
 
 // ── Test helpers ─────────────────────────────────────────────────────────────────
 

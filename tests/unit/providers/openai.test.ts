@@ -1,9 +1,9 @@
 // RED → GREEN → REFACTOR: OpenAI provider — oauth + api variants, 401 refresh, failure isolation.
 // Slice 9: raw-key /v1/usage pagination — cursor-based loop, cap 20, failure isolation, first-wins dedup.
 import { describe, it, expect, vi } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import { createOpenAIProvider } from "../../../src/adapters/providers/openai.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import { createOpenAIProvider } from "../../../legacy/adapters/providers/openai.js";
 import whamUsageFIXTURE from "../../../tests/fixtures/providers/openai/wham-usage.json";
 import platformUsageFIXTURE from "../../../tests/fixtures/providers/openai/platform-usage.json";
 

@@ -7,7 +7,7 @@ import {
   formatNoSubscriptions,
   formatNoCredentialsForProvider,
   formatProviderFetchErrors,
-} from "../../../src/cli/messages.js";
+} from "../../../legacy/cli/messages.js";
 
 describe("formatMissingAuthJson", () => {
   it("returns no-subscription-file message with the checked path", () => {

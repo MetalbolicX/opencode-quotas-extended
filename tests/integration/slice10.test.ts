@@ -4,9 +4,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { run } from "../../src/cli/index.js";
-import { parseArgs } from "../../src/cli/parse-args.js";
-import type { QuotaData } from "../../src/domain/types.js";
+import { run } from "../../legacy/cli/index.js";
+import { parseArgs } from "../../legacy/cli/parse-args.js";
+import type { QuotaData } from "../../legacy/domain/types.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 const mk = (overrides: Partial<QuotaData> = {}): QuotaData =>
@@ -74,17 +74,17 @@ afterEach(() => { vi.restoreAllMocks(); });
 const out = () => stdout.join("");
 
 // ── module mocks (apply to entire file) ────────────────────────────────────────
-vi.mock("../../src/adapters/infra/config-loader.js", () => ({
+vi.mock("../../legacy/adapters/infra/config-loader.js", () => ({
   DEFAULTS: { displayMode: "table", disabled: [], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false, progressBar: { width: 20, filledChar: "█", emptyChar: "░", color: true, gradients: false } },
   loadConfig: vi.fn(() => ({ displayMode: "table", disabled: [], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false, progressBar: { width: 20, filledChar: "█", emptyChar: "░", color: true, gradients: false } })),
 }));
-vi.mock("../../src/adapters/auth/credential-resolver.js", () => ({
+vi.mock("../../legacy/adapters/auth/credential-resolver.js", () => ({
   createCredentialResolver: vi.fn(() => ({ get: () => Promise.resolve(null) })),
 }));
-vi.mock("../../src/adapters/infra/fetch-http.js", () => ({
+vi.mock("../../legacy/adapters/infra/fetch-http.js", () => ({
   FetchHttpClient: vi.fn().mockImplementation(function () { this.request = vi.fn(); }),
 }));
-vi.mock("../../src/adapters/providers/registry.js", () => ({
+vi.mock("../../legacy/adapters/providers/registry.js", () => ({
   buildDefaultRegistry: vi.fn(() => makeRegistry([...MIXED, { id: "anthropic", providerName: "Anthropic", used: 0, limit: 100, unit: "%", reset: null, window: "daily" as const }])),
 }));
 
@@ -116,7 +116,7 @@ describe("CLI: run", () => {
   it("--provider anthropic → exit 0 (empty data)", async () => { expect((await run(["--provider", "anthropic"])).exitCode).toBe(0); });
   it("--help → usage printed", async () => { await run(["--help"]); expect(out().toLowerCase()).toMatch(/usage|help|--provider|--mode|-l|-c|-m|-h/); });
   it("fatal error → exit 2 + stderr (buildDefaultRegistry throws)", async () => {
-    const { buildDefaultRegistry } = await import("../../src/adapters/providers/registry.js");
+    const { buildDefaultRegistry } = await import("../../legacy/adapters/providers/registry.js");
     vi.mocked(buildDefaultRegistry).mockImplementationOnce(() => { throw new Error("boom"); });
     const r = await run(["-p", "openai"]);
     expect(r.exitCode).toBe(2);
@@ -131,7 +131,7 @@ describe("Pipeline: mode selection", () =>
     { mode: "json" as const, check: (o: string) => { expect(o.trim()).toMatch(/^\{/); expect(o).not.toMatch(/\x1b\[/); } },
     { mode: "markdown" as const, check: (o: string) => { expect(o).toContain("|"); expect(o).not.toMatch(/\x1b\[/); } },
   ])("mode $mode", async ({ mode, check }) => {
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps(MIXED), { mode, now: Date.now() });
     check(result.rendered);
   }));
@@ -143,7 +143,7 @@ describe("Pipeline: status thresholds", () =>
     { used: 90, limit: 100 },
   ])("used=$used limit=$limit → no OK/WRN/ERR text, bar present", async ({ used, limit }) => {
     // REQ-TEST-ALIGN-STATUS-BAND: no OK/WRN/ERR text anywhere; bar cell is present.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const q = mk({ used, limit });
     const result = await reportQuotas(makeDeps([q]), { mode: "table", now: Date.now() });
     // No status text appears in rendered output (REQ-GEOM-DROP-STATUS).
@@ -159,7 +159,7 @@ describe("Pipeline: unlimited", () =>
   it("limit=null → neutral band, no OK text, unlimited label visible", async () => {
     // REQ-TEST-ALIGN-STATUS-BAND: unlimited has no error color band, no "OK" text,
     // and the unlimited indicator is visible in the output.
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps([mk({ used: 100, limit: null, id: "ul", providerName: "Unlimited" })]), { mode: "table", now: Date.now() });
     // Extract bar cell: unlimited has no filled bar, no green/yellow/red band.
     const barMatch = result.rendered.match(/\[[^\]]*\]\s/);
@@ -179,7 +179,7 @@ describe("Pipeline: unlimited", () =>
 describe("Pipeline: 8 providers", () => {
   it("table renders all 8 — each provider emits a header with its brand", async () => {
     // REQ-TEST-ALIGN-8PROVIDERS-RENDER: call renderer directly with header per provider.
-    const { TableRenderer } = await import("../../src/rendering/index.js");
+    const { TableRenderer } = await import("../../legacy/rendering/index.js");
     const renderer = new TableRenderer();
     const NOOP_T = (key: string) => key;
     for (const q of ALL8) {
@@ -197,7 +197,7 @@ describe("Pipeline: 8 providers", () => {
     }
   });
   it("json parses to { fetchedAt, quotas }", async () => {
-    const { reportQuotas } = await import("../../src/application/report-pipeline.js");
+    const { reportQuotas } = await import("../../legacy/application/report-pipeline.js");
     const result = await reportQuotas(makeDeps(ALL8), { mode: "json", now: Date.now() });
     const parsed = JSON.parse(result.rendered) as { fetchedAt: string; quotas: unknown[] };
     expect(parsed.quotas).toHaveLength(8);

@@ -1,8 +1,8 @@
 // RED: Five default coding-plan aggregation groups (max strategy).
 // Pure data — no I/O, no network.
 import { describe, it, expect } from "vitest";
-import { DEFAULT_AGGREGATION_GROUPS } from "../../../src/domain/aggregation-defaults.js";
-import type { AggregationGroup } from "../../../src/domain/aggregation.js";
+import { DEFAULT_AGGREGATION_GROUPS } from "../../../legacy/domain/aggregation-defaults.js";
+import type { AggregationGroup } from "../../../legacy/domain/aggregation.js";
 
 const VALID_PROVIDER_IDS: readonly string[] = ["zen", "go", "zai", "kimi", "minimax"];
 

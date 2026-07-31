@@ -1,8 +1,8 @@
 // RED: semantic-label helpers — pure unit tests for enrichQuotaLabel + buildProviderName.
 // WU-2: no raw type/tuple leakage; all 10 concepts covered; brand separator invariant.
 import { describe, it, expect } from "vitest";
-import { enrichQuotaLabel, buildProviderName } from "../../../src/rendering/semantic-labels.js";
-import type { QuotaConcept } from "../../../src/rendering/semantic-labels.js";
+import { enrichQuotaLabel, buildProviderName } from "../../../legacy/rendering/semantic-labels.js";
+import type { QuotaConcept } from "../../../legacy/rendering/semantic-labels.js";
 
 // ─── PR2: new concepts (semantic labels + i18n) ─────────────────────────────────
 // These tests cover:

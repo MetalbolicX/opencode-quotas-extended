@@ -9,7 +9,7 @@ import resetFIXTURES from "../fixtures/reference/history-reset.json";
 type QuotaData = { id: string; providerName: string; used: number; limit: number | null; unit: string; reset: null; window: "daily" | "monthly" | "rolling"; info?: string };
 type HistoryPoint = { timestamp: number; used: number; limit: number | null };
 
-const loadDomain = () => import("../../src/domain");
+const loadDomain = () => import("../../legacy/domain");
 
 // ── aggregation ───────────────────────────────────────────────────────────────
 describe("aggregation parity", () => {

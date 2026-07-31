@@ -2,7 +2,7 @@
 // These tests define the expected behavior BEFORE the implementation exists.
 // Run: pnpm test tests/unit/cli/parse-args.test.ts
 import { describe, it, expect } from "vitest";
-import { parseArgs } from "../../../src/cli/parse-args.js";
+import { parseArgs } from "../../../legacy/cli/parse-args.js";
 
 describe("parseArgs", () => {
   // ── REQ-CLI-1: Default to list ──────────────────────────────────────────────

@@ -2,10 +2,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import type { Logger } from "../../../src/ports/logger.js";
-import { createZaiProvider } from "../../../src/adapters/providers/zai.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import type { Logger } from "../../../legacy/ports/logger.js";
+import { createZaiProvider } from "../../../legacy/adapters/providers/zai.js";
 
 const FIXTURE = JSON.parse(
   readFileSync(

@@ -433,3 +433,41 @@ Stacked-to-main chain, 7 work units, 400-line budget per WU commit. Vitest stays
 | `tests/characterization/domain.parity.test.ts` | Validates TS↔ReScript parity of aggregation/prediction/reset. Purpose is served by WU-4 parallel-runner parity gate (both runners green). After WU-5 archives TS, this characterization test is simply deleted. No port needed. |
 
 **Next up:** WU-5 — archive TypeScript to `legacy/`.
+
+---
+
+## WU-5 — `refactor: archive TypeScript to legacy/ (vitest still alive)`
+
+**Status:** COMMITTED (`35b8c24`)
+
+**Critical decision — Option X (chosen):** Rewrite vitest imports → `legacy/` paths.
+
+**Reason:** Honors the user mandate "translate vitest before removal" (Option Y = delete vitest in same WU violates the mandate). Option Z (tsconfig paths alias) is fragile if vitest plugin API changes. Option X is explicit, traceable, and leaves vitest exercising the archived code as a final regression safety net. WU-6 then drops vitest cleanly.
+
+**File count:** 46 TypeScript source files moved via `git mv` from `src/{cli,domain,ports,adapters,rendering,application,i18n}/` to `legacy/{...}` preserving directory structure. Git correctly detected all 46 as renames (clean diff).
+
+**Test count preserved:** 726 vitest tests across 47 test files. 89 source-root imports retargeted:
+- 4-level `../../../../src/` → `../../../../legacy/` (unit tests at `tests/unit/<category>/*/`)
+- 3-level `../../../src/` → `../../../legacy/` (unit tests at `tests/unit/<category>/`)
+- 2-level `../../src/` → `../../legacy/` (integration tests at `tests/integration/`)
+- `src/i18n/locales/en.json` NOT moved — copy placed at `legacy/i18n/locales/en.json` to satisfy `legacy/i18n/translator.ts`'s internal relative import `./locales/en.json`
+
+**Architecture test path fixes:**
+- `tests/architecture/build-script.test.ts`: `CLI_ENTRY` path updated to `legacy/cli/index.ts`
+- `tests/architecture/domain-purity.test.ts`: `DOMAIN_DIR` updated to `legacy/domain`
+
+**Post-move validation gates:**
+- ✅ `pnpm test`: 726/726 passed (47 test files)
+- ✅ `pnpm test:res`: 46/46 passed
+- ✅ `pnpm res:build` (after codegen): clean
+- ✅ `pnpm build`: rolldown bundle clean
+- ✅ `node dist/cli/index.js --help`: exits 0
+- ✅ `bash scripts/check-secrets.sh`: clean
+- ✅ `legacy/` structure: 46 TS files + 1 copied `en.json` (47 total)
+- ✅ `src/`: 0 TypeScript files (all ReScript)
+
+**Commit:** `refactor(cutover): archive TypeScript under legacy/` (~64 net lines: 46 renames + 146 path rewrites + 1 new file)
+
+**Rollback boundary:** Single `git revert 35b8c24` removes all 46 file moves, all test import rewrites, and the `legacy/i18n/locales/en.json` copy.
+
+**Next up:** WU-6 — remove Vitest and make `pnpm test` invoke the ReScript runner.

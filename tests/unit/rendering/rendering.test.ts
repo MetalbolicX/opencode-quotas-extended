@@ -1,9 +1,9 @@
 // RED → GREEN → REFACTOR: rendering (table/json/markdown/status/bar) + i18n translator.
 // All renderers + status thresholds + bar + i18n in ONE consolidated suite.
 import { describe, it, expect, beforeAll } from "vitest";
-import type { QuotaData } from "../../../src/domain/types.js";
-import type { Renderer } from "../../../src/ports/renderer.js";
-import type { Translator } from "../../../src/ports/translator.js";
+import type { QuotaData } from "../../../legacy/domain/types.js";
+import type { Renderer } from "../../../legacy/ports/renderer.js";
+import type { Translator } from "../../../legacy/ports/translator.js";
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -35,12 +35,12 @@ let createI18nTranslator!: (catalog: Record<string, string>) => Translator;
 let loadCatalog!: (locale: string) => Promise<Record<string, string>>;
 
 beforeAll(async () => {
-  const sb = await import("../../../src/rendering/status-bar.js");
+  const sb = await import("../../../legacy/rendering/status-bar.js");
   getStatus = sb.getStatus;
   renderBar = sb.renderBar;
-  const idx = await import("../../../src/rendering/index.js");
+  const idx = await import("../../../legacy/rendering/index.js");
   selectRenderer = idx.selectRenderer;
-  const tr = await import("../../../src/i18n/translator.js");
+  const tr = await import("../../../legacy/i18n/translator.js");
   createI18nTranslator = tr.createI18nTranslator;
   loadCatalog = tr.loadCatalog;
 });
@@ -326,7 +326,7 @@ describe("TableRenderer — unit-aware formatting", () => {
   let TableRenderer!: new () => any;
 
   beforeAll(async () => {
-    const mod = await import("../../../src/rendering/index.js");
+    const mod = await import("../../../legacy/rendering/index.js");
     TableRenderer = mod.TableRenderer;
   });
 
@@ -416,7 +416,7 @@ describe("TableRenderer — ASCII frame", () => {
   let TableRenderer!: new () => any;
 
   beforeAll(async () => {
-    const mod = await import("../../../src/rendering/index.js");
+    const mod = await import("../../../legacy/rendering/index.js");
     TableRenderer = mod.TableRenderer;
   });
 
@@ -495,7 +495,7 @@ describe("table renderer — stable geometry (PR1)", () => {
   let TableRenderer!: new () => any;
 
   beforeAll(async () => {
-    const mod = await import("../../../src/rendering/index.js");
+    const mod = await import("../../../legacy/rendering/index.js");
     TableRenderer = mod.TableRenderer;
   });
 
@@ -539,7 +539,7 @@ describe("table renderer — provider identity header-only (PR1)", () => {
   let TableRenderer!: new () => any;
 
   beforeAll(async () => {
-    const mod = await import("../../../src/rendering/index.js");
+    const mod = await import("../../../legacy/rendering/index.js");
     TableRenderer = mod.TableRenderer;
   });
 
@@ -582,7 +582,7 @@ describe("table renderer — no status column (PR1)", () => {
   let TableRenderer!: new () => any;
 
   beforeAll(async () => {
-    const mod = await import("../../../src/rendering/index.js");
+    const mod = await import("../../../legacy/rendering/index.js");
     TableRenderer = mod.TableRenderer;
   });
 
@@ -619,7 +619,7 @@ describe("table renderer — token row inline glyph (PR1)", () => {
   let TableRenderer!: new () => any;
 
   beforeAll(async () => {
-    const mod = await import("../../../src/rendering/index.js");
+    const mod = await import("../../../legacy/rendering/index.js");
     TableRenderer = mod.TableRenderer;
   });
 

@@ -1,7 +1,7 @@
 // RED: unavailable providers must not have fetchQuotas() called
 // Regression: gemini (isAvailable=false) must not trigger fetchQuotas() → no warning logged.
 import { describe, it, expect, vi } from "vitest";
-import type { QuotaProvider } from "../../../../src/ports/provider.js";
+import type { QuotaProvider } from "../../../../legacy/ports/provider.js";
 
 const fakeQuota = (id: string) => ({
   id, providerName: id, used: 50, limit: 100, unit: "requests",
@@ -34,7 +34,7 @@ describe("available-provider filter", () => {
     const registry = { list: () => [unavailableProvider, availableProvider] };
 
     // Import the helper under test
-    const { filterAvailableProviders } = await import("../../../../src/adapters/providers/filter.js");
+    const { filterAvailableProviders } = await import("../../../../legacy/adapters/providers/filter.js");
 
     const available = await filterAvailableProviders(registry.list());
 
@@ -57,7 +57,7 @@ describe("available-provider filter", () => {
 
     const registry = { list: () => providers };
 
-    const { filterAvailableProviders } = await import("../../../../src/adapters/providers/filter.js");
+    const { filterAvailableProviders } = await import("../../../../legacy/adapters/providers/filter.js");
 
     const available = await filterAvailableProviders(registry.list());
 
@@ -82,7 +82,7 @@ describe("available-provider filter", () => {
 
     const registry = { list: () => providers };
 
-    const { filterAvailableProviders } = await import("../../../../src/adapters/providers/filter.js");
+    const { filterAvailableProviders } = await import("../../../../legacy/adapters/providers/filter.js");
 
     // Should not throw; "throws-b" is excluded but "good-a" is still included
     const available = await filterAvailableProviders(registry.list());

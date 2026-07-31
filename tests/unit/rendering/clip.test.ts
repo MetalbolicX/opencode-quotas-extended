@@ -3,7 +3,7 @@
 // truncates to (width - ellipsis.length) visible chars, appends ellipsis,
 // pads remaining width with spaces. Final visible length = width.
 import { describe, it, expect } from "vitest";
-import { clip, stripAnsi } from "../../../src/rendering/text/clip.js";
+import { clip, stripAnsi } from "../../../legacy/rendering/text/clip.js";
 
 describe("clip — ANSI-aware truncation", () => {
   it("returns empty string when width is 0", () => {

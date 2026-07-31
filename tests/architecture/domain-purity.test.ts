@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const DOMAIN_DIR = join(import.meta.dirname, "../../src/domain");
+const DOMAIN_DIR = join(import.meta.dirname, "../../legacy/domain");
 const FORBIDDEN = [
   "node:fs", "node:path", "node:net", "node:http", "node:https",
   "node:perf_hooks", "fetch(", " cross-fetch", "node-fetch",

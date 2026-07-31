@@ -4,16 +4,16 @@
 //   2. info (when present) is a non-empty string
 // This test is the hard domain-boundary enforcement point.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import { createAnthropicProvider } from "../../../src/adapters/providers/anthropic.js";
-import { createGeminiProvider } from "../../../src/adapters/providers/gemini.js";
-import { createOpenAIProvider } from "../../../src/adapters/providers/openai.js";
-import { createKimiProvider } from "../../../src/adapters/providers/kimi.js";
-import { createZaiProvider } from "../../../src/adapters/providers/zai.js";
-import { createGoProvider } from "../../../src/adapters/providers/go.js";
-import { createZenProvider } from "../../../src/adapters/providers/zen.js";
-import { createMinimaxProvider } from "../../../src/adapters/providers/minimax.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import { createAnthropicProvider } from "../../../legacy/adapters/providers/anthropic.js";
+import { createGeminiProvider } from "../../../legacy/adapters/providers/gemini.js";
+import { createOpenAIProvider } from "../../../legacy/adapters/providers/openai.js";
+import { createKimiProvider } from "../../../legacy/adapters/providers/kimi.js";
+import { createZaiProvider } from "../../../legacy/adapters/providers/zai.js";
+import { createGoProvider } from "../../../legacy/adapters/providers/go.js";
+import { createZenProvider } from "../../../legacy/adapters/providers/zen.js";
+import { createMinimaxProvider } from "../../../legacy/adapters/providers/minimax.js";
 import usageFIXTURE from "../../fixtures/providers/anthropic/usage.json";
 import whamUsageFIXTURE from "../../fixtures/providers/openai/wham-usage.json";
 
@@ -252,7 +252,7 @@ describe("info + window strict-union invariant (all 8 providers)", () => {
 
   describe("QuotaData.window — rolling-weekly", () => {
     it("accepts 'rolling-weekly' in the strict union", () => {
-      const sample: import("../../../src/domain/types.js").QuotaData = {
+      const sample: import("../../../legacy/domain/types.js").QuotaData = {
         id: "minimax-general-weekly",
         providerName: "Minimax · Weekly limit",
          used: 5,

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFileSync, unlinkSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, ConfigValidationError, resolveAnthropicOrgId } from "../../../src/adapters/infra/config-loader.js";
+import { loadConfig, ConfigValidationError, resolveAnthropicOrgId } from "../../../legacy/adapters/infra/config-loader.js";
 
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const FIXTURE_DIR = join(PROJECT_ROOT, "tests/fixtures/config");

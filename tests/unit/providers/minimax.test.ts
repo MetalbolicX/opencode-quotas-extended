@@ -2,10 +2,10 @@
 // REQ-CRED-5: friendly error when mmx CLI is absent from PATH.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { execSync } from "node:child_process";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import type { Logger } from "../../../src/ports/logger.js";
-import { createMinimaxProvider } from "../../../src/adapters/providers/minimax.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import type { Logger } from "../../../legacy/ports/logger.js";
+import { createMinimaxProvider } from "../../../legacy/adapters/providers/minimax.js";
 
 function makeSource(cred: Credential | null): CredentialSource {
   return { get: vi.fn(() => Promise.resolve(cred)) } as unknown as CredentialSource;
@@ -270,7 +270,7 @@ describe("minimax provider — three rows: general 5h, general weekly, video int
 describe("minimax provider — parse JSON blob after mmx table (regression)", () => {
   it("extracts model_remains JSON when stdout starts with a human table", async () => {
     // Dynamic import to read the parser through the public provider export.
-    const mod = await import("../../../src/adapters/providers/minimax.js");
+    const mod = await import("../../../legacy/adapters/providers/minimax.js");
     const provider = mod.createMinimaxProvider(
       { get: vi.fn(() => Promise.resolve(null)) } as unknown as CredentialSource,
       {} as unknown as HttpClient,

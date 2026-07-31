@@ -1,7 +1,7 @@
 // RED: parseUsage + windowMap — window normalization and info population.
 // These tests define the shared contract for the 5 coding-plan providers.
 import { describe, it, expect } from "vitest";
-import { parseUsage, windowMap } from "../../../src/adapters/providers/coding-plan-parse.js";
+import { parseUsage, windowMap } from "../../../legacy/adapters/providers/coding-plan-parse.js";
 
 describe("windowMap", () => {
   const cases: [string, "daily" | "monthly" | "rolling"][] = [
@@ -263,7 +263,7 @@ describe("parseZaiLimits — PR4 non-standard unit fallback", () => {
 });
 
 // ── parseZaiLimits: z.ai envelope { data: { limits: [...] } } ──────────────
-import { parseZaiLimits } from "../../../src/adapters/providers/coding-plan-parse.js";
+import { parseZaiLimits } from "../../../legacy/adapters/providers/coding-plan-parse.js";
 
 describe("parseZaiLimits", () => {
   const timeLimitEntry = {

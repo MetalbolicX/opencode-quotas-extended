@@ -1,12 +1,12 @@
 // WU-6 RED: Pipeline — one provider failure does NOT fail others.
 // Promise.allSettled means partial results are returned even when some providers throw.
 import { describe, it, expect, vi } from "vitest";
-import type { QuotaData } from "../../../src/domain/types.js";
-import type { CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import type { Logger } from "../../../src/ports/logger.js";
-import { reportQuotas } from "../../../src/application/report-pipeline.js";
-import type { ReportResult } from "../../../src/application/report-pipeline.js";
+import type { QuotaData } from "../../../legacy/domain/types.js";
+import type { CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import type { Logger } from "../../../legacy/ports/logger.js";
+import { reportQuotas } from "../../../legacy/application/report-pipeline.js";
+import type { ReportResult } from "../../../legacy/application/report-pipeline.js";
 
 const noopLogger: Logger = { debug() {}, info() {}, warn() {}, error() {} };
 

@@ -2,7 +2,7 @@
 // REQ-LIST-1..7: numbered provider table for picker UX.
 // D-4: list layout via existing TableRenderer with synthetic QuotaData.
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import type { QuotaProvider } from "../../../src/ports/provider.js";
+import type { QuotaProvider } from "../../../legacy/ports/provider.js";
 
 // ── stdout/stderr capture ────────────────────────────────────────────────────
 
@@ -42,27 +42,27 @@ const { mockBuildDefaultRegistry } = vi.hoisted(() => {
   return { mockBuildDefaultRegistry: vi.fn(() => mockReg) };
 });
 
-vi.mock("../../../src/adapters/providers/registry.js", () => ({
+vi.mock("../../../legacy/adapters/providers/registry.js", () => ({
   buildDefaultRegistry: mockBuildDefaultRegistry,
 }));
 
-vi.mock("../../../src/adapters/infra/config-loader.js", () => ({
+vi.mock("../../../legacy/adapters/infra/config-loader.js", () => ({
   DEFAULTS: { displayMode: "table", disabled: [], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false, progressBar: { width: 20, filledChar: "█", emptyChar: "░", color: true, gradients: false } },
   loadConfig: vi.fn(() => ({ displayMode: "table", disabled: [], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false, progressBar: { width: 20, filledChar: "█", emptyChar: "░", color: true, gradients: false } })),
 }));
 
-vi.mock("../../../src/adapters/auth/credential-resolver.js", () => ({
+vi.mock("../../../legacy/adapters/auth/credential-resolver.js", () => ({
   createCredentialResolver: vi.fn(() => ({ get: () => Promise.resolve(null) })),
 }));
 
-vi.mock("../../../src/adapters/infra/fetch-http.js", () => ({
+vi.mock("../../../legacy/adapters/infra/fetch-http.js", () => ({
   FetchHttpClient: vi.fn().mockImplementation(function () { this.request = vi.fn(); }),
 }));
 
 // ── Import after mocks are set up ───────────────────────────────────────────
 
-import { run } from "../../../src/cli/index.js";
-import { parseArgs } from "../../../src/cli/parse-args.js";
+import { run } from "../../../legacy/cli/index.js";
+import { parseArgs } from "../../../legacy/cli/parse-args.js";
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
@@ -99,7 +99,7 @@ describe("CLI --list mode", () => {
 
     it("SCENARIO 2 — REQ-LIST-2: empty registry → exit 1", async () => {
       // Override registry mock for this specific test
-      const { buildDefaultRegistry } = await import("../../../src/adapters/providers/registry.js");
+      const { buildDefaultRegistry } = await import("../../../legacy/adapters/providers/registry.js");
       vi.mocked(buildDefaultRegistry).mockImplementationOnce(() =>
         ({
           list: () => [],

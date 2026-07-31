@@ -5,11 +5,11 @@
 // For backward compatibility with direct fetchQuotas calls without factory config,
 // returns [] (not throw) when effectiveConfig is absent.
 import { describe, it, expect, vi } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import type { QuotasConfig } from "../../../src/adapters/infra/config-loader.js";
-import { createAnthropicProvider } from "../../../src/adapters/providers/anthropic.js";
-import { createGeminiProvider } from "../../../src/adapters/providers/gemini.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import type { QuotasConfig } from "../../../legacy/adapters/infra/config-loader.js";
+import { createAnthropicProvider } from "../../../legacy/adapters/providers/anthropic.js";
+import { createGeminiProvider } from "../../../legacy/adapters/providers/gemini.js";
 import usageFIXTURE from "../../../tests/fixtures/providers/env/usage.json";
 
 function makeSource(getFn: () => Promise<Credential | null>): CredentialSource {

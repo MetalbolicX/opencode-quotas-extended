@@ -1,8 +1,8 @@
 // RED → GREEN: shared OAuth helper — Bearer header, 401 single-refresh + retry.
 import { describe, it, expect, vi } from "vitest";
-import type { Credential, CredentialSource } from "../../../src/ports/credentials.js";
-import type { HttpClient } from "../../../src/ports/http.js";
-import { withOAuth } from "../../../src/adapters/providers/oauth.js";
+import type { Credential, CredentialSource } from "../../../legacy/ports/credentials.js";
+import type { HttpClient } from "../../../legacy/ports/http.js";
+import { withOAuth } from "../../../legacy/adapters/providers/oauth.js";
 
 function src(cred: Credential | null) { return { get: () => Promise.resolve(cred) } as unknown as CredentialSource; }
 const oauthCred: Credential = { variant: "oauth", access: "tok", refresh: "ref", expires: Date.now() + 60_000 };

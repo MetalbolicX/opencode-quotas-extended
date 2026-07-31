@@ -7,8 +7,8 @@ import {
   aggregateMean,
   aggregateMedian,
   aggregateMostCritical,
-} from "../../../src/domain/aggregation.js";
-import type { QuotaData } from "../../../src/domain/types.js";
+} from "../../../legacy/domain/aggregation.js";
+import type { QuotaData } from "../../../legacy/domain/types.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 

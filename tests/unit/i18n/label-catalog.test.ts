@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import enCatalog from "../../../src/i18n/locales/en.json";
-import { buildProviderName, type QuotaConcept } from "../../../src/rendering/semantic-labels.js";
+import { buildProviderName, type QuotaConcept } from "../../../legacy/rendering/semantic-labels.js";
 
 // All 10 concepts from semantic-labels.ts QuotaConcept union
 const ALL_CONCEPTS: QuotaConcept[] = [
@@ -104,7 +104,7 @@ describe("i18n translator — header.* key leakage (REQ-r5 regression guard)", (
   // WU-6 will verify the renderer uses the translator for ALL header output
   // and does not bypass it with hardcoded English strings.
   it("all header.* catalog keys return catalog translations (not key itself)", async () => {
-    const { createI18nTranslator } = await import("../../../src/i18n/translator.js");
+    const { createI18nTranslator } = await import("../../../legacy/i18n/translator.js");
     const t = createI18nTranslator(enCatalog);
 
     // A known existing key returns the translation
@@ -130,7 +130,7 @@ describe("i18n translator — header.* key leakage (REQ-r5 regression guard)", (
   });
 
   it("no literal header.* strings appear as translated output for known concept.* keys", async () => {
-    const { createI18nTranslator } = await import("../../../src/i18n/translator.js");
+    const { createI18nTranslator } = await import("../../../legacy/i18n/translator.js");
     const t = createI18nTranslator(enCatalog);
 
     for (const concept of ALL_CONCEPTS) {

@@ -1,7 +1,7 @@
 // RED: mergeAggregationGroups — user config wins on id collision.
 import { describe, it, expect } from "vitest";
-import { mergeAggregationGroups } from "../../../src/domain/aggregation.js";
-import type { AggregationGroup } from "../../../src/domain/aggregation.js";
+import { mergeAggregationGroups } from "../../../legacy/domain/aggregation.js";
+import type { AggregationGroup } from "../../../legacy/domain/aggregation.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 

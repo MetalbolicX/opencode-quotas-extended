@@ -1,13 +1,13 @@
 // RED → GREEN: credential resolution + redaction.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import authJsonFIXTURE from "../../fixtures/credentials/auth.json";
-import { redact } from "../../../src/adapters/auth/redactor.js";
+import { redact } from "../../../legacy/adapters/auth/redactor.js";
 
 const mockFsRead = vi.fn();
 vi.mock("node:fs", () => ({ readFileSync: mockFsRead }));
 
 const XDG_AUTH_JSON = JSON.stringify(authJsonFIXTURE);
-const loadFactory = () => import("../../../src/adapters/auth/credential-resolver.js");
+const loadFactory = () => import("../../../legacy/adapters/auth/credential-resolver.js");
 const emptyConfig = { displayMode: "table" as const, disabled: [] as string[], aggregatedGroups: {}, historyMaxAgeHours: 24, pollingInterval: 0, predictionWindowMinutes: 60, predictionShortWindowMinutes: 5, showUnaggregated: false };
 function fs(r: (p: string) => string) { return { readFileSync: r } as unknown as { readFileSync: (p: string) => string }; }
 

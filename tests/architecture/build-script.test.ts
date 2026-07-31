@@ -8,7 +8,7 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 describe("rolldown build config", () => {
   const CONFIG_FILE = join(PROJECT_ROOT, "rolldown.config.ts");
   const PACKAGE_JSON = join(PROJECT_ROOT, "package.json");
-  const CLI_ENTRY = join(PROJECT_ROOT, "src", "cli", "index.ts");
+  const CLI_ENTRY = join(PROJECT_ROOT, "legacy", "cli", "index.ts");
 
   it("rolldown.config.ts must exist at the project root", () => {
     expect(existsSync(CONFIG_FILE), "rolldown.config.ts exists at project root").toBe(true);
