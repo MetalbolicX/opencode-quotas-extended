@@ -1,71 +1,91 @@
 # CLAUDE.md — opencode-quotas-extended
 
-> Agent context file. Read before making changes. Linked from `AGENTS.md`-style conventions.
+> Agent context file. Read before making changes.
 
 ## What this project is
 
-Standalone TypeScript CLI (`opencode-quotas`) that fetches AI provider quota usage and renders a status report. Hexagonal architecture with pure domain + port-based adapters.
+ReScript-based CLI that fetches AI provider quota usage and renders a status report. Hexagonal architecture with pure domain + port-based adapters. rolldown bundles the ReScript-compiled `Bootstrap.res.mjs` (from `lib/es6/`) into `dist/cli/index.js`.
 
 ## Stack
 
-- **Package manager**: pnpm (no Bun in the repo; deprecated)
-- **Runtime**: Node 18+ (target 24.x for dev)
-- **Transpiler/Bundler**: rolldown (`rolldown -c`) — produces single-file ESM bundle at `dist/cli/index.js`
-- **Type check**: `tsc --noEmit`
-- **Tests**: vitest
+- **Package manager**: pnpm
+- **Runtime**: Node 18+
+- **Language**: ReScript 12.3 (source) — TypeScript is archived in `legacy/`
+- **Transpiler/Bundler**: `rescript build` → `rolldown -c`; produces single-file ESM bundle at `dist/cli/index.js`
+- **Tests**: ReScript aggregate runner (`scripts/run-tests.mjs`) — vitest is removed
 - **Schema validation**: ajv + ajv-formats (bundled externally, resolved at runtime via `dependencies`)
 
 ## Build / verify commands
 
 ```bash
-pnpm install         # Install
-pnpm test            # Run all 641 tests
-pnpm typecheck       # tsc --noEmit
-pnpm build           # rolldown bundle → dist/cli/index.js (Node shebang)
+pnpm install      # Runs postinstall: pnpm codegen (generates schema + catalog .res modules)
+pnpm test        # Run all ReScript tests (47 files: lib/es6/**/*Tests.res.mjs + *.test.res.mjs)
+pnpm res:build   # ReScript compiler → lib/es6/
+pnpm build       # codegen → res:build → rolldown bundle → dist/cli/index.js
+pnpm codegen     # Deterministic asset codegen (schema + catalog); idempotent, --check mode available
 node dist/cli/index.js --help   # Smoke test
 bash scripts/check-secrets.sh   # Secret-leak gate
 ```
 
-All four gates must be green before considering a change done.
+All five gates must be green before considering a change done.
 
 ## Directory layout
 
 ```
 src/
   domain/        # Pure logic — zero I/O, zero Node imports
-    types.ts             # QuotaData, HistoryPoint
-    aggregation.ts       # max/min/mean/median/most_critical
-    aggregation-defaults.ts  # 5 default groups
-    prediction.ts        # ETTL module (not wired yet)
-    reset.ts             # History reset detection
+    Types.res             # QuotaData, HistoryPoint
+    Aggregation.res       # max/min/mean/median/most_critical
+    AggregationDefaults.res  # 5 default groups
+    Prediction.res        # ETTL module (not wired yet)
+    Reset.res             # History reset detection
   ports/         # Interfaces only
-    provider.ts          # QuotaProvider (fetchQuotas(): Promise<QuotaData[]>)
-    credentials.ts       # CredentialSource
-    http.ts              # HttpClient, FetchContext
-    history.ts           # HistoryStore
-    renderer.ts          # Renderer, RenderContext
-    translator.ts, logger.ts
-  adapters/      # Concrete impls of ports
-    providers/           # openai, zen, go, zai, kimi, minimax, anthropic, gemini
-    auth/                # credential-resolver, auth-json-source, env-source, config-source, redactor, provider-keys
-    infra/               # config-loader, fetch-http, json-file-history, paths
+    QuotaProvider.res          # fetchQuotas(): Promise<QuotaData[]>
+    Credentials.res           # CredentialSource
+    Http.res                  # HttpClient, FetchContext
+    History.res               # HistoryStore
+    Renderer.res             # Renderer, RenderContext
+    Translator.res, Logger.res
+  Providers/     # Concrete provider adapters
+    OpenAI, Zen, Go, Zai, Kimi, Minimax, Anthropic, Gemini
+  Auth/          # Credential sources
+    CredentialResolver, EnvSource, ConfigSource, AuthJsonSource, Redactor, ProviderKeys
+  Infra/         # Infrastructure adapters
+    ConfigLoader, FetchHttp, JsonFileHistory, Paths
   rendering/     # Table/JSON/Markdown renderers, colors, semantic-labels, status-bar
-  i18n/          # Translator + locales/en.json (statically imported, bundled)
-  application/   # report-pipeline.ts (the only orchestrator)
-  cli/           # CLI entry (src/cli/index.ts)
-schemas/         # quotas.schema.json (statically imported by config-loader)
-tests/           # Vitest — unit (mirrors src/), integration, architecture, characterization
+  i18n/          # Translator + locales/en.json + generated EnCatalog.res (git-ignored)
+  Cli/          # CLI entry: Bootstrap.res → bundled to dist/cli/index.js
+schemas/         # quotas.schema.json + generated ConfigLoader/Schema.res (git-ignored)
+scripts/
+  codegen.mjs            # Deterministic asset generator (schema + locale → .res)
+  run-tests.mjs          # ReScript test runner (discovers *Tests.res.mjs, runs per file)
+  check-secrets.sh       # Secret-leak gate
+legacy/          # Archived TypeScript source (46 files, pre-cutover, not built/tested)
 ```
 
 ## Core invariants
 
-- **Domain is pure**: `src/domain/**` must have ZERO I/O or Node built-in imports. Verified by `tests/architecture/domain-purity.test.ts`.
+- **Domain is pure**: `src/domain/**` must have ZERO I/O or Node built-in imports. Verified by `src/architecture/DomainPurityTests.res`.
 - **Ports are interfaces**: adapters satisfy them; domain depends only on ports, never on adapters.
 - **Provider failures reject**: adapter `fetchQuotas()` throws on HTTP/network failures — the pipeline records them in `result.errors`. Only "no credential" resolves to `[]`.
-- **`QuotaData`**: `{ id, providerName, used, limit, unit, reset, window, info?, modelId? }`. There is NO `predictedReset` field (removed when prediction was unwired).
+- **`QuotaData`**: `{ id, providerName, used, limit, unit, reset, window, info?, modelId? }`. There is NO `predictedReset` field (prediction is unwired).
 - **Aggregation default strategy**: `max`. `most_critical` is implemented but requires ETTL history wiring before use.
 - **Config resolution**: `.opencode/quotas.json` from `process.cwd()` (not the bundle location).
-- **Schema import**: `schemas/quotas.schema.json` is a static `import` (works under rolldown bundling).
+- **Generated assets**: `src/Infra/ConfigLoader/Schema.res` and `src/i18n/Translator/EnCatalog.res` are generated by `scripts/codegen.mjs` and git-ignored. Do not edit them directly.
+
+## Build pipeline
+
+```text
+schemas/quotas.schema.json + src/i18n/locales/en.json
+        ↓ (codegen.mjs — deterministic, idempotent)
+src/Infra/ConfigLoader/Schema.res + src/i18n/Translator/EnCatalog.res
+        ↓ (rescript build)
+lib/es6/**/*.res.mjs
+        ↓ (rolldown -c)
+dist/cli/index.js
+```
+
+Lifecycle hooks: `postinstall` runs codegen on `pnpm install`; `prebuild` runs codegen + res:build before rolldown; `preres:build` runs codegen before `rescript build`.
 
 ## Provider status
 
@@ -83,16 +103,15 @@ tests/           # Vitest — unit (mirrors src/), integration, architecture, ch
 ## What agents should know
 
 - The repo runs on plain Node, not Bun. Don't add `Bun.*` APIs.
-- Don't add a CI workflow unless explicitly asked — user opted out of CI in this repo.
-- Don't add a lint/format tool (no eslint/biome) unless asked — keep the toolchain lean.
-- The `bun.lock` is gone; use `pnpm-lock.yaml`.
-- Translation (`y.*/z.ai` rows, `en.json` labels) was deliberately aligned in earlier sessions; tests in `tests/unit/providers/{minimax,zai}.test.ts` assert the shipped labels.
-- When making a non-trivial change, write a test first (TDD). The architecture test suite enforces domain purity, scaffold structure, build-script invariants, and vitest thresholds.
+- Don't add a CI workflow unless explicitly asked — user opted out of CI.
+- Don't add a lint/format tool unless asked — keep the toolchain lean.
+- Translation labels (`y.*/z.ai` rows, `en.json` keys) were aligned in earlier sessions; tests in ReScript provider test files assert the shipped labels.
+- When making a non-trivial change, write a ReScript test first. Architecture guards in `src/architecture/*Tests.res` enforce domain purity, scaffold structure, build-script invariants, and type-safety.
+- `legacy/` contains the archived TypeScript source (46 files). It is not built or tested — do not make changes there.
 
 ## When picking up a task
 
 1. Read the recent git log: `git log --oneline -20`.
-2. Skim `tests/architecture/*` to understand what's enforced.
-3. Run `pnpm test` first to confirm a green baseline.
-4. Make the change, run the four gates.
-5. Update README and this file if behavior or commands change.
+2. Run `pnpm test` and `pnpm build` to confirm a green baseline.
+3. Make the change, run all five gates.
+4. Update README and this file if behavior or commands change.
