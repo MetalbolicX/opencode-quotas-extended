@@ -68,6 +68,6 @@
     "@types/node": "^26.1.2",
     "rescript": "12.3.0",
     "rescript-test": "^8.0.1",
-    "rolldown": "^1.2.0"
+    "rolldown": "^1.2.3"
   }
 }
