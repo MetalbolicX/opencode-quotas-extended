@@ -261,6 +261,63 @@ let assertMmxBinary = (): string => {
   runExec("which mmx", opts)
 }
 
+// Non-throwing binary check (used by isAvailable).
+let hasMmxBinary = (): bool => {
+  try {
+    let _ = runExec("which mmx", {encoding: "utf8", timeout: 5000, stdio: "pipe"})
+    true
+  } catch {
+  | _ => false
+  }
+}
+
+// Run `mmx quota show` against any existing session. None on failure/empty.
+// Does NOT check the binary — callers ensure it (or accept None).
+let tryQuotaShow = (opts: execOpts): option<string> => {
+  try {
+    Some(String.trim(runExec("mmx quota show --output json 2>/dev/null", opts)))
+  } catch {
+  | _ => None
+  }
+}
+
+// Parse session stdout into rows. None when output is missing, unparseable,
+// or yields zero rows. (parseMinimaxCli returns [] for a missing model_remains
+// key, and throws on malformed JSON — both collapse to None here.)
+let parseSessionRows = (output: option<string>): option<array<Domain.quotaData>> => {
+  switch output {
+  | None => None
+  | Some(out) =>
+    try {
+      let rows = parseMinimaxCli(out)
+      Array.length(rows) > 0 ? Some(rows) : None
+    } catch {
+    | _ => None
+    }
+  }
+}
+
+// Pure decision: given parsed session rows and an optional key, pick the step.
+// Session rows present -> reuse them (no login). Otherwise use the key, or give up.
+type fetchStep =
+  | UseSession(array<Domain.quotaData>)
+  | LoginWithKey(string)
+  | GiveUp
+
+let decideFetchStep = (
+  sessionRows: option<array<Domain.quotaData>>,
+  key: option<string>,
+): fetchStep => {
+  switch sessionRows {
+  | Some(rows) => UseSession(rows)
+  | None =>
+    switch key {
+    | Some(k) => LoginWithKey(k)
+    | None => GiveUp
+    }
+  }
+}
+
 // --- Provider ----------------------------------------------------------------
 
 let createMinimaxProvider = (): Provider.quotaProvider => {
@@ -269,35 +326,43 @@ let createMinimaxProvider = (): Provider.quotaProvider => {
   category: "subscription",
   authStrategy: #api,
   isAvailable: () =>
-    CredentialResolver.resolve("minimax-coding-plan")->Promise.then(opt =>
-      Promise.resolve(Belt.Option.isSome(opt))
-    ),
-  fetchQuotas: () => {
     CredentialResolver.resolve("minimax-coding-plan")->Promise.then(opt => {
       switch opt {
-      | None => Promise.resolve([])
-      | Some(cred) =>
-        let key = switch cred {
-        | Credential.Api(c) => Some(c.key)
-        | Credential.Wellknown(c) => Some(c.key)
-        | Credential.Env(c) => Node.processEnv->Dict.get(c.envVar)
-        | Credential.OAuth(_) => None
-        }
-        switch key {
-        | None => Promise.resolve([])
-        | Some(k) =>
-          try {
-            let _ = assertMmxBinary()
-            let execOpts: execOpts = {encoding: "utf8", timeout: 30000, stdio: "pipe"}
-            // Step 1: auth (key wrapped in quotes for shell safety)
-            let _ = runExec("mmx auth login --api-key '" ++ k ++ "' 2>/dev/null", execOpts)
-            // Step 2: get quota
-            let stdout = String.trim(runExec("mmx quota show --output json 2>/dev/null", execOpts))
-            Promise.resolve(parseMinimaxCli(stdout))
-          } catch {
-          | _ => Promise.resolve([])
-          }
-        }
+      | Some(_) => Promise.resolve(true)   // stored credential present
+      | None =>
+        // No stored credential — still available if mmx is installed AND already
+        // authenticated (reuse of an existing session).
+        Promise.resolve(hasMmxBinary() && parseSessionRows(
+          tryQuotaShow({encoding: "utf8", timeout: 15000, stdio: "pipe"})
+        )->Belt.Option.isSome)
+      }
+    })->Promise.catch(. _err => Promise.resolve(false)),
+  fetchQuotas: () => {
+    CredentialResolver.resolve("minimax-coding-plan")->Promise.then(opt => {
+      // Extract optional API key from whatever credential variant resolved.
+      let key = switch opt {
+      | Some(Credential.Api(c)) => Some(c.key)
+      | Some(Credential.Wellknown(c)) => Some(c.key)
+      | Some(Credential.Env(c)) => Node.processEnv->Dict.get(c.envVar)
+      | Some(Credential.OAuth(_)) | None => None
+      }
+      // mmx binary missing is a real provider error -> propagate (reject).
+      let _ = assertMmxBinary()
+      let execOpts: execOpts = {encoding: "utf8", timeout: 30000, stdio: "pipe"}
+      // Step 1: reuse any existing mmx session (NO login round-trip).
+      let sessionRows = parseSessionRows(tryQuotaShow(execOpts))
+      switch decideFetchStep(sessionRows, key) {
+      | UseSession(rows) => Promise.resolve(rows)
+      | LoginWithKey(k) =>
+        // Fallback: authenticate with the stored key, then fetch.
+        // Failures here MUST throw and propagate as provider errors (invariant).
+        let _ = runExec("mmx auth login --api-key '" ++ k ++ "' 2>/dev/null", execOpts)
+        let stdout = String.trim(runExec("mmx quota show --output json 2>/dev/null", execOpts))
+        Promise.resolve(parseMinimaxCli(stdout))
+      | GiveUp => Promise.resolve([])   // no key and no usable session
+      }
+    })
+  },
       }
     })
   },
