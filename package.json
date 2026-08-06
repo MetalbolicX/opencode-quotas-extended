@@ -1,6 +1,6 @@
 {
   "name": "opencode-quotas-extended",
-  "version": "0.2.4",
+  "version": "0.2.5-0",
   "description": "Opencode quota hub plugin — extended provider list, SOLID/hexagonal rewrite",
   "type": "module",
   "bin": {
@@ -17,7 +17,6 @@
     "codegen": "node scripts/codegen.mjs",
     "prebuild": "pnpm run codegen && pnpm run res:build",
     "preres:build": "pnpm run codegen",
-    "postinstall": "pnpm run codegen",
     "test": "node scripts/run-tests.mjs",
     "test:res": "node scripts/run-tests.mjs",
     "build": "rolldown -c",
