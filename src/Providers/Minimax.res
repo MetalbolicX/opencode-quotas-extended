@@ -286,17 +286,17 @@ let createMinimaxProvider = (): Provider.quotaProvider => {
         switch key {
         | None => Promise.resolve([])
         | Some(k) =>
-          try {
-            let _ = assertMmxBinary()
-            let execOpts: execOpts = {encoding: "utf8", timeout: 30000, stdio: "pipe"}
-            // Step 1: auth (key wrapped in quotes for shell safety)
-            let _ = runExec("mmx auth login --api-key '" ++ k ++ "' 2>/dev/null", execOpts)
-            // Step 2: get quota
-            let stdout = String.trim(runExec("mmx quota show --output json 2>/dev/null", execOpts))
-            Promise.resolve(parseMinimaxCli(stdout))
-          } catch {
-          | _ => Promise.resolve([])
-          }
+          // Note: assertMmxBinary, mmx auth login, and mmx quota show all throw on
+          // failure. These rejections propagate to ReportPipeline which records
+          // them as provider errors. parseMinimaxCli returns [] only for genuinely
+          // empty CLI output (no "model_remains" key found).
+          let _ = assertMmxBinary()
+          let execOpts: execOpts = {encoding: "utf8", timeout: 30000, stdio: "pipe"}
+          // Step 1: auth (key wrapped in quotes for shell safety)
+          let _ = runExec("mmx auth login --api-key '" ++ k ++ "' 2>/dev/null", execOpts)
+          // Step 2: get quota
+          let stdout = String.trim(runExec("mmx quota show --output json 2>/dev/null", execOpts))
+          Promise.resolve(parseMinimaxCli(stdout))
         }
       }
     })

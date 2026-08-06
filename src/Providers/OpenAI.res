@@ -214,9 +214,6 @@ let fetchQuotasOAuth = (
     }
     Promise.resolve(quotaData)
   })
-  ->Promise.catch(. _err => {
-    Promise.resolve([])
-  })
 }
 
 // --- API key path: cursor-based pagination ------------------------------------
@@ -327,13 +324,8 @@ let fetchQuotasApiKey = (
       | _ => Promise.resolve(allEntries->Belt.Array.concat(entries))
       }
     })
-    ->Promise.catch(. _err => {
-      if allEntries->Array.length > 0 {
-        Promise.resolve(allEntries)
-      } else {
-        Promise.resolve([])
-      }
-    })
+    // Note: HTTP/network failures reject and propagate up to ReportPipeline.
+    // Only "no credential" (handled by isAvailable gate above) returns [].
   }
   fetchPage(None)
 }
