@@ -53,4 +53,17 @@ test("E4: openai with empty string env var returns null", () => {
   )
 })
 
+// E5: minimax with MINIMAX_API_KEY returns api credential
+test("E5: minimax with MINIMAX_API_KEY returns api credential", () => {
+  let env = Dict.fromArray([("MINIMAX_API_KEY", "mmx-key-123")])
+  let result = EnvSource.getCredential("minimax", env)
+  let expected = Some(Credential.Api({variant: "api", key: "mmx-key-123"}))
+  assertion(
+    ~message=`Expected Some(Api), got ${Belt.Option.map(result, _ => "Some(_)")->Belt.Option.getWithDefault("None")}`,
+    (a, b) => a == b,
+    result,
+    expected,
+  )
+})
+
 let () = runTests()

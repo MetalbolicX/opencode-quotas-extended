@@ -10,7 +10,7 @@ let formatMissingAuthJson = (path: string): string => {
     "",
     "Add API keys via:",
     "  opencode auth login",
-    "  Or set OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY",
+    "  Or set OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY / MINIMAX_API_KEY",
   ]->Array.joinUnsafe("\n")
 }
 

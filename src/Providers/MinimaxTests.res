@@ -103,5 +103,36 @@ test("parseMinimaxCli falls back to None when remains_time is missing", () => {
   assertion(~message="weekly reset is None when field missing", (a, b) => a == b, weekly.reset, None)
 })
 
+// Session-reuse decision logic (pure).
+test("decideFetchStep: session rows present -> UseSession", () => {
+  let now = Date.now()
+  let fixture = "...{\"model_remains\":[{\"model_name\":\"general\",\"current_interval_remaining_percent\":90,\"current_weekly_remaining_percent\":80,\"remains_time\":" ++ Belt.Float.toString(now) ++ "}]}"
+  let rows = parseMinimaxCli(fixture)
+  let step = decideFetchStep(Some(rows), None)
+  let ok = switch step {
+  | UseSession(r) => Array.length(r) === Array.length(rows)
+  | _ => false
+  }
+  assertion(~message="expected UseSession", (a, b) => a == b, ok, true)
+})
+
+test("decideFetchStep: no session + key -> LoginWithKey", () => {
+  let step = decideFetchStep(None, Some("key-abc"))
+  let ok = switch step {
+  | LoginWithKey(k) => k === "key-abc"
+  | _ => false
+  }
+  assertion(~message="expected LoginWithKey(\"key-abc\")", (a, b) => a == b, ok, true)
+})
+
+test("decideFetchStep: no session + no key -> GiveUp", () => {
+  let step = decideFetchStep(None, None)
+  let ok = switch step {
+  | GiveUp => true
+  | _ => false
+  }
+  assertion(~message="expected GiveUp", (a, b) => a == b, ok, true)
+})
+
 // Run all tests
 let () = runTests()
