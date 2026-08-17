@@ -174,6 +174,8 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
             progressBar: None,
           },
           logger: (logger :> ReportPipeline.logger),
+          selectRenderer: (Renderers.selectRenderer :> (Domain.renderMode) => ReportPipeline.renderer),
+          createI18nTranslator: (_: unit) => (Translator.createI18nTranslator(Translator.enCatalog) :> ReportPipeline.translator),
         }
         let opts: ReportPipeline.reportOptions = {
           providerId: Some(providerId),
@@ -186,26 +188,20 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
         // runPipeline is async -> returns Promise.t<X>, calling it is Promise.t<Promise.t<X>>
         // so await await to fully unwrap
         let result = await await runPipeline(deps, opts)
-        // WU-6 option B: partial-result provider errors to stderr, exit 0
-        let allKeys = result.errors->Dict.keysToArray
-        let errorKeys = allKeys->Belt.Array.keep(k => k !== "_")
-        if errorKeys->Array.length > 0 {
-          // Build error dict for formatProviderFetchErrors
-          let errorDict: dict<string> = Dict.make()
-          let _ = errorKeys->Array.map(key => {
-            let msg = switch result.errors->Dict.get(key) {
-            | Some(m) => m
-            | None => ""
-            }
-            let _ = Dict.set(errorDict, key, msg)
-          })
-          Node.processStderrWrite(`${Messages.formatProviderFetchErrors(errorDict)}\n`)->ignore
+        // Extract error outputs via pure functions (I/O stays here)
+        let providerErr = ReportErrors.formatProviderErrors(result.errors)
+        let fatalErr = ReportErrors.formatFatalError(result.errors)
+        // Write provider errors to stderr (partial result — exit 0)
+        switch providerErr.channel {
+        | #stderr => Node.processStderrWrite(providerErr.text)->ignore
+        | _ => ()
         }
-        switch result.errors->Dict.get("_") {
-        | Some(msg) =>
-          Node.processStdoutWrite(`${msg}\n`)->ignore
-          Node.processExit(1)
-        | None =>
+        // Fatal error → stdout + exit 1; otherwise render output + exit 0
+        switch fatalErr.channel {
+        | #stdout =>
+          Node.processStdoutWrite(fatalErr.text)->ignore
+          Node.processExit(fatalErr.exitCode)
+        | #none | #stderr =>
           Node.processStdoutWrite(`${result.rendered}\n`)->ignore
           Node.processExit(0)
         }

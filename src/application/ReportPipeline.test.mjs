@@ -52,6 +52,17 @@ const makeTestDeps = (providers = []) => ({
     warn: () => {},
     error: () => {},
   },
+  // These fields added in Step 2 — use real adapters (test file uses compiled .res.mjs)
+  selectRenderer: (mode) => {
+    // Return a minimal renderer that produces table output
+    const { TableRenderer } = require('../../lib/es6/src/rendering/Renderers.res.mjs');
+    return TableRenderer;
+  },
+  createI18nTranslator: () => {
+    const { createI18nTranslator } = require('../../lib/es6/src/i18n/Translator.res.mjs');
+    const { enCatalog } = require('../../lib/es6/src/i18n/Translator.res.mjs');
+    return createI18nTranslator(enCatalog);
+  },
 });
 
 const makeTestOpts = (overrides = {}) => ({
