@@ -10,31 +10,6 @@ type windowType = Domain.windowType
 
 // --- Helpers --------------------------------------------------------------------
 
-// Converts any JSON value to option<float>, supporting numeric strings.
-let toNum = (json: JSON.t): option<float> => {
-  switch json {
-  | JSON.Number(n) => Some(n)
-  | JSON.String(s) =>
-    let trimmed = String.trim(s)
-    switch trimmed {
-    | "" => None
-    | _ =>
-      let parsed = Float.fromString(trimmed)
-      switch parsed {
-      | Some(f) => Some(f)
-      | None =>
-        // Try stripping trailing % if present
-        let withoutPct = switch trimmed->String.endsWith("%") {
-        | true => trimmed->String.slice(~start=-1)->String.trim
-        | false => trimmed
-        }
-        Float.fromString(withoutPct)
-      }
-    }
-  | _ => None
-  }
-}
-
 // Maps label strings to windowType variants.
 let windowMap = (label: option<string>): windowType => {
   switch label {
@@ -73,11 +48,11 @@ let parseUsage = (
       switch w {
       | JSON.Object(wDict) =>
         let used = switch Dict.get(wDict, "used") {
-        | Some(v) => toNum(v)
+        | Some(v) => JsonNum.toNum(v)
         | None => None
         }
         let limit = switch Dict.get(wDict, "limit") {
-        | Some(v) => toNum(v)
+        | Some(v) => JsonNum.toNum(v)
         | None => None
         }
         switch used {
@@ -123,7 +98,7 @@ let parseUsage = (
       }
       if !unlimited {
         let balance = switch Dict.get(cDict, "balance") {
-        | Some(v) => toNum(v)
+        | Some(v) => JsonNum.toNum(v)
         | None => None
         }
         switch balance {
@@ -225,7 +200,7 @@ let zaiSortRank = (w: windowType): int => {
 // Uses percentage as source of truth when finite; falls back to currentValue/usage.
 let computeUsed = (limDict: Dict.t<JSON.t>): option<float> => {
   let pct = switch Dict.get(limDict, "percentage") {
-  | Some(v) => toNum(v)
+  | Some(v) => JsonNum.toNum(v)
   | None => None
   }
   switch pct {
@@ -236,11 +211,11 @@ let computeUsed = (limDict: Dict.t<JSON.t>): option<float> => {
     }
   | None =>
     let cv = switch Dict.get(limDict, "currentValue") {
-    | Some(v) => toNum(v)
+    | Some(v) => JsonNum.toNum(v)
     | None => None
     }
     let u = switch Dict.get(limDict, "usage") {
-    | Some(v) => toNum(v)
+    | Some(v) => JsonNum.toNum(v)
     | None => None
     }
     switch (cv, u) {
@@ -266,15 +241,15 @@ let limitToQuota = (
   | _ => "LIMIT"
   }
   let unit = switch Dict.get(limDict, "unit") {
-  | Some(v) => toNum(v)
+  | Some(v) => JsonNum.toNum(v)
   | None => None
   }
   let number = switch Dict.get(limDict, "number") {
-  | Some(v) => toNum(v)
+  | Some(v) => JsonNum.toNum(v)
   | None => None
   }
   let resetMs = switch Dict.get(limDict, "nextResetTime") {
-  | Some(v) => toNum(v)
+  | Some(v) => JsonNum.toNum(v)
   | None => None
   }
   let usedOpt = computeUsed(limDict)
@@ -429,11 +404,11 @@ let summaryToQuota = (
   providerName: string,
 ): option<quotaData> => {
   let used = switch Dict.get(d, "used") {
-  | Some(v) => toNum(v)
+  | Some(v) => JsonNum.toNum(v)
   | None => None
   }
   let limit = switch Dict.get(d, "limit") {
-  | Some(v) => toNum(v)
+  | Some(v) => JsonNum.toNum(v)
   | None => None
   }
   // Both absent → skip
@@ -476,11 +451,11 @@ let limitRowToQuota = (
   switch Dict.get(d, "detail") {
   | Some(JSON.Object(detailDict)) =>
     let used = switch Dict.get(detailDict, "used") {
-    | Some(v) => toNum(v)
+    | Some(v) => JsonNum.toNum(v)
     | None => None
     }
     let limit = switch Dict.get(detailDict, "limit") {
-    | Some(v) => toNum(v)
+    | Some(v) => JsonNum.toNum(v)
     | None => None
     }
     // Both absent → skip
@@ -494,7 +469,7 @@ let limitRowToQuota = (
       switch windowDict {
       | Some(wDict) =>
         let duration = switch Dict.get(wDict, "duration") {
-        | Some(v) => toNum(v)
+        | Some(v) => JsonNum.toNum(v)
         | None => None
         }
         let timeUnit = switch Dict.get(wDict, "timeUnit") {

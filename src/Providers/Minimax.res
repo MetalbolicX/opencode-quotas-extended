@@ -18,19 +18,7 @@ external runExec: (string, execOpts) => string = "execSync"
 
 // --- Helpers -----------------------------------------------------------------
 
-// Converts any JSON value to option<float>, supporting numeric strings.
-let toNum = (json: JSON.t): option<float> => {
-  switch json {
-  | JSON.Number(n) => Some(n)
-  | JSON.String(s) =>
-    let trimmed = String.trim(s)
-    switch trimmed {
-    | "" => None
-    | _ => Float.fromString(trimmed)
-    }
-  | _ => None
-  }
-}
+
 
 // Builds a reset Date by adding `remainsMs` (ms) to the current time.
 // Returns None when the value is missing or non-positive. The mmx CLI returns
@@ -111,7 +99,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
       let _ = general->Array.forEach(m => {
         switch m {
         | JSON.Object(mdict) =>
-          let intervalPct = toNum(
+          let intervalPct = JsonNum.toNum(
             switch Dict.get(mdict, "current_interval_remaining_percent") {
             | Some(v) => v
             | _ => JSON.Number(0.0)
@@ -130,7 +118,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
             },
           )
           let intervalReset = resetFromRemainsMs(
-            toNum(
+            JsonNum.toNum(
               switch Dict.get(mdict, "remains_time") {
               | Some(v) => v
               | _ => JSON.Number(0.0)
@@ -151,7 +139,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
               modelId: None,
             },
           )
-          let weeklyPct = toNum(
+          let weeklyPct = JsonNum.toNum(
             switch Dict.get(mdict, "current_weekly_remaining_percent") {
             | Some(v) => v
             | _ => JSON.Number(0.0)
@@ -170,7 +158,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
             },
           )
           let weeklyReset = resetFromRemainsMs(
-            toNum(
+            JsonNum.toNum(
               switch Dict.get(mdict, "weekly_remains_time") {
               | Some(v) => v
               | _ => JSON.Number(0.0)
@@ -198,13 +186,13 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
       let _ = video->Array.forEach(m => {
         switch m {
         | JSON.Object(mdict) =>
-          let total = toNum(
+          let total = JsonNum.toNum(
             switch Dict.get(mdict, "current_interval_total_count") {
             | Some(v) => v
             | _ => JSON.Number(0.0)
             },
           )->Belt.Option.getWithDefault(0.0)
-          let used = toNum(
+          let used = JsonNum.toNum(
             switch Dict.get(mdict, "current_interval_usage_count") {
             | Some(v) => v
             | _ => JSON.Number(0.0)
@@ -224,7 +212,7 @@ let parseMinimaxCli = (out: string): array<Domain.quotaData> => {
             },
           )
           let videoReset = resetFromRemainsMs(
-            toNum(
+            JsonNum.toNum(
               switch Dict.get(mdict, "remains_time") {
               | Some(v) => v
               | _ => JSON.Number(0.0)

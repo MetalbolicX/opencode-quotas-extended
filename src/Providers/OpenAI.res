@@ -7,30 +7,6 @@ open SemanticLabels
 
 // --- Helpers -----------------------------------------------------------------
 
-// Converts any JSON value to option<float>, supporting numeric strings.
-let toNum = (json: JSON.t): option<float> => {
-  switch json {
-  | JSON.Number(n) => Some(n)
-  | JSON.String(s) =>
-    let trimmed = String.trim(s)
-    switch trimmed {
-    | "" => None
-    | _ =>
-      let parsed = Float.fromString(trimmed)
-      switch parsed {
-      | Some(f) => Some(f)
-      | None =>
-        let withoutPct = switch trimmed->String.endsWith("%") {
-        | true => trimmed->String.slice(~start=-1)->String.trim
-        | false => trimmed
-        }
-        Float.fromString(withoutPct)
-      }
-    }
-  | _ => None
-  }
-}
-
 // Builds reset Date from reset_after_seconds or reset_at epoch.
 let resetDate = (afterSeconds: option<float>, atEpoch: option<float>): option<Date.t> => {
   switch atEpoch {
@@ -122,7 +98,7 @@ let fetchQuotasOAuth = (
         | Some(JSON.Object(rl)) =>
           switch Dict.get(rl, key) {
           | Some(JSON.Object(w)) =>
-            let used = toNum(switch Dict.get(w, "used_percent") {
+            let used = JsonNum.toNum(switch Dict.get(w, "used_percent") {
             | Some(v) => v
             | _ => JSON.Number(0.0)
             })
@@ -136,8 +112,8 @@ let fetchQuotasOAuth = (
                 limit: Some(100.0),
                 unit: "%",
                 reset: resetDate(
-                  toNum(switch Dict.get(w, "reset_after_seconds") { | Some(v) => v | _ => JSON.Number(0.0) }),
-                  toNum(switch Dict.get(w, "reset_at") { | Some(v) => v | _ => JSON.Number(0.0) }),
+                  JsonNum.toNum(switch Dict.get(w, "reset_after_seconds") { | Some(v) => v | _ => JSON.Number(0.0) }),
+                  JsonNum.toNum(switch Dict.get(w, "reset_at") { | Some(v) => v | _ => JSON.Number(0.0) }),
                 ),
                 window: win,
                 info: Some(concept.label),
@@ -180,7 +156,7 @@ let fetchQuotasOAuth = (
         | None =>
           switch Dict.get(cDict, "balance") {
           | Some(bal) =>
-            switch toNum(bal) {
+            switch JsonNum.toNum(bal) {
             | Some(b) =>
               let concept = enrichQuotaLabel("openai", {
                 type_: None,
@@ -265,7 +241,7 @@ let fetchQuotasApiKey = (
               }
               if idStr !== "" && !Belt.Array.some(seenIds.contents, id => id === idStr) {
                 seenIds.contents->Array.push(idStr)->ignore
-                let used = toNum(switch Dict.get(e, "generated") { | Some(v) => v | _ => JSON.Number(0.0) })
+                let used = JsonNum.toNum(switch Dict.get(e, "generated") { | Some(v) => v | _ => JSON.Number(0.0) })
                 switch used {
                 | Some(u) =>
                   let model = switch Dict.get(e, "model") {
@@ -281,7 +257,7 @@ let fetchQuotasApiKey = (
                     openaiVariant: Some("api"),
                     geminiModel: None,
                   })
-                  let limitUser = toNum(switch Dict.get(dict, "limit_user") { | Some(v) => v | _ => JSON.Number(0.0) })
+                  let limitUser = JsonNum.toNum(switch Dict.get(dict, "limit_user") { | Some(v) => v | _ => JSON.Number(0.0) })
                   let entry: Domain.quotaData = {
                     id: `openai-api-${idStr}`,
                     providerName: buildProviderName("OpenAI", concept.concept),

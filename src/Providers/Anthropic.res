@@ -18,24 +18,7 @@ let usageUrl = "https://api.anthropic.com/v1/organizations/{org_id}/usage"
 
 // --- Helpers -----------------------------------------------------------------
 
-// Converts any JSON value to option<float>, supporting numeric strings.
-let toNum = (json: JSON.t): option<float> => {
-  switch json {
-  | JSON.Number(n) => Some(n)
-  | JSON.String(s) =>
-    let trimmed = String.trim(s)
-    switch trimmed {
-    | "" => None
-    | _ =>
-      let parsed = Float.fromString(trimmed)
-      switch parsed {
-      | Some(f) => Some(f)
-      | None => None
-      }
-    }
-  | _ => None
-  }
-}
+
 
 // Maps an Anthropic admin-usage row to a QuotaData entry.
 // Token totals (input + output) are summed as the used value.
@@ -45,7 +28,7 @@ let mapRow = (row: dict<JSON.t>, idx: int): option<Domain.quotaData> => {
   | Some(JSON.Object(u)) => u
   | _ => Dict.make()
   }
-  let inputTokens = toNum(switch Dict.get(usage, "input_tokens") {
+  let inputTokens = JsonNum.toNum(switch Dict.get(usage, "input_tokens") {
   | Some(v) => v
   | _ =>
     switch Dict.get(usage, "prompt_tokens") {
@@ -53,7 +36,7 @@ let mapRow = (row: dict<JSON.t>, idx: int): option<Domain.quotaData> => {
     | _ => JSON.Number(0.0)
     }
   })
-  let outputTokens = toNum(switch Dict.get(usage, "output_tokens") {
+  let outputTokens = JsonNum.toNum(switch Dict.get(usage, "output_tokens") {
   | Some(v) => v
   | _ =>
     switch Dict.get(usage, "completion_tokens") {
