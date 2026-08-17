@@ -319,17 +319,13 @@ let createOpenAIProvider = (): Provider.quotaProvider => {
     ),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
-    CredentialResolver.resolve("openai")->Promise.then(opt => {
-      switch opt {
-      | None => Promise.resolve([])
-      | Some(cred) =>
-        switch cred {
-        | Credential.OAuth(_) =>
-          fetchQuotasOAuth(~cred, ~http)
-        | _ =>
-          fetchQuotasApiKey(~cred, ~http)
-        }
+    CredentialResolver.resolveOrEmpty(~key="openai", ~fn=cred =>
+      switch cred {
+      | Credential.OAuth(_) =>
+        fetchQuotasOAuth(~cred, ~http)
+      | _ =>
+        fetchQuotasApiKey(~cred, ~http)
       }
-    })
+    )
   },
 }

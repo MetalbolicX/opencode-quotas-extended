@@ -235,4 +235,85 @@ testAsync("CR3: config credential is returned when auth.json + env are empty", c
   })
 })
 
+// ─── resolveOrEmpty tests ──────────────────────────────────────────────────
+
+testAsync("ROE1: resolveOrEmpty returns [] when credential is None", callback => {
+  let dir = tmpDir()
+  let authPath = tmpAuthJsonPath(dir)
+  ensureOpencodeDir(dir)
+  let _ = Node.writeFileSync(authPath, "{}")
+  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let _ = %raw("delete process.env['NONEXISTENT_PROVIDER_KEY']")
+
+  let fnCalled = ref(false)
+  let dummyFn = (_cred: Credential.credential): Promise.t<array<Domain.quotaData>> => {
+    fnCalled.contents = true
+    Promise.resolve([])
+  }
+
+  let result = CredentialResolver.resolveOrEmpty(~key="non-existent-provider", ~fn=dummyFn)
+
+  let _ = result->Promise.then(arr => {
+    let passed = arr == [] && fnCalled.contents == false
+    assertion(
+      ~message="ROE1: Expected [] and fn not called when credential is None",
+      (a, b) => a == b,
+      true,
+      passed,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    assertion(~message="ROE1: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
+testAsync("ROE2: resolveOrEmpty calls fn when credential is Some", callback => {
+  let dir = tmpDir()
+  let authPath = tmpAuthJsonPath(dir)
+  ensureOpencodeDir(dir)
+  let _ = Node.writeFileSync(authPath, JSON.stringify(
+    JSON.Object(Dict.fromArray([
+      ("test-provider", JSON.Object(Dict.fromArray([
+        ("type", JSON.String("api")),
+        ("key", JSON.String("sk-test-key")),
+      ]))),
+    ]))
+  ))
+  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+
+  let fnCalled = ref(false)
+  let dummyFn = (_cred: Credential.credential): Promise.t<array<Domain.quotaData>> => {
+    fnCalled.contents = true
+    Promise.resolve([
+      DomainFixtures.makeQuotaData(
+        ~id="test",
+        ~providerName="test",
+        ~used=0.0,
+        ~limit=None,
+      ),
+    ])
+  }
+
+  let result = CredentialResolver.resolveOrEmpty(~key="test-provider", ~fn=dummyFn)
+
+  let _ = result->Promise.then(arr => {
+    let passed = fnCalled.contents == true && Belt.Array.length(arr) == 1
+    assertion(
+      ~message="ROE2: Expected fn called and 1 quota returned",
+      (a, b) => a == b,
+      true,
+      passed,
+    )
+    callback()
+    Promise.resolve()
+  })->Promise.catch((. _err) => {
+    assertion(~message="ROE2: Promise rejected unexpectedly", (a, b) => a == b, false, true)
+    callback()
+    Promise.resolve()
+  })
+})
+
 let () = runTests()

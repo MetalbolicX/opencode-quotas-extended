@@ -16,27 +16,23 @@ let createZaiProvider = (): Provider.quotaProvider => {
       Promise.resolve(Belt.Option.isSome(opt))
     ),
   fetchQuotas: () =>
-    CredentialResolver.resolve("zai-coding-plan")->Promise.then(opt => {
-      switch opt {
-      | None => Promise.resolve([])
-      | Some(cred) =>
-        let authHeader = BearerToken.extract(cred)
-        let http = FetchHttp.make(FetchHttp.noopLogger)
-        let req: FetchHttp.httpRequest = {
-          url: usageUrl,
-          method: #get,
-          headers: Some(Dict.fromArray([("Authorization", authHeader)])),
-          body: None,
-        }
-        let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
-        http.request(req, opts)
-        ->Promise.then(json => {
-          Promise.resolve(CodingPlanParse.parseZaiLimits(
-            ~json,
-            ~idPrefix="zai",
-            ~providerName="z.ai",
-          ))
-        })
+    CredentialResolver.resolveOrEmpty(~key="zai-coding-plan", ~fn=cred => {
+      let authHeader = BearerToken.extract(cred)
+      let http = FetchHttp.make(FetchHttp.noopLogger)
+      let req: FetchHttp.httpRequest = {
+        url: usageUrl,
+        method: #get,
+        headers: Some(Dict.fromArray([("Authorization", authHeader)])),
+        body: None,
       }
+      let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
+      http.request(req, opts)
+      ->Promise.then(json => {
+        Promise.resolve(CodingPlanParse.parseZaiLimits(
+          ~json,
+          ~idPrefix="zai",
+          ~providerName="z.ai",
+        ))
+      })
     }),
 }

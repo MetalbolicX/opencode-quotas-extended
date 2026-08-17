@@ -132,41 +132,36 @@ let createAnthropicProvider = (): Provider.quotaProvider => {
     }),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
-    CredentialResolver.resolve("anthropic")->Promise.then(opt => {
-      switch opt {
-      | None => Promise.resolve([])
-      | Some(cred) =>
-        // Extract API key from credential
-        let key = switch cred {
-        | Credential.Api(c) => c.key
-        | Credential.Env(c) =>
-          switch Node.processEnv->Dict.get(c.envVar) {
-          | Some(v) => v
-          | None => ""
-          }
-        | _ => ""
+    CredentialResolver.resolveOrEmpty(~key="anthropic", ~fn=cred => {
+      // Extract API key from credential
+      let key = switch cred {
+      | Credential.Api(c) => c.key
+      | Credential.Env(c) =>
+        switch Node.processEnv->Dict.get(c.envVar) {
+        | Some(v) => v
+        | None => ""
         }
-        if key === "" {
-          Promise.resolve([])
-        } else {
-  // Resolve orgId from config → auth.json → env
-  let configPath = Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
-          let cfg = try {
-            Some(ConfigLoader.loadConfig(~configPath, ()))
+      | _ => ""
+      }
+      if key === "" {
+        Promise.resolve([])
+      } else {
+        // Resolve orgId from config → auth.json → env
+        let configPath = Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
+        let cfg = try {
+          Some(ConfigLoader.loadConfig(~configPath, ()))
+        } catch {
+        | _ => None
+        }
+        Belt.Option.map(cfg, c => {
+          let orgId = try {
+            Infra.resolveAnthropicOrgId(c, ~auth=None, ~env=Some(Node.processEnv), ())
           } catch {
-          | _ => None
+          | _ => ""
           }
-          switch cfg {
-          | None => Promise.resolve([])
-          | Some(c) =>
-            let orgId = try {
-              Infra.resolveAnthropicOrgId(c, ~auth=None, ~env=Some(Node.processEnv), ())
-            } catch {
-            | _ => ""
-            }
-            if orgId === "" {
-              Promise.resolve([])
-            } else {
+          if orgId === "" {
+            Promise.resolve([])
+          } else {
               let baseUrl = String.replace(usageUrl, "{org_id}", orgId)
               let rows: ref<array<Domain.quotaData>> = ref([])
               let rec fetchPage = (nextPage: option<string>): Promise.t<array<Domain.quotaData>> => {
@@ -241,9 +236,11 @@ let createAnthropicProvider = (): Provider.quotaProvider => {
               }
               fetchPage(None)
             }
-          }
+          })
+          ->Belt.Option.getWithDefault(Promise.resolve([]))
         }
       }
-    })
+    )
   },
 }
+

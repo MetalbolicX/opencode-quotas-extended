@@ -286,30 +286,26 @@ let createGeminiProvider = (): Provider.quotaProvider => {
     }),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
-    CredentialResolver.resolve("gemini")->Promise.then(opt => {
-      switch opt {
-      | None => Promise.resolve([])
-      | Some(_cred) =>
-        // Try primary: antigravity-accounts.json
-        let accounts = loadAntigravityAccounts()
-        switch accounts {
-        | Some(accts) if accts->Array.length > 0 =>
-          // Fetch all accounts concurrently; per-account errors are isolated.
-          let promises = accts->Array.map(account =>
-            fetchQuotasForAccount(http, account)->Promise.catch(._err => Promise.resolve([]))
-          )
-          Promise.all(promises)
-          ->Promise.then(results => {
-            let allRows: array<Domain.quotaData> = []
-            let _ = results->Array.forEach(rows => {
-              let _ = rows->Array.forEach(r => Belt.Array.push(allRows, r)->ignore)
-            })
-            Promise.resolve(allRows)
+    CredentialResolver.resolveOrEmpty(~key="gemini", ~fn=_cred => {
+      // Try primary: antigravity-accounts.json
+      let accounts = loadAntigravityAccounts()
+      switch accounts {
+      | Some(accts) if accts->Array.length > 0 =>
+        // Fetch all accounts concurrently; per-account errors are isolated.
+        let promises = accts->Array.map(account =>
+          fetchQuotasForAccount(http, account)->Promise.catch(._err => Promise.resolve([]))
+        )
+        Promise.all(promises)
+        ->Promise.then(results => {
+          let allRows: array<Domain.quotaData> = []
+          let _ = results->Array.forEach(rows => {
+            let _ = rows->Array.forEach(r => Belt.Array.push(allRows, r)->ignore)
           })
-        | _ =>
-          // Fallback: try auth.json.gemini (not implemented in ReScript — return [])
-          Promise.resolve([])
-        }
+          Promise.resolve(allRows)
+        })
+      | _ =>
+        // Fallback: try auth.json.gemini (not implemented in ReScript — return [])
+        Promise.resolve([])
       }
     })
   },

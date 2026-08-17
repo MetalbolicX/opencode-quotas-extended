@@ -16,27 +16,23 @@ let createZenProvider = (): Provider.quotaProvider => {
       Promise.resolve(Belt.Option.isSome(opt))
     ),
   fetchQuotas: () =>
-    CredentialResolver.resolve("opencode")->Promise.then(opt => {
-      switch opt {
-      | None => Promise.resolve([])
-      | Some(cred) =>
-        let authHeader = BearerToken.extract(cred)
-        let http = FetchHttp.make(FetchHttp.noopLogger)
-        let req: FetchHttp.httpRequest = {
-          url: usageUrl,
-          method: #get,
-          headers: Some(Dict.fromArray([("Authorization", authHeader)])),
-          body: None,
-        }
-        let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
-        http.request(req, opts)
-        ->Promise.then(json => {
-          Promise.resolve(CodingPlanParse.parseUsage(
-            ~json,
-            ~idPrefix="zen",
-            ~providerName="Zen"
-          ))
-        })
+    CredentialResolver.resolveOrEmpty(~key="opencode", ~fn=cred => {
+      let authHeader = BearerToken.extract(cred)
+      let http = FetchHttp.make(FetchHttp.noopLogger)
+      let req: FetchHttp.httpRequest = {
+        url: usageUrl,
+        method: #get,
+        headers: Some(Dict.fromArray([("Authorization", authHeader)])),
+        body: None,
       }
+      let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
+      http.request(req, opts)
+      ->Promise.then(json => {
+        Promise.resolve(CodingPlanParse.parseUsage(
+          ~json,
+          ~idPrefix="zen",
+          ~providerName="Zen"
+        ))
+      })
     }),
 }

@@ -26,20 +26,16 @@ let createKimiProvider = (): Provider.quotaProvider => {
       Promise.resolve(Belt.Option.isSome(opt))
     ),
   fetchQuotas: () =>
-    CredentialResolver.resolve("kimi")->Promise.then(opt => {
-      switch opt {
-      | None => Promise.resolve([])
-      | Some(cred) =>
-        let authHeader = BearerToken.extract(cred)
-        let http = FetchHttp.make(FetchHttp.noopLogger)
-        http.request(buildRequest(authHeader), requestOptions)
-        ->Promise.then(json => {
-          Promise.resolve(CodingPlanParse.parseKimiUsages(
-            ~json,
-            ~idPrefix="kimi",
-            ~providerName="Kimi / Moonshot"
-          ))
-        })
-      }
+    CredentialResolver.resolveOrEmpty(~key="kimi", ~fn=cred => {
+      let authHeader = BearerToken.extract(cred)
+      let http = FetchHttp.make(FetchHttp.noopLogger)
+      http.request(buildRequest(authHeader), requestOptions)
+      ->Promise.then(json => {
+        Promise.resolve(CodingPlanParse.parseKimiUsages(
+          ~json,
+          ~idPrefix="kimi",
+          ~providerName="Kimi / Moonshot"
+        ))
+      })
     }),
 }

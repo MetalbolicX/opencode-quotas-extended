@@ -18,3 +18,13 @@ let resolve = (providerId: string): Promise.t<option<Credential.credential>> => 
     }
   )
 }
+
+// resolveOrEmpty: resolves credential for key, returns [] on None, calls fn(c) on Some.
+let resolveOrEmpty = (~key: string, ~fn: Credential.credential => Promise.t<array<Domain.quotaData>>): Promise.t<array<Domain.quotaData>> => {
+  resolve(key)->Promise.then(opt =>
+    switch opt {
+    | None => Promise.resolve([])
+    | Some(c) => fn(c)
+    }
+  )
+}
