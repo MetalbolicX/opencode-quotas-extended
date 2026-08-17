@@ -183,7 +183,7 @@ let displayRows = (
   allData: array<quotaData>,
   userGroups: array<pipelineGroup>,
   defaultGroups: array<Aggregation.aggregationGroup>,
-  mergedGroups: array<Aggregation.aggregationGroup>,
+  _mergedGroups: array<Aggregation.aggregationGroup>,
   ettlMap: dict<float>,
   showUnaggregated: bool,
 ): array<quotaData> => {

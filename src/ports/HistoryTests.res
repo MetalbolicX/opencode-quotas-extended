@@ -24,10 +24,10 @@ let syncArray = (p: promise<array<'a>>): array<'a> => {
 test("makeNoop returns a valid historyStore", () => {
   let store = makeNoop()
   // historyStore must have all four spec-mandated methods
-  assertion(~message="has append", (a, b) => a == b, true, Js.typeof(store.append) == "function")
-  assertion(~message="has getHistory", (a, b) => a == b, true, Js.typeof(store.getHistory) == "function")
-  assertion(~message="has prune", (a, b) => a == b, true, Js.typeof(store.prune) == "function")
-  assertion(~message="has resetDetected", (a, b) => a == b, true, Js.typeof(store.resetDetected) == "function")
+  assertion(~message="has append", (a, b) => a == b, true, typeof(store.append) == #function)
+  assertion(~message="has getHistory", (a, b) => a == b, true, typeof(store.getHistory) == #function)
+  assertion(~message="has prune", (a, b) => a == b, true, typeof(store.prune) == #function)
+  assertion(~message="has resetDetected", (a, b) => a == b, true, typeof(store.resetDetected) == #function)
 })
 
 test("noop append resolves to unit (sync)", () => {
@@ -80,12 +80,12 @@ test("JsonFileHistory.make produces a store that satisfies the port", () => {
   }
   let store = JsonFileHistory.make(~debounceMs=1.0, "/tmp/test-hist.json", stubDeps)
   // Port contract: all four methods must be present
-  assertion(~message="JsonFileHistory store has append", (a, b) => a == b, true, Js.typeof(store.append) == "function")
-  assertion(~message="JsonFileHistory store has getHistory", (a, b) => a == b, true, Js.typeof(store.getHistory) == "function")
-  assertion(~message="JsonFileHistory store has prune", (a, b) => a == b, true, Js.typeof(store.prune) == "function")
-  assertion(~message="JsonFileHistory store has resetDetected", (a, b) => a == b, true, Js.typeof(store.resetDetected) == "function")
+  assertion(~message="JsonFileHistory store has append", (a, b) => a == b, true, typeof(store.append) == #function)
+  assertion(~message="JsonFileHistory store has getHistory", (a, b) => a == b, true, typeof(store.getHistory) == #function)
+  assertion(~message="JsonFileHistory store has prune", (a, b) => a == b, true, typeof(store.prune) == #function)
+  assertion(~message="JsonFileHistory store has resetDetected", (a, b) => a == b, true, typeof(store.resetDetected) == #function)
   // Extended interface: flushNow
-  assertion(~message="JsonFileHistory store has flushNow", (a, b) => a == b, true, Js.typeof(store.flushNow) == "function")
+  assertion(~message="JsonFileHistory store has flushNow", (a, b) => a == b, true, typeof(store.flushNow) == #function)
 })
 
 // ── historyPoint type identity ────────────────────────────────────────────────

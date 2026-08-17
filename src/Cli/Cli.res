@@ -5,7 +5,6 @@
 // Exit: 0 render success, 1 partial/diagnostic, 2 usage error.
 
 open ParseArgs
-open Infra
 open JsonFileHistory
 
 // ── Local types ───────────────────────────────────────────────────────────────
@@ -65,7 +64,7 @@ let convertProgressBar = (pb: ConfigLoader.progressBar): ReportPipeline.progress
 // ── Noop history store ───────────────────────────────────────────────────────
 
 // Deprecated: use makeDurableHistory instead for persistent quota history
-let makeNoopHistory = (): ReportPipeline.historyStore => {
+let _makeNoopHistory = (): ReportPipeline.historyStore => {
   let append = (_id: string, _point: historyPoint): Promise.t<unit> => Promise.resolve()
   let getHistory = (_id: string, _ms: float): Promise.t<array<historyPoint>> => Promise.resolve([])
   let prune = (_ms: float): Promise.t<unit> => Promise.resolve()
