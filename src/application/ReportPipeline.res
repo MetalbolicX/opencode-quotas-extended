@@ -103,6 +103,8 @@ type reportDeps = {
   historyStore: historyStore,
   config: reportDeps_config,
   logger: logger,
+  selectRenderer: (renderMode) => renderer,
+  createI18nTranslator: (unit) => translator,
 }
 
 type reportOptions = {
@@ -113,9 +115,6 @@ type reportOptions = {
   color: option<string>,
   now: option<float>,
 }
-
-let selectRenderer = Renderers.selectRenderer
-let createI18nTranslator = Translator.createI18nTranslator
 
 let reportQuotas = async (deps: reportDeps, opts: reportOptions): promise<reportResult> => {
   let providers = switch opts.providerId {
@@ -199,8 +198,8 @@ let reportQuotas = async (deps: reportDeps, opts: reportOptions): promise<report
       let result: reportResult = {rendered, errors}
       Promise.resolve(result)
     } else {
-      let translator = createI18nTranslator(Translator.enCatalog)
-      let renderer = selectRenderer(opts.mode)
+      let translator = deps.createI18nTranslator(())
+      let renderer = deps.selectRenderer(opts.mode)
 
       let rendered = renderer.render(
         filteredRows,
@@ -208,10 +207,10 @@ let reportQuotas = async (deps: reportDeps, opts: reportOptions): promise<report
           mode: opts.mode,
           color: opts.color,
           compact: opts.compact,
-          progressBar: (deps.config.progressBar :> option<Renderers.progressBarConfig>),
+          progressBar: deps.config.progressBar,
           terminalWidth: None,
           header: None,
-          t: (translator :> Renderers.translator),
+          t: translator,
         },
       )
 
