@@ -8,12 +8,8 @@ type deps = {
   now: unit => float,
 }
 
-type historyStore = {
-  append: (string, Domain.historyPoint) => promise<unit>,
-  getHistory: (string, float) => promise<array<Domain.historyPoint>>,
-  prune: float => promise<unit>,
-  resetDetected: (string, Domain.historyPoint, float, option<float>) => bool,
-}
+// Alias the canonical port type — single source of truth per design §2.
+type historyStore = Ports.historyStore
 
 type store = {
   ...historyStore,

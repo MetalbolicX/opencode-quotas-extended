@@ -12,14 +12,10 @@ type deps = {
 
 type fileShape = {history: dict<array<historyPoint>>}
 
-// historyStore mirrors the port shape (defined locally since History.resi is interface-only)
-type historyStore = {
-  append: (string, historyPoint) => promise<unit>,
-  getHistory: (string, float) => promise<array<historyPoint>>,
-  prune: float => promise<unit>,
-  resetDetected: (string, historyPoint, float, option<float>) => bool,
-}
+// Alias the canonical port type — single source of truth per design §2.
+type historyStore = Ports.historyStore
 
+// Concrete store: port contract + flushNow for synchronous write on exit
 type store = {
   ...historyStore,
   flushNow: unit => unit,
