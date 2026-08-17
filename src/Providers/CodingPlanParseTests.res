@@ -1,5 +1,5 @@
 // src/Providers/CodingPlanParseTests.res
-// Tests for CodingPlanParse module: parseUsage, parseZaiLimits, parseMonitorLimits, windowMap.
+// Tests for CodingPlanParse module: parseUsage, parseZaiLimits, parseMonitorLimits, parseKimiUsages, windowMap.
 
 open CodingPlanParse
 open RescriptTest
@@ -736,6 +736,116 @@ test("parseZaiLimits missing level field defaults to full-plan labels", () => {
     first(result).info,
     Some("Token quota #5"),
   )
+})
+
+// =============================================================================
+// parseKimiUsages tests — tier 1 (T1.2, T1.5, T1.6-part1, T1.10)
+// Ships: full parser; rolling-window fixture coverage lands in next commit.
+// =============================================================================
+
+// T1.2: summary-only payload → 1 row, id=kimi-weekly, window=#rollingWeekly
+test("parseKimiUsages summary-only yields 1 row with kimi-weekly id and rollingWeekly window", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("12.5")),
+      ("limit", JSON.String("100.0")),
+      ("resetTime", JSON.String("")),
+    ]))),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 1 row",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  let firstEntry = first(result)
+  assertion(~message="id should be kimi-weekly", (a, b) => a == b, firstEntry.id, "kimi-weekly")
+  assertion(~message="window should be rollingWeekly", (a, b) => a == b, firstEntry.window, #rollingWeekly)
+  assertion(
+    ~message="used should be parsed from decimal string",
+    (a, b) => a == b,
+    firstEntry.used,
+    12.5,
+  )
+  assertion(
+    ~message="limit should be Some(100.0)",
+    (a, b) => a == b,
+    firstEntry.limit,
+    Some(100.0),
+  )
+})
+
+// T1.5: malformed root → []
+test("parseKimiUsages malformed root (non-object) returns empty array", () => {
+  let result = parseKimiUsages(~json=JSON.Null, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return empty array for null",
+    (a, b) => a == b,
+    result->Array.length,
+    0,
+  )
+  let result2 = parseKimiUsages(~json=JSON.Array([]), ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return empty array for array",
+    (a, b) => a == b,
+    result2->Array.length,
+    0,
+  )
+})
+
+// T1.6 part 1: non-object row in limits array → skipped
+test("parseKimiUsages skips non-object rows in limits array", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.String("not an object"),
+      JSON.Number(42.0),
+      JSON.Null,
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 0 rows",
+    (a, b) => a == b,
+    result->Array.length,
+    0,
+  )
+})
+
+// T1.10: boosterWallet present at root does not affect output
+test("parseKimiUsages boosterWallet present at root does not affect output", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("5.0")),
+      ("limit", JSON.String("50.0")),
+      ("resetTime", JSON.String("")),
+    ]))),
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("2.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+    ("boosterWallet", JSON.Object(Dict.fromArray([
+      ("balance", JSON.String("999.0")),
+      ("type", JSON.String("Booster")),
+    ]))),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 2 rows (same as without boosterWallet)",
+    (a, b) => a == b,
+    result->Array.length,
+    2,
+  )
+  assertion(~message="First id should be kimi-weekly", (a, b) => a == b, Belt.Array.getExn(result, 0).id, "kimi-weekly")
+  assertion(~message="Second id should be kimi-5h", (a, b) => a == b, Belt.Array.getExn(result, 1).id, "kimi-5h")
 })
 
 // Run all tests
