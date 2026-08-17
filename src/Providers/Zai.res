@@ -6,20 +6,6 @@
 
 let usageUrl = "https://api.z.ai/api/monitor/usage/quota/limit"
 
-// Extracts Bearer token from Credential.credential
-let extractBearerToken = (cred: Credential.credential): string => {
-  switch cred {
-  | Credential.Api(c) => `Bearer ${c.key}`
-  | Credential.OAuth(c) => `Bearer ${c.access}`
-  | Credential.Wellknown(c) => `Bearer ${c.token}`
-  | Credential.Env(c) =>
-    switch Node.processEnv->Dict.get(c.envVar) {
-    | Some(v) => v
-    | None => ""
-    }
-  }
-}
-
 let createZaiProvider = (): Provider.quotaProvider => {
   id: "zai",
   displayName: "z.ai Coding Plan",
@@ -34,7 +20,7 @@ let createZaiProvider = (): Provider.quotaProvider => {
       switch opt {
       | None => Promise.resolve([])
       | Some(cred) =>
-        let authHeader = extractBearerToken(cred)
+        let authHeader = BearerToken.extract(cred)
         let http = FetchHttp.make(FetchHttp.noopLogger)
         let req: FetchHttp.httpRequest = {
           url: usageUrl,

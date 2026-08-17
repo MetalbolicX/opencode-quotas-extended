@@ -16,20 +16,6 @@ let buildRequest = (authHeader: string): FetchHttp.httpRequest => {
 
 let requestOptions: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
 
-// Extracts Bearer token from Credential.credential
-let extractBearerToken = (cred: Credential.credential): string => {
-  switch cred {
-  | Credential.Api(c) => `Bearer ${c.key}`
-  | Credential.OAuth(c) => `Bearer ${c.access}`
-  | Credential.Wellknown(c) => `Bearer ${c.token}`
-  | Credential.Env(c) =>
-    switch Node.processEnv->Dict.get(c.envVar) {
-    | Some(v) => v
-    | None => ""
-    }
-  }
-}
-
 let createKimiProvider = (): Provider.quotaProvider => {
   id: "kimi",
   displayName: "Kimi / Moonshot",
@@ -44,7 +30,7 @@ let createKimiProvider = (): Provider.quotaProvider => {
       switch opt {
       | None => Promise.resolve([])
       | Some(cred) =>
-        let authHeader = extractBearerToken(cred)
+        let authHeader = BearerToken.extract(cred)
         let http = FetchHttp.make(FetchHttp.noopLogger)
         http.request(buildRequest(authHeader), requestOptions)
         ->Promise.then(json => {
