@@ -103,6 +103,71 @@ test("parseUsage handles unlimited credits", () => {
   )
 })
 
+test("parseUsage treats unlimited=false as NOT unlimited — credits row is present", () => {
+  //unlimited field set to false must NOT suppress the credits row
+  let json = JSON.Object(Dict.fromArray([
+    ("windows", JSON.Array([])),
+    ("credits", JSON.Object(Dict.fromArray([
+      ("unlimited", JSON.Boolean(false)),
+      ("balance", JSON.Number(12.5)),
+    ]))),
+  ]))
+  let result = parseUsage(~json, ~idPrefix="zen", ~providerName="Zen")
+  assertion(
+    ~message="Credits row must be present when unlimited=false",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="Credits used value should be 12.5",
+    (a, b) => a == b,
+    first(result).used,
+    12.5,
+  )
+})
+
+test("parseUsage treats unlimited=true as unlimited — credits row absent", () => {
+  //explicit JSON true must suppress the credits row
+  let json = JSON.Object(Dict.fromArray([
+    ("windows", JSON.Array([])),
+    ("credits", JSON.Object(Dict.fromArray([
+      ("unlimited", JSON.Boolean(true)),
+      ("balance", JSON.Number(12.5)),
+    ]))),
+  ]))
+  let result = parseUsage(~json, ~idPrefix="zen", ~providerName="Zen")
+  assertion(
+    ~message="Credits row must be absent when unlimited=true",
+    (a, b) => a == b,
+    result->Array.length,
+    0,
+  )
+})
+
+test("parseUsage missing unlimited field — credits row IS present (regression guard)", () => {
+  //no unlimited field at all should fall through to None => false, credits row present
+  let json = JSON.Object(Dict.fromArray([
+    ("windows", JSON.Array([])),
+    ("credits", JSON.Object(Dict.fromArray([
+      ("balance", JSON.Number(12.5)),
+    ]))),
+  ]))
+  let result = parseUsage(~json, ~idPrefix="zen", ~providerName="Zen")
+  assertion(
+    ~message="Credits row must be present when unlimited field is absent",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="Credits used value should be 12.5",
+    (a, b) => a == b,
+    first(result).used,
+    12.5,
+  )
+})
+
 test("parseUsage handles malformed JSON (non-object)", () => {
   let result = parseUsage(~json=JSON.Null, ~idPrefix="zen", ~providerName="Zen")
   assertion(

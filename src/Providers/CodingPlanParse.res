@@ -157,13 +157,13 @@ let parseUsage = (
     // Handle credits
     switch credits {
     | Some(JSON.Object(cDict)) =>
-      // unlimited field: check if it's truthy
-      // In JSON, a truthy value means unlimited is set
+      // unlimited field: only an explicit JSON true means unlimited credits
+      // false, numbers, strings, null → NOT unlimited (credits row shown)
       let unlimited = switch Dict.get(cDict, "unlimited") {
       | Some(v) =>
-        // For JSON, we check if the value is explicitly true
         switch v {
-        | _ => true  // Any non-null value in the unlimited field means it's set
+        | JSON.Boolean(true) => true  // only explicit JSON true means unlimited
+        | _ => false                // any other value (false, number, string) is not unlimited
         }
       | None => false
       }
