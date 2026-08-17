@@ -30,9 +30,9 @@ sources → Bootstrap.res (CLI entry)
 
 OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini
 
-**Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary).
+**Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription).
 
-**Endpoints pending web scraping** (deferred, not implemented): opencode Zen, opencode Go, Kimi. These providers do not publish a public quota API; the maintainers deferred implementation because reliable quota data requires scraping the web console.
+**Endpoints pending web scraping** (deferred, not implemented): opencode Zen, opencode Go. These providers do not publish a public quota API; the maintainers deferred implementation because reliable quota data requires scraping the web console.
 
 **Endpoints live but credential-blocked**: Anthropic (admin-scope key required), Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
 
