@@ -5,11 +5,22 @@
 // Exit: 0 render success, 1 partial/diagnostic, 2 usage error.
 
 open ParseArgs
+open Infra
+open JsonFileHistory
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
 // historyPoint is already defined in ReportPipeline — reuse it via local alias
 type historyPoint = ReportPipeline.historyPoint
+
+// ── JsonFileHistory deps (Node.js built-ins) ───────────────────────────────────
+
+let historyDeps: JsonFileHistory.deps = {
+  readFileSync: Node.readFileSync,
+  writeFileSync: Node.writeFileSync,
+  existsSync: Node.existsSync,
+  now: () => Date.now(),
+}
 
 // ── USAGE ──────────────────────────────────────────────────────────────────────
 
@@ -38,8 +49,22 @@ let renderListTable = (providers: array<Provider.quotaProvider>): string => {
   [header, ...rows]->Array.join("\n")
 }
 
+// ── progressBar structural conversion (design §8) ──────────────────────────────
+// ConfigLoader.progressBar has all-required fields; ReportPipeline.progressBarConfig
+// has all-option fields wrapped in Some. Convert at the CLI boundary.
+let convertProgressBar = (pb: ConfigLoader.progressBar): ReportPipeline.progressBarConfig => {
+  {
+    width: Some(pb.width),
+    filledChar: Some(pb.filledChar),
+    emptyChar: Some(pb.emptyChar),
+    color: Some(pb.color),
+    gradients: Some(pb.gradients),
+  }
+}
+
 // ── Noop history store ───────────────────────────────────────────────────────
 
+// Deprecated: use makeDurableHistory instead for persistent quota history
 let makeNoopHistory = (): ReportPipeline.historyStore => {
   let append = (_id: string, _point: historyPoint): Promise.t<unit> => Promise.resolve()
   let getHistory = (_id: string, _ms: float): Promise.t<array<historyPoint>> => Promise.resolve([])
@@ -51,6 +76,15 @@ let makeNoopHistory = (): ReportPipeline.historyStore => {
     _limit: option<float>,
   ): bool => false
   {append, getHistory, prune, resetDetected}
+}
+
+// ── Durable history store ─────────────────────────────────────────────────────
+
+// Builds a durable JsonFileHistory store that persists to quota-history.json
+// flushNow() is called before CLI exit to ensure history is not lost.
+let makeDurableHistory = (): JsonFileHistory.store => {
+  let historyPath = Paths.getHistoryPath(~env=None)
+  JsonFileHistory.make(~debounceMs=5000.0, historyPath, historyDeps)
 }
 
 // ── Noop logger ───────────────────────────────────────────────────────────────
@@ -132,7 +166,7 @@ let runList = (_args: ParseArgs.parsedArgs): Promise.t<unit> => {
 let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): unit => {
   let reg = Registry.buildDefaultRegistry()
   let logger = makeReportPipelineLogger()
-  let historyStore = makeNoopHistory()
+  let historyStore = makeDurableHistory()
   // ReportPipeline.httpClient is declared but never used — pass a stub to satisfy the type
   let stubHttp: ReportPipeline.httpClient = {
     request: (_url, _opts) => Promise.resolve()
@@ -152,6 +186,13 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
         Node.processStderrWrite(`${msg}\n`)->ignore
         Node.processExit(1)
       } else {
+        // REQ-E-3-2: load .opencode/quotas.json via ConfigLoader with defaults fallback
+        let configPath = Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
+        let cfg = try {
+          ConfigLoader.loadConfig(~configPath, ())
+        } catch {
+        | _ => ConfigLoader.defaults
+        }
         // REQ-PP-1..5: run the full pipeline
         let deps: ReportPipeline.reportDeps = {
           credentialResolver: {
@@ -165,13 +206,13 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
           historyStore: (historyStore :> ReportPipeline.historyStore),
           config: {
             displayMode: args.mode,
-            disabled: [],
-            aggregatedGroups: Dict.make(),
-            historyMaxAgeHours: 24.0,
-            predictionWindowMinutes: 60.0,
-            predictionShortWindowMinutes: 5.0,
-            showUnaggregated: false,
-            progressBar: None,
+            disabled: cfg.disabled,
+            aggregatedGroups: (cfg.aggregatedGroups :> dict<ReportPipeline.userGroupConfig>),
+            historyMaxAgeHours: cfg.historyMaxAgeHours,
+            predictionWindowMinutes: cfg.predictionWindowMinutes,
+            predictionShortWindowMinutes: cfg.predictionShortWindowMinutes,
+            showUnaggregated: cfg.showUnaggregated,
+            progressBar: Some(convertProgressBar(cfg.progressBar)),
           },
           logger: (logger :> ReportPipeline.logger),
           selectRenderer: (Renderers.selectRenderer :> (Domain.renderMode) => ReportPipeline.renderer),
@@ -188,6 +229,8 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
         // runPipeline is async -> returns Promise.t<X>, calling it is Promise.t<Promise.t<X>>
         // so await await to fully unwrap
         let result = await await runPipeline(deps, opts)
+        // Flush history to disk before exit (durable store)
+        historyStore.flushNow()
         // Extract error outputs via pure functions (I/O stays here)
         let providerErr = ReportErrors.formatProviderErrors(result.errors)
         let fatalErr = ReportErrors.formatFatalError(result.errors)
