@@ -13,7 +13,7 @@ honor its STOP conditions, and update your row when done.
 | 002  | Fix unlimited-credits wildcard bug (strict TDD) | P1 | S | — | DONE |
 | 003  | Delete dead code in CodingPlanParse | P2 | S | 002 | DONE |
 | 004  | Shared provider vocabulary (BearerToken/JsonNum/ProviderFetch) | P1 | L | 002, 003 | DONE |
-| 005  | Split CodingPlanParse into Zen/Zai/Kimi submodules | P1 | M | 002, 003, 004 | TODO |
+| 005  | Split CodingPlanParse into Zen/Zai/Kimi submodules | P1 | M | 002, 003, 004 | DONE |
 | 006  | Renderers dedup + ConfigLoader split & missing-file warning | P2 | M | — | TODO |
 | 007  | Inject renderer/translator; extract CLI error formatting (DIP) | P2 | M | 006 | TODO |
 | 008  | ETTL / most_critical: wire (SDD) or remove | P3 | S/L | — | BLOCKED (operator decision A/B required) |
