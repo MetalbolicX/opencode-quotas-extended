@@ -51,52 +51,6 @@ let windowMap = (label: option<string>): windowType => {
 
 // --- parseZaiLimits -------------------------------------------------------------
 
-// Parses a limit entry from the limits array, extracting usage and limit values.
-// (Kept for internal use; not part of the public API.)
-let parseLimitEntry = (
-  acc: array<quotaData>,
-  entry: JSON.t,
-  idPrefix: string,
-  providerName: string,
-): array<quotaData> => {
-  switch entry {
-  | JSON.Object(dict) =>
-    let used = switch Dict.get(dict, "used") {
-    | Some(v) => toNum(v)
-    | None => None
-    }
-    let limit = switch Dict.get(dict, "limit") {
-    | Some(v) => toNum(v)
-    | None => None
-    }
-    let label = switch Dict.get(dict, "label") {
-    | Some(JSON.String(s)) => s
-    | _ => ""
-    }
-    let window = windowMap(Some(label))
-    let id = `${idPrefix}-${label->String.toLowerCase}`
-    let info = `${providerName} ${label}`
-    switch used {
-    | Some(u) =>
-      let newEntry: quotaData = {
-        id,
-        providerName: info,
-        used: u,
-        limit,
-        unit: "%",
-        reset: None,
-        window,
-        info: Some(info),
-        modelId: None,
-      }
-      Belt.Array.push(acc, newEntry)->ignore
-      acc
-    | None => acc
-    }
-  | _ => acc
-  }
-}
-
 // --- parseUsage -----------------------------------------------------------------
 
 // Main parser entry point. Handles windows array + credits object.

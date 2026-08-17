@@ -11,7 +11,7 @@ honor its STOP conditions, and update your row when done.
 |------|-------|----------|--------|------------|--------|
 | 001  | Kimi table: percent units + row labels | P1 | S | — | DONE |
 | 002  | Fix unlimited-credits wildcard bug (strict TDD) | P1 | S | — | DONE |
-| 003  | Delete dead code in CodingPlanParse | P2 | S | 002 | TODO |
+| 003  | Delete dead code in CodingPlanParse | P2 | S | 002 | DONE |
 | 004  | Shared provider vocabulary (BearerToken/JsonNum/ProviderFetch) | P1 | L | 002, 003 | TODO |
 | 005  | Split CodingPlanParse into Zen/Zai/Kimi submodules | P1 | M | 002, 003, 004 | TODO |
 | 006  | Renderers dedup + ConfigLoader split & missing-file warning | P2 | M | — | TODO |
@@ -63,3 +63,7 @@ present (renderers, aggregation) — no new patterns needed.
 - "OAuth.res is dead code": corrected — zero production importers BUT tested
   by OAuthTests.res (146 lines) + package.json script. Deletion is gated at
   the END of plan 004, after ProviderFetch demonstrably subsumes `withAuth`.
+- `windowRank` in CodingPlanParse.res: corrected — earlier audit verification
+  said it was dead (no callers); the executor of plan 003 found it IS called
+  by CodingPlanParseTests.res at lines 394-410 (4 tests). Kept; only
+  `parseLimitEntry` was deleted. Do not re-investigate.
