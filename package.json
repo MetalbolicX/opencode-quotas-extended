@@ -64,9 +64,9 @@
   },
   "devDependencies": {
     "@rescript/runtime": "12.3.0",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "rescript": "12.3.0",
     "rescript-test": "^8.0.1",
-    "rolldown": "^1.2.3"
+    "rolldown": "^1.2.4"
   }
 }
