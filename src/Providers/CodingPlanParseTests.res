@@ -1223,8 +1223,8 @@ test("parseKimiUsages invalid resetTime string yields None, row still present", 
   )
 })
 
-// T1.9: unit = "requests" for every row
-test("parseKimiUsages every row has unit requests", () => {
+// T1.9: unit = "%" and info labels for every row
+test("parseKimiUsages every row has unit percent and correct info label", () => {
   let json = JSON.Object(Dict.fromArray([
     ("usage", JSON.Object(Dict.fromArray([
       ("used", JSON.String("5.0")),
@@ -1252,16 +1252,28 @@ test("parseKimiUsages every row has unit requests", () => {
     2,
   )
   assertion(
-    ~message="First row unit should be requests",
+    ~message="First row unit should be percent",
     (a, b) => a == b,
     Belt.Array.getExn(result, 0).unit,
-    "requests",
+    "%",
   )
   assertion(
-    ~message="Second row unit should be requests",
+    ~message="Second row unit should be percent",
     (a, b) => a == b,
     Belt.Array.getExn(result, 1).unit,
-    "requests",
+    "%",
+  )
+  assertion(
+    ~message="First row info label should be Kimi weekly usage",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 0).info,
+    Some("Kimi weekly usage"),
+  )
+  assertion(
+    ~message="Second row info label should be Kimi 5h rolling limit",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 1).info,
+    Some("Kimi 5h rolling limit"),
   )
 })
 

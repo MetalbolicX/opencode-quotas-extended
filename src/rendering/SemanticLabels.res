@@ -16,6 +16,8 @@ type quotaConcept =
   | @as("openai-credits") OpenaiCredits
   | @as("openai-token-usage") OpenaiTokenUsage
   | @as("gemini-model-quota") GeminiModelQuota
+  | @as("kimi-weekly-usage") KimiWeeklyUsage
+  | @as("kimi-5h-rolling") Kimi5hRolling
 
 type providerPayloadHints = {
   type_: option<string>,
@@ -47,6 +49,8 @@ let labelMap: dict<string> = Dict.fromArray([
   ("openai-credits", "Credit balance"),
   ("openai-token-usage", "Token usage"),
   ("gemini-model-quota", "Model quota"),
+  ("kimi-weekly-usage", "Kimi weekly usage"),
+  ("kimi-5h-rolling", "Kimi 5h rolling limit"),
 ])
 
 let getLabel = (concept: string): string => {
@@ -67,60 +71,70 @@ let enrichQuotaLabel = (_providerId: string, hints: providerPayloadHints): enric
   let openaiVariant = hints.openaiVariant
   let geminiModel = hints.geminiModel
 
-  // z.ai TIME_LIMIT — unit branching
-  switch type_ {
-  | Some("TIME_LIMIT") =>
-    switch unit {
-    | Some("5") => {label: getLabel("z.ai-5-hour-rolling"), concept: ZAi5HourRolling}
-    | Some("weekly") => {label: getLabel("z.ai-weekly-rolling"), concept: ZAiWeeklyRolling}
-    | Some(u) =>
-      let unitVal = Float.fromString(u)
-      switch unitVal {
-      | Some(v) if v >= 168.0 => {label: getLabel("z.ai-weekly-rolling"), concept: ZAiWeeklyRolling}
-      | _ =>
+  // kimi concepts — use providerId guard; weekly hint distinguishes weekly vs 5h
+  switch _providerId {
+  | "kimi" =>
+    switch weekly {
+    | Some(true) => {label: getLabel("kimi-weekly-usage"), concept: KimiWeeklyUsage}
+    | Some(false) | None => {label: getLabel("kimi-5h-rolling"), concept: Kimi5hRolling}
+    }
+  | _ => {
+    // z.ai TIME_LIMIT — unit branching
+    switch type_ {
+    | Some("TIME_LIMIT") =>
+      switch unit {
+      | Some("5") => {label: getLabel("z.ai-5-hour-rolling"), concept: ZAi5HourRolling}
+      | Some("weekly") => {label: getLabel("z.ai-weekly-rolling"), concept: ZAiWeeklyRolling}
+      | Some(u) =>
+        let unitVal = Float.fromString(u)
+        switch unitVal {
+        | Some(v) if v >= 168.0 => {label: getLabel("z.ai-weekly-rolling"), concept: ZAiWeeklyRolling}
+        | _ =>
+          let concept: quotaConcept = ZAiGenericRolling
+          let label = `${u}-hour rolling limit`
+          {label, concept}
+        }
+      | None =>
         let concept: quotaConcept = ZAiGenericRolling
-        let label = `${u}-hour rolling limit`
+        let label = "?-hour rolling limit"
         {label, concept}
       }
-    | None =>
-      let concept: quotaConcept = ZAiGenericRolling
-      let label = "?-hour rolling limit"
-      {label, concept}
-    }
-  | Some("MCP_LIMIT") => {label: getLabel("z.ai-mcp"), concept: ZAiMcp}
-  | Some("TOKENS_LIMIT") =>
-    let base = getLabel("z.ai-token")
-    let discriminator = switch number {
-    | Some(n) => ` #${Belt.Float.toString(n)}`
-    | None => ""
-    }
-    {label: `${base}${discriminator}`, concept: ZAiToken}
-  | _ =>
-    // minimax concepts — weekly wins
-    switch weekly {
-    | Some(true) => {label: getLabel("minimax-weekly-request"), concept: MinimaxWeeklyRequest}
+    | Some("MCP_LIMIT") => {label: getLabel("z.ai-mcp"), concept: ZAiMcp}
+    | Some("TOKENS_LIMIT") =>
+      let base = getLabel("z.ai-token")
+      let discriminator = switch number {
+      | Some(n) => ` #${Belt.Float.toString(n)}`
+      | None => ""
+      }
+      {label: `${base}${discriminator}`, concept: ZAiToken}
     | _ =>
-      switch modelName {
-      | Some("general") => {label: getLabel("minimax-5h-window"), concept: Minimax5hWindow}
-      | Some("video") => {label: getLabel("minimax-video"), concept: MinimaxVideo}
-      | Some(_) => {label: getLabel("minimax-daily-request"), concept: MinimaxDailyRequest}
-      | None =>
-        switch openaiVariant {
-        | Some("primary") => {label: getLabel("openai-primary-rate"), concept: OpenaiPrimaryRate}
-        | Some("secondary") => {
-            label: getLabel("openai-secondary-rate"),
-            concept: OpenaiSecondaryRate,
-          }
-        | Some("credits") => {label: getLabel("openai-credits"), concept: OpenaiCredits}
-        | Some("api") => {label: getLabel("openai-token-usage"), concept: OpenaiTokenUsage}
-        | Some(_) | None =>
-          switch geminiModel {
-          | Some(_) => {label: getLabel("gemini-model-quota"), concept: GeminiModelQuota}
-          | None => // Fallback — return token usage concept to avoid empty strings
-            {label: getLabel("openai-token-usage"), concept: OpenaiTokenUsage}
+      // minimax concepts — weekly wins
+      switch weekly {
+      | Some(true) => {label: getLabel("minimax-weekly-request"), concept: MinimaxWeeklyRequest}
+      | _ =>
+        switch modelName {
+        | Some("general") => {label: getLabel("minimax-5h-window"), concept: Minimax5hWindow}
+        | Some("video") => {label: getLabel("minimax-video"), concept: MinimaxVideo}
+        | Some(_) => {label: getLabel("minimax-daily-request"), concept: MinimaxDailyRequest}
+        | None =>
+          switch openaiVariant {
+          | Some("primary") => {label: getLabel("openai-primary-rate"), concept: OpenaiPrimaryRate}
+          | Some("secondary") => {
+              label: getLabel("openai-secondary-rate"),
+              concept: OpenaiSecondaryRate,
+            }
+          | Some("credits") => {label: getLabel("openai-credits"), concept: OpenaiCredits}
+          | Some("api") => {label: getLabel("openai-token-usage"), concept: OpenaiTokenUsage}
+          | Some(_) | None =>
+            switch geminiModel {
+            | Some(_) => {label: getLabel("gemini-model-quota"), concept: GeminiModelQuota}
+            | None => // Fallback — return token usage concept to avoid empty strings
+              {label: getLabel("openai-token-usage"), concept: OpenaiTokenUsage}
+            }
           }
         }
       }
+    }
     }
   }
 }
@@ -146,6 +160,8 @@ let buildProviderName = (
   | OpenaiCredits => "openai-credits"
   | OpenaiTokenUsage => "openai-token-usage"
   | GeminiModelQuota => "gemini-model-quota"
+  | KimiWeeklyUsage => "kimi-weekly-usage"
+  | Kimi5hRolling => "kimi-5h-rolling"
   }
   let label = switch labelOverride {
   | Some(ov) => ov

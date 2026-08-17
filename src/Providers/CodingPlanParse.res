@@ -490,15 +490,24 @@ let summaryToQuota = (
     | Some(uv) => uv
     | None => 0.0
     }
+    let concept = SemanticLabels.enrichQuotaLabel(idPrefix, {
+      type_: None,
+      unit: None,
+      number: None,
+      modelName: None,
+      weekly: Some(true),
+      openaiVariant: None,
+      geminiModel: None,
+    })
     Some({
       id: `${idPrefix}-weekly`,
       providerName,
       used: effectiveUsed,
       limit: l,
-      unit: "requests",
+      unit: "%",
       reset: parseIsoReset(d, "resetTime"),
       window: #rollingWeekly,
-      info: None,
+      info: Some(concept.label),
       modelId: None,
     })
   }
@@ -545,15 +554,24 @@ let limitRowToQuota = (
           | Some(uv) => uv
           | None => 0.0
           }
+          let concept = SemanticLabels.enrichQuotaLabel(idPrefix, {
+            type_: None,
+            unit: None,
+            number: None,
+            modelName: None,
+            weekly: Some(false),
+            openaiVariant: None,
+            geminiModel: None,
+          })
           Some({
             id,
             providerName,
             used: effectiveUsed,
             limit: l,
-            unit: "requests",
+            unit: "%",
             reset: parseIsoReset(detailDict, "resetTime"),
             window,
-            info: None,
+            info: Some(concept.label),
             modelId: None,
           })
         | None => None
