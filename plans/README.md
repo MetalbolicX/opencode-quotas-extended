@@ -10,6 +10,7 @@ before starting, honor its STOP conditions, and update your row when done.
 |------|-------|----------|--------|------------|--------|
 | 001  | Kimi table: percent units + row labels | P1 | S | — | DONE |
 | 006  | Clean up Renderers duplication and ConfigLoader structure | P2 | M | — | DONE |
+| 007  | Finish hexagonal boundary — inject renderer/translator, slim CLI | P2 | M | 006 | DONE |
 
 ## Dependency notes
 
