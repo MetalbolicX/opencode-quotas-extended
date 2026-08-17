@@ -218,8 +218,6 @@ let depsRef: ref<deps> = ref({
 let readConfigFile = (configPath: string): option<JSON.t> => {
   let { existsSync, readFileSync } = depsRef.contents
   if !existsSync(configPath) {
-    let { warnFn } = depsRef.contents
-    warnFn(`Config file not found, using defaults: ${configPath}`)
     None
   } else {
     Some(
