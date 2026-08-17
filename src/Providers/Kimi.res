@@ -1,10 +1,20 @@
 // src/Providers/Kimi.res
-// Kimi / Moonshot provider.
-// Endpoint: https://api.moonshot.cn/api/usage/quota (placeholder — no public quota API).
+// Kimi / Moonshot provider — subscription usage API.
+// Endpoint: https://api.kimi.com/coding/v1/usages
 
 // -----------------------------------------------------------------------------
 
-let usageUrl = "https://api.moonshot.cn/api/usage/quota"
+let usageUrl = "https://api.kimi.com/coding/v1/usages"
+
+// T2.1 — pure request seam for testability (REQ-K-5 s1)
+let buildRequest = (authHeader: string): FetchHttp.httpRequest => {
+  url: usageUrl,
+  method: #get,
+  headers: Some(Dict.fromArray([("Authorization", authHeader), ("Accept", "application/json")])),
+  body: None,
+}
+
+let requestOptions: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
 
 // Extracts Bearer token from Credential.credential
 let extractBearerToken = (cred: Credential.credential): string => {
@@ -26,29 +36,22 @@ let createKimiProvider = (): Provider.quotaProvider => {
   category: "coding-plan",
   authStrategy: #oauth,
   isAvailable: () =>
-    CredentialResolver.resolve("kimi-for-coding")->Promise.then(opt =>
+    CredentialResolver.resolve("kimi")->Promise.then(opt =>
       Promise.resolve(Belt.Option.isSome(opt))
     ),
   fetchQuotas: () =>
-    CredentialResolver.resolve("kimi-for-coding")->Promise.then(opt => {
+    CredentialResolver.resolve("kimi")->Promise.then(opt => {
       switch opt {
       | None => Promise.resolve([])
       | Some(cred) =>
         let authHeader = extractBearerToken(cred)
         let http = FetchHttp.make(FetchHttp.noopLogger)
-        let req: FetchHttp.httpRequest = {
-          url: usageUrl,
-          method: #get,
-          headers: Some(Dict.fromArray([("Authorization", authHeader)])),
-          body: None,
-        }
-        let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
-        http.request(req, opts)
+        http.request(buildRequest(authHeader), requestOptions)
         ->Promise.then(json => {
-          Promise.resolve(CodingPlanParse.parseMonitorLimits(
+          Promise.resolve(CodingPlanParse.parseKimiUsages(
             ~json,
             ~idPrefix="kimi",
-            ~providerName="Kimi"
+            ~providerName="Kimi / Moonshot"
           ))
         })
       }
