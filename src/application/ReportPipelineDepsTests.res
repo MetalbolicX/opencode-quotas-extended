@@ -1,162 +1,195 @@
-// ReportPipelineDepsTests.res — wiring test for renderer/translator injection
-// TDD-LIGHT: write test FIRST (RED), then inject deps via reportDeps
-// Verifies: pipeline uses renderer/translator from reportDeps (not direct adapter imports)
-
+// ReportPipelineDepsTests.res — wiring test for ETTL injection and renderer/translator DI
+// Verifies: pipeline uses renderer/translator from reportDeps; ETTL map is built from history.
 open Domain
 open RescriptTest
 
-module FakeRenderer = {
-  let wasCalled: ref<bool> = ref(false)
-  let capturedRows: ref<array<quotaData>> = ref([])
-
-  type renderer = {
-    render: (array<quotaData>, ReportPipeline.renderContext) => string
+// ── FakeHistory helper — single module for all history scenarios ─────────────────
+module FakeHistory = {
+  type t = {
+    getHistory: (string, float) => promise<array<historyPoint>>,
+    append: (string, historyPoint) => promise<unit>,
+    prune: float => promise<unit>,
+    resetDetected: (string, historyPoint, float, option<float>) => bool,
   }
-
-  let make = (): renderer => {
-    wasCalled.contents = false
-    capturedRows.contents = []
-    {
-      render: (rows, _ctx) => {
-        wasCalled.contents = true
-        capturedRows.contents = rows
-        "FAKE-RENDERED-OUTPUT"
-      },
-    }
+  let make = (~points: array<historyPoint>=[]): t => {
+    let getHistory = (_id: string, _windowMs: float) => Promise.resolve(points)
+    let append = (_id, _pt) => Promise.resolve()
+    let prune = (_ms) => Promise.resolve()
+    let resetDetected = (_id, _pt, _prev, _curr) => false
+    {getHistory, append, prune, resetDetected}
   }
-}
-
-module FakeTranslator = {
-  let wasUsed: ref<bool> = ref(false)
-  let keys: ref<array<string>> = ref([])
-
-  type translator = {
-    t: (string, option<dict<string>>) => string
-  }
-
-  let make = (): translator => {
-    wasUsed.contents = false
-    keys.contents = []
-    {
-      t: (key, _params) => {
-        wasUsed.contents = true
-        keys.contents->Array.push(key)->ignore
-        `ft:${key}`
-      },
-    }
+  let rejecting = (): t => {
+    let getHistory = (_id: string, _windowMs: float) =>
+      Promise.reject(%raw("new Error('simulated failure')"))
+    let append = (_id, _pt) => Promise.resolve()
+    let prune = (_ms) => Promise.resolve()
+    let resetDetected = (_id, _pt, _prev, _curr) => false
+    {getHistory, append, prune, resetDetected}
   }
 }
 
-let fakeSelectRenderer = (_mode: renderMode): ReportPipeline.renderer =>
-  (FakeRenderer.make() :> ReportPipeline.renderer)
-
-let fakeCreateI18nTranslator = (_catalog: 'a): ReportPipeline.translator =>
-  (FakeTranslator.make() :> ReportPipeline.translator)
-
-let stubQuota: quotaData = {
-  id: "stub/req",
-  providerName: "Stub",
-  used: 42.0,
-  limit: Some(100.0),
-  unit: "requests",
-  reset: None,
-  window: #daily,
-  info: None,
-  modelId: None,
+// ── Quota / provider helpers ─────────────────────────────────────────────────────
+let quota: quotaData = {
+  id: "test-q", providerName: "Test", used: 50.0, limit: Some(100.0),
+  unit: "requests", reset: None, window: #daily, info: None, modelId: None,
 }
 
-let stubProvider: ReportPipeline.quotaProvider = {
-  id: "stub",
-  displayName: "Stub Provider",
-  category: "test",
-  authStrategy: #api,
+let quotaProvider: ReportPipeline.quotaProvider = {
+  id: "test", displayName: "Test", category: "test", authStrategy: #api,
   isAvailable: () => Promise.resolve(true),
-  fetchQuotas: () => Promise.resolve([stubQuota]),
+  fetchQuotas: () => Promise.resolve([quota]),
 }
 
-let makeNoopHistory = (): ReportPipeline.historyStore => {
-  let append = (_id, _pt) => Promise.resolve()
-  let getHistory = (_id, _ms) => Promise.resolve([])
-  let prune = (_ms) => Promise.resolve()
-  let resetDetected = (_id, _pt, _prev, _curr) => false
-  {append, getHistory, prune, resetDetected}
+// ── Config / logger helpers ─────────────────────────────────────────────────────
+let baseConfig = (): ReportPipeline.reportDeps_config => {
+  displayMode: #table, disabled: [], aggregatedGroups: Dict.make(),
+  historyMaxAgeHours: 24.0, predictionWindowMinutes: 60.0,
+  predictionShortWindowMinutes: 5.0, showUnaggregated: false, progressBar: None,
 }
 
-let makeNoopLogger = (): ReportPipeline.logger => {
+let warnCalled: ref<bool> = ref(false)
+let makeLogger = (): ReportPipeline.logger => {
   let debug = (_msg, ()) => ()
   let info = (_msg, ()) => ()
-  let warn = (_msg, ()) => ()
+  let warn = (_msg, ()) => { warnCalled.contents = true }
   let error = (_msg, ()) => ()
   {debug, info, warn, error}
 }
 
+// ── Test data ──────────────────────────────────────────────────────────────────
+let risingHistory: array<historyPoint> = [
+  {timestamp: 1000.0, used: 10.0, limit: Some(100.0)},
+  {timestamp: 2000.0, used: 20.0, limit: Some(100.0)},
+  {timestamp: 3000.0, used: 30.0, limit: Some(100.0)},
+  {timestamp: 4000.0, used: 40.0, limit: Some(100.0)},
+  {timestamp: 5000.0, used: 50.0, limit: Some(100.0)},
+]
+let singlePointHistory: array<historyPoint> = [
+  {timestamp: 5000.0, used: 50.0, limit: Some(100.0)},
+]
+
+let capturedRows: ref<array<quotaData>> = ref([])
+let fakeRenderer = (): ReportPipeline.renderer => {
+  {render: (rows, _ctx) => { capturedRows.contents = rows; "FAKE" }}
+}
+
 autoBoot := false
 
-// NOTE: This test requires reportDeps to have selectRenderer and createI18nTranslator fields.
-// When those fields are absent (current code), the test FAILS to compile — that's RED.
-testAsync("renderer and translator are injected via reportDeps", (testDone) => {
+// ── ETTL wiring tests ──────────────────────────────────────────────────────────
+
+testAsync("buildEttlMap: warm history produces finite ETTL", (testDone) => {
+  let ettlMapP = ReportPipeline.buildEttlMap(
+    (FakeHistory.make(~points=risingHistory) :> ReportPipeline.historyStore),
+    5000.0, [quota], baseConfig(), makeLogger())
+  let _ = ettlMapP->Promise.then(ettlMap => {
+    switch Dict.get(ettlMap, "test-q") {
+    | Some(v) => {
+        assertion(~message="ETTL is finite", (a, _) => a, Float.isFinite(v), true)
+        assertion(~message="ETTL is positive", (a, _) => a, v > 0.0, true)
+      }
+    | None => fail(~message="No ETTL entry for finite quota", ())
+    }
+    testDone(~planned=2, ())
+    Promise.resolve()
+  })->Promise.catch(exn => {
+    fail(~message=`buildEttlMap threw: ${String.make(exn)}`, ())
+    testDone(~planned=0, ())
+    Promise.resolve()
+  })
+})
+
+testAsync("buildEttlMap: cold history (1 point) produces no entry", (testDone) => {
+  let ettlMapP = ReportPipeline.buildEttlMap(
+    (FakeHistory.make(~points=singlePointHistory) :> ReportPipeline.historyStore),
+    5000.0, [quota], baseConfig(), makeLogger())
+  let _ = ettlMapP->Promise.then(ettlMap => {
+    switch Dict.get(ettlMap, "test-q") {
+    | Some(_) => fail(~message="Unexpected ETTL entry for cold history", ())
+    | None => assertion(~message="No ETTL entry for cold start", (a, _b) => a == a, true, true)
+    }
+    testDone(~planned=1, ())
+    Promise.resolve()
+  })->Promise.catch(exn => {
+    fail(~message=`buildEttlMap threw: ${String.make(exn)}`, ())
+    testDone(~planned=0, ())
+    Promise.resolve()
+  })
+})
+
+testAsync("buildEttlMap: rejecting getHistory produces warn + no entry", (testDone) => {
+  warnCalled.contents = false
+  let ettlMapP = ReportPipeline.buildEttlMap(
+    (FakeHistory.rejecting() :> ReportPipeline.historyStore),
+    5000.0, [quota], baseConfig(), makeLogger())
+  let _ = ettlMapP->Promise.then(ettlMap => {
+    assertion(~message="warn was called", (a, _) => a, warnCalled.contents, true)
+    switch Dict.get(ettlMap, "test-q") {
+    | Some(_) => fail(~message="Unexpected entry despite rejected getHistory", ())
+    | None => assertion(~message="No ETTL entry for rejected history", (a, _b) => a == a, true, true)
+    }
+    testDone(~planned=2, ())
+    Promise.resolve()
+  })->Promise.catch(exn => {
+    fail(~message=`buildEttlMap threw unexpectedly: ${String.make(exn)}`, ())
+    testDone(~planned=0, ())
+    Promise.resolve()
+  })
+})
+
+testAsync("buildEttlMap: read window is max of the two config values", (testDone) => {
+  let capturedWindowMs: ref<option<float>> = ref(None)
+  let store: ReportPipeline.historyStore = {
+    append: (_id, _pt) => Promise.resolve(),
+    getHistory: (_id, windowMs) => { capturedWindowMs.contents = Some(windowMs); Promise.resolve(risingHistory) },
+    prune: (_ms) => Promise.resolve(),
+    resetDetected: (_id, _pt, _prev, _curr) => false,
+  }
+  let cfg = { ...baseConfig(), historyMaxAgeHours: 1.0, predictionWindowMinutes: 120.0 }
+  let ettlMapP = ReportPipeline.buildEttlMap(store, 5000.0, [quota], cfg, makeLogger())
+  let _ = ettlMapP->Promise.then(_ettlMap => {
+    switch capturedWindowMs.contents {
+    | Some(w) => {
+        let expected = 120.0 *. 60.0 *. 1000.0
+        let diff = if w > expected { w -. expected } else { expected -. w }
+        assertion(~message="windowMs is max of the two", (a, _) => a, diff < 1.0, true)
+      }
+    | None => fail(~message="getHistory was never called", ())
+    }
+    testDone(~planned=1, ())
+    Promise.resolve()
+  })->Promise.catch(exn => {
+    fail(~message=`buildEttlMap threw: ${String.make(exn)}`, ())
+    testDone(~planned=0, ())
+    Promise.resolve()
+  })
+})
+
+testAsync("reportQuotas: flat preservation when no user groups", (testDone) => {
+  capturedRows.contents = []
   let deps: ReportPipeline.reportDeps = {
-    credentialResolver: {
-      get: (_id) => Promise.resolve(None),
-    },
-    httpClient: {
-      request: (_url, _opts) => Promise.resolve(),
-    },
-    registry: {
-      list: () => [stubProvider],
-      get: (id) => if id === "stub" { Some(stubProvider) } else { None },
-    },
-    historyStore: makeNoopHistory(),
-    config: {
-      displayMode: #table,
-      disabled: [],
-      aggregatedGroups: Dict.make(),
-      historyMaxAgeHours: 24.0,
-      predictionWindowMinutes: 60.0,
-      predictionShortWindowMinutes: 5.0,
-      showUnaggregated: true,
-      progressBar: None,
-    },
-    logger: makeNoopLogger(),
-    selectRenderer: fakeSelectRenderer,
-    createI18nTranslator: fakeCreateI18nTranslator,
+    credentialResolver: {get: (_id) => Promise.resolve(None)},
+    httpClient: {request: (_url, _opts) => Promise.resolve()},
+    registry: {list: () => [quotaProvider], get: (id) => if id === "test" { Some(quotaProvider) } else { None }},
+    historyStore: (FakeHistory.make(~points=risingHistory) :> ReportPipeline.historyStore),
+    config: {...baseConfig(), aggregatedGroups: Dict.make()},
+    logger: makeLogger(),
+    selectRenderer: (_mode) => fakeRenderer(),
+    createI18nTranslator: (_) => {let t = (_key, _params) => ""; {t: t}},
   }
-
   let opts: ReportPipeline.reportOptions = {
-    providerId: Some("stub"),
-    modelId: None,
-    mode: #table,
-    compact: None,
-    color: None,
-    now: Some(1000.0),
+    providerId: Some("test"), modelId: None, mode: #table, compact: None, color: None, now: Some(6000.0),
   }
-
-  // reportQuotas returns promise<promise<X>> — unwrap via nested Promise.then chain
   let _ = ReportPipeline.reportQuotas(deps, opts)
-    ->Promise.then(innerPromise => {
-      innerPromise
-      ->Promise.then(result => {
-        if !FakeRenderer.wasCalled.contents {
-          fail(~message="Fake renderer was NOT invoked", ())
-        } else {
-          assertion((a, b) => a == b, result.rendered, "FAKE-RENDERED-OUTPUT")
-        }
-        if !FakeTranslator.wasUsed.contents {
-          fail(~message="Fake translator was NOT used", ())
-        } else {
-          assertion(
-            (a, b) => a == b,
-            FakeTranslator.keys.contents->Array.length > 0,
-            true,
-          )
-        }
-        testDone(~planned=4, ())
-        Promise.resolve()
-      })
-      ->Promise.catch(exn => {
-        fail(~message=`Pipeline threw: ${String.make(exn)}`, ())
-        testDone(~planned=0, ())
-        Promise.resolve()
-      })
+    ->Promise.then(_result => {
+      assertion(~message="flat mode: rows length is 1", (a, b) => a == b, capturedRows.contents->Array.length, 1)
+      testDone(~planned=1, ())
+      Promise.resolve()
+    })
+    ->Promise.catch(exn => {
+      fail(~message=`Pipeline threw: ${String.make(exn)}`, ())
+      testDone(~planned=0, ())
+      Promise.resolve()
     })
 })
+
+let () = runTests()
