@@ -213,54 +213,65 @@ let depsRef: ref<deps> = ref({
   warnFn: warnFnDefault,
 })
 
-let loadConfig = (
-  ~configPath: string,
-  ~_logger: option<logger>=?,
-  (),
-): quotasConfig => {
-  let { existsSync, warnFn } = depsRef.contents
-
+// ─── readConfigFile ────────────────────────────────────────────────────────────
+// Reads the config file and parses JSON. Returns Some(raw) or None if absent.
+let readConfigFile = (configPath: string): option<JSON.t> => {
+  let { existsSync, readFileSync } = depsRef.contents
   if !existsSync(configPath) {
-    defaults
+    let { warnFn } = depsRef.contents
+    warnFn(`Config file not found, using defaults: ${configPath}`)
+    None
   } else {
-    let raw: JSON.t = try {
-      JSON.parseOrThrow(depsRef.contents.readFileSync(configPath))
-    } catch {
-    | _exn => raiseValidationError(`Failed to read config file: ${configPath}: parse error`)
+    Some(
+      try {
+        JSON.parseOrThrow(readFileSync(configPath))
+      } catch {
+      | _exn => raiseValidationError(`Failed to read config file: ${configPath}: parse error`)
+      },
+    )
+  }
+}
+
+// ─── validateConfig ───────────────────────────────────────────────────────────
+// Runs AJV validation; throws ConfigValidationError on invalid.
+let validateConfig = (raw: JSON.t): unit => {
+  let validate = _getValidate()
+  let valid = validate(raw)
+  if !valid {
+    let errMsg = switch validatorErrors(validate) {
+    | Some(errs) =>
+      errs->Array.map(e => {
+        let msg = switch e.message {
+        | Some(m) => m
+        | None => "unknown"
+        }
+        `${e.instancePath} ${msg}`
+      })->Array.joinUnsafe("; ")
+    | None => "unknown error"
     }
-    let validate = _getValidate()
-    let valid = validate(raw)
-    if !valid {
-      let errMsg = switch validatorErrors(validate) {
-      | Some(errs) =>
-        errs->Array.map(e => {
-          let msg = switch e.message {
-          | Some(m) => m
-          | None => "unknown"
-          }
-          `${e.instancePath} ${msg}`
-        })->Array.joinUnsafe("; ")
-      | None => "unknown error"
-      }
-      raiseValidationError(`Invalid quotas config: ${errMsg}`)
-    }
-    let partial = coerceToPartial(raw)
-    let _ = switch partial.show {
-    | Some(_) =>
-      warnFn(`config field 'show' is deprecated and ignored`)
-    | None => ()
-    }
-    let _ = switch partial.pollingInterval {
-    | Some(_) =>
-      warnFn(`config field 'pollingInterval' is deprecated and ignored`)
-    | None => ()
-    }
-    let _ = switch Dict.get(_objDict(raw), "footer") {
-    | Some(_) => warnFn(`config field 'footer' is deprecated and ignored`)
-    | None => ()
-    }
-    let mergedPb = switch partial.progressBar {
-    | Some(pb) =>
+    raiseValidationError(`Invalid quotas config: ${errMsg}`)
+  }
+}
+
+// ─── mergeConfig ─────────────────────────────────────────────────────────────
+// Merges validated raw JSON with defaults. Runs deprecation warnings.
+let mergeConfig = (raw: JSON.t): quotasConfig => {
+  let partial = coerceToPartial(raw)
+  let { warnFn } = depsRef.contents
+  let _ = switch partial.show {
+  | Some(_) => warnFn(`config field 'show' is deprecated and ignored`)
+  | None => ()
+  }
+  let _ = switch partial.pollingInterval {
+  | Some(_) => warnFn(`config field 'pollingInterval' is deprecated and ignored`)
+  | None => ()
+  }
+  let _ = switch Dict.get(_objDict(raw), "footer") {
+  | Some(_) => warnFn(`config field 'footer' is deprecated and ignored`)
+  | None => ()
+  }
+  let mergedPb = switch partial.progressBar {
+  | Some(pb) => {
       let w = switch pb.width {
       | Some(v) => v
       | None => defaults.progressBar.width
@@ -281,33 +292,27 @@ let loadConfig = (
       | Some(v) => v
       | None => defaults.progressBar.gradients
       }
-      ({
-        width: w,
-        filledChar: fc,
-        emptyChar: ec,
-        color: col,
-        gradients: gr,
-      }: progressBar)
-    | None => defaults.progressBar
+      ({width: w, filledChar: fc, emptyChar: ec, color: col, gradients: gr}: progressBar)
     }
-    {
-      displayMode: switch partial.displayMode {
-      | Some("json") => #json
-      | Some("markdown") => #markdown
-      | _ => #table
-      },
-      disabled: switch partial.disabled {
-      | Some(a) => a
-      | None => defaults.disabled
-      },
-      aggregatedGroups: {
-        // Decode aggregatedGroups using typed JSON decoders
-        let groupsOpt = switch Dict.get(_objDict(raw), "aggregatedGroups") {
-        | Some(JSON.Object(g)) => Some(g)
-        | _ => None
-        }
-        switch groupsOpt {
-        | Some(g) =>
+  | None => defaults.progressBar
+  }
+  {
+    displayMode: switch partial.displayMode {
+    | Some("json") => #json
+    | Some("markdown") => #markdown
+    | _ => #table
+    },
+    disabled: switch partial.disabled {
+    | Some(a) => a
+    | None => defaults.disabled
+    },
+    aggregatedGroups: {
+      let groupsOpt = switch Dict.get(_objDict(raw), "aggregatedGroups") {
+      | Some(JSON.Object(g)) => Some(g)
+      | _ => None
+      }
+      switch groupsOpt {
+      | Some(g) => {
           let result: dict<aggregationGroup> = Dict.make()
           let groupKeys = Dict.keysToArray(g)
           let _ = groupKeys->Array.forEach(key => {
@@ -330,35 +335,49 @@ let loadConfig = (
             let _ = Dict.set(result, key, {strategy, members})
           })
           result
-        | None => defaults.aggregatedGroups
         }
-      },
-      historyMaxAgeHours: switch partial.historyMaxAgeHours {
-      | Some(h) => h
-      | None => defaults.historyMaxAgeHours
-      },
-      pollingInterval: defaults.pollingInterval,
-      predictionWindowMinutes: switch partial.predictionWindowMinutes {
-      | Some(w) => w
-      | None => defaults.predictionWindowMinutes
-      },
-      predictionShortWindowMinutes: switch partial.predictionShortWindowMinutes {
-      | Some(w) => w
-      | None => defaults.predictionShortWindowMinutes
-      },
-      showUnaggregated: switch partial.showUnaggregated {
-      | Some(b) => b
-      | None => defaults.showUnaggregated
-      },
-      show: None,
-      filterByCurrentModel: partial.filterByCurrentModel,
-      progressBar: mergedPb,
-      credentials: partial.credentials,
-      anthropic: switch partial.anthropic {
-      | Some(a) => Some({ orgId: a.orgId })
-      | None => None
-      },
-    }
+      | None => defaults.aggregatedGroups
+      }
+    },
+    historyMaxAgeHours: switch partial.historyMaxAgeHours {
+    | Some(h) => h
+    | None => defaults.historyMaxAgeHours
+    },
+    pollingInterval: defaults.pollingInterval,
+    predictionWindowMinutes: switch partial.predictionWindowMinutes {
+    | Some(w) => w
+    | None => defaults.predictionWindowMinutes
+    },
+    predictionShortWindowMinutes: switch partial.predictionShortWindowMinutes {
+    | Some(w) => w
+    | None => defaults.predictionShortWindowMinutes
+    },
+    showUnaggregated: switch partial.showUnaggregated {
+    | Some(b) => b
+    | None => defaults.showUnaggregated
+    },
+    show: None,
+    filterByCurrentModel: partial.filterByCurrentModel,
+    progressBar: mergedPb,
+    credentials: partial.credentials,
+    anthropic: switch partial.anthropic {
+    | Some(a) => Some({orgId: a.orgId})
+    | None => None
+    },
+  }
+}
+
+// ─── loadConfig (composition) ─────────────────────────────────────────────────
+let loadConfig = (
+  ~configPath: string,
+  ~_logger: option<logger>=?,
+  (),
+): quotasConfig => {
+  switch readConfigFile(configPath) {
+  | None => defaults
+  | Some(raw) =>
+    validateConfig(raw)
+    mergeConfig(raw)
   }
 }
 

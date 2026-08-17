@@ -322,4 +322,45 @@ test("partial config missing optional fields returns defaults", () => {
   )
 })
 
+// ─── Test 13: missing config file warns with the searched path ─────────────────
+
+test("missing config file warns with the searched path", () => {
+  let mock = makeMockDeps()
+  // /test/quotas.json does NOT exist in mock.exists (returns false by default)
+  installDeps(mock)
+  let result = ConfigLoader.loadConfig(~configPath="/test/quotas.json", ())
+  // Still returns defaults
+  assertion(
+    ~message="displayMode should be #table from defaults",
+    (a, b) => a == b,
+    result.displayMode,
+    #table,
+  )
+  // But a warning must have been emitted mentioning the path
+  let warningText = mock.warnings.contents->Array.joinUnsafe(", ")
+  assertion(
+    ~message=`Expected warning to mention searched path, got: ${warningText}`,
+    (a, _b) => String.includes(a, "/test/quotas.json"),
+    warningText,
+    "",
+  )
+})
+
+// ─── Test 14: existing config file does NOT warn ───────────────────────────────
+
+test("existing config file does NOT warn", () => {
+  let mock = makeMockDeps()
+  Dict.set(mock.files.contents, "/test/quotas.json", `{"displayMode": "json"}`)
+  Dict.set(mock.exists.contents, "/test/quotas.json", true)
+  installDeps(mock)
+  let _result = ConfigLoader.loadConfig(~configPath="/test/quotas.json", ())
+  let warningText = mock.warnings.contents->Array.joinUnsafe(", ")
+  assertion(
+    ~message=`Expected no warning for existing file, got: ${warningText}`,
+    (a, b) => a == b,
+    warningText,
+    "",
+  )
+})
+
 let () = runTests()
