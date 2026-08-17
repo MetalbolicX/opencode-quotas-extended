@@ -147,10 +147,11 @@ let frameWidth = (~terminalWidth: option<float>=?): int => {
   inner + 4
 }
 
-// Window label helper -- all providers now produce Domain.quotaData
-// with camelCase windowType variants.
-let windowLabelText = (q: Domain.quotaData): string => {
-  switch q.window {
+// ─── Window label helper ──────────────────────────────────────────────────────
+// Shared pure windowType→string conversion used by both table and JSON renderers.
+// All providers produce Domain.quotaData with camelCase windowType variants.
+let windowLabel = (w: Domain.windowType): string => {
+  switch w {
   | #rolling5h => "rolling-5h"
   | #rollingMcp => "rolling-mcp"
   | #rollingTokens => "rolling-tokens"
@@ -161,6 +162,8 @@ let windowLabelText = (q: Domain.quotaData): string => {
   | #rolling => "rolling"
   }
 }
+
+let windowLabelText = (q: Domain.quotaData): string => windowLabel(q.window)
 
 // Constants
 
@@ -302,18 +305,7 @@ let tableRenderer: renderer = {
 
 // JSON renderer
 
-let windowToStr = (w: Domain.windowType): string => {
-  switch w {
-  | #rolling5h => "rolling-5h"
-  | #rollingMcp => "rolling-mcp"
-  | #rollingTokens => "rolling-tokens"
-  | #rollingWeekly => "rolling-weekly"
-  | #rolling1h => "rolling-1h"
-  | #daily => "daily"
-  | #monthly => "monthly"
-  | #rolling => "rolling"
-  }
-}
+let windowToStr = (w: Domain.windowType): string => windowLabel(w)
 
 let jsonRenderer: renderer = {
   render: (quotas, _ctx) => {
