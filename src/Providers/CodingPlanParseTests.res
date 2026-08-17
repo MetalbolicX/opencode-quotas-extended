@@ -848,5 +848,206 @@ test("parseKimiUsages boosterWallet present at root does not affect output", () 
   assertion(~message="Second id should be kimi-5h", (a, b) => a == b, Belt.Array.getExn(result, 1).id, "kimi-5h")
 })
 
+// =============================================================================
+// parseKimiUsages tests — tier 2 (T1.3, T1.4, T1.7)
+// Exercises: limits-only, both summary+300min, window mapping table × 7.
+// =============================================================================
+
+// T1.3: limits-only (no usage) → rows per limits entry
+test("parseKimiUsages limits-only yields one row per limit entry", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("5.0")),
+          ("limit", JSON.String("50.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(90.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("3.0")),
+          ("limit", JSON.String("30.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 2 rows",
+    (a, b) => a == b,
+    result->Array.length,
+    2,
+  )
+  assertion(~message="First id should be kimi-5h", (a, b) => a == b, Belt.Array.getExn(result, 0).id, "kimi-5h")
+  assertion(~message="Second id should be kimi-90m", (a, b) => a == b, Belt.Array.getExn(result, 1).id, "kimi-90m")
+})
+
+// T1.4: both summary + 300-min limit → 2 rows, kimi-weekly then kimi-5h
+test("parseKimiUsages both summary and 300-min limit yields weekly then 5h rows", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("10.0")),
+      ("limit", JSON.String("200.0")),
+      ("resetTime", JSON.String("")),
+    ]))),
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("2.0")),
+          ("limit", JSON.String("20.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 2 rows",
+    (a, b) => a == b,
+    result->Array.length,
+    2,
+  )
+  assertion(~message="First row should be kimi-weekly", (a, b) => a == b, Belt.Array.getExn(result, 0).id, "kimi-weekly")
+  assertion(~message="First window should be rollingWeekly", (a, b) => a == b, Belt.Array.getExn(result, 0).window, #rollingWeekly)
+  assertion(~message="Second row should be kimi-5h", (a, b) => a == b, Belt.Array.getExn(result, 1).id, "kimi-5h")
+  assertion(~message="Second window should be rolling5h", (a, b) => a == b, Belt.Array.getExn(result, 1).window, #rolling5h)
+})
+
+// T1.7: window mapping table × 7 branches (REQ-K-2)
+test("parseKimiUsages window 300min TIME_UNIT_MINUTE → rolling5h / kimi-5h", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("1.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(~message="window should be rolling5h", (a, b) => a == b, first(result).window, #rolling5h)
+  assertion(~message="id should be kimi-5h", (a, b) => a == b, first(result).id, "kimi-5h")
+})
+
+test("parseKimiUsages window 90min TIME_UNIT_MINUTE → rolling / kimi-90m (no folding)", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(90.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("1.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(~message="window should be rolling", (a, b) => a == b, first(result).window, #rolling)
+  assertion(~message="id should be kimi-90m", (a, b) => a == b, first(result).id, "kimi-90m")
+})
+
+test("parseKimiUsages window TIME_UNIT_HOUR (any duration) → rolling1h / kimi-1h", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(2.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_HOUR")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("1.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(~message="window should be rolling1h", (a, b) => a == b, first(result).window, #rolling1h)
+  assertion(~message="id should be kimi-1h", (a, b) => a == b, first(result).id, "kimi-1h")
+})
+
+test("parseKimiUsages window TIME_UNIT_DAY → daily / kimi-daily", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(1.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_DAY")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("1.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(~message="window should be daily", (a, b) => a == b, first(result).window, #daily)
+  assertion(~message="id should be kimi-daily", (a, b) => a == b, first(result).id, "kimi-daily")
+})
+
+test("parseKimiUsages window TIME_UNIT_WEEK → rollingWeekly / kimi-10080m", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(1.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_WEEK")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("1.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(~message="window should be rollingWeekly", (a, b) => a == b, first(result).window, #rollingWeekly)
+  assertion(~message="id should be kimi-10080m", (a, b) => a == b, first(result).id, "kimi-10080m")
+})
+
+test("parseKimiUsages window unknown enum → rolling / kimi-<duration><rawTimeUnit>", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(2.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MONTH")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("1.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(~message="window should be rolling", (a, b) => a == b, first(result).window, #rolling)
+  // Belt.Float.toString(2.0) = "2" (no decimal), so id is kimi-2TIME_UNIT_MONTH
+  assertion(~message="id should be kimi-2TIME_UNIT_MONTH", (a, b) => a == b, first(result).id, "kimi-2TIME_UNIT_MONTH")
+})
+
 // Run all tests
 let () = runTests()
