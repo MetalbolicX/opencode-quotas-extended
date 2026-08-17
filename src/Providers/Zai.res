@@ -16,23 +16,15 @@ let createZaiProvider = (): Provider.quotaProvider => {
       Promise.resolve(Belt.Option.isSome(opt))
     ),
   fetchQuotas: () =>
-    CredentialResolver.resolveOrEmpty(~key="zai-coding-plan", ~fn=cred => {
-      let authHeader = BearerToken.extract(cred)
-      let http = FetchHttp.make(FetchHttp.noopLogger)
-      let req: FetchHttp.httpRequest = {
-        url: usageUrl,
-        method: #get,
-        headers: Some(Dict.fromArray([("Authorization", authHeader)])),
-        body: None,
-      }
-      let opts: FetchHttp.requestOptions = { timeoutMs: 15000.0, retries: 0.0, redact: true }
-      http.request(req, opts)
-      ->Promise.then(json => {
-        Promise.resolve(CodingPlanParse.parseZaiLimits(
-          ~json,
-          ~idPrefix="zai",
-          ~providerName="z.ai",
-        ))
-      })
-    }),
+    ProviderFetch.fetch(
+      ~key="zai-coding-plan",
+      ~buildUrl=() => usageUrl,
+      ~parse=json => CodingPlanParse.parseZaiLimits(
+        ~json,
+        ~idPrefix="zai",
+        ~providerName="z.ai",
+      ),
+      ~http=FetchHttp.make(FetchHttp.noopLogger),
+      ~_logger=FetchHttp.noopLogger,
+    ),
 }
