@@ -14,6 +14,7 @@ test("M1: formatMissingAuthJson contains expected lines", () => {
   assertion(~message="contains checked path", (a, b) => a == b, true, String.includes(msg, `Checked: ${path}`))
   assertion(~message="contains opencode auth login hint", (a, b) => a == b, true, String.includes(msg, "opencode auth login"))
   assertion(~message="contains API key hint", (a, b) => a == b, true, String.includes(msg, "OPENAI_API_KEY"))
+  assertion(~message="contains KIMI_API_KEY hint (REQ-K-7)", (a, b) => a == b, true, String.includes(msg, "KIMI_API_KEY"))
 })
 
 // M2: formatNoSubscriptions contains key lines

@@ -7,6 +7,7 @@ let envVarFor = (providerId: string): option<string> => {
   | "openai" => Some("OPENAI_API_KEY")
   | "anthropic" => Some("ANTHROPIC_API_KEY")
   | "google-gemini" => Some("GEMINI_API_KEY")
+  | "kimi" => Some("KIMI_API_KEY")
   | "minimax" => Some("MINIMAX_API_KEY")
   | _ => None
   }

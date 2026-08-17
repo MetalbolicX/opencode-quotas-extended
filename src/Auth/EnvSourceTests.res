@@ -66,4 +66,40 @@ test("E5: minimax with MINIMAX_API_KEY returns api credential", () => {
   )
 })
 
+// E6: kimi with KIMI_API_KEY returns api credential (REQ-K-6)
+test("E6: kimi with KIMI_API_KEY returns api credential", () => {
+  let env = Dict.fromArray([("KIMI_API_KEY", "k-123456")])
+  let result = EnvSource.getCredential("kimi", env)
+  let expected = Some(Credential.Api({variant: "api", key: "k-123456"}))
+  assertion(
+    ~message=`Expected Some(Api), got ${Belt.Option.map(result, _ => "Some(_)")->Belt.Option.getWithDefault("None")}`,
+    (a, b) => a == b,
+    result,
+    expected,
+  )
+})
+
+// E7: kimi with KIMI_API_KEY unset or empty returns None (REQ-K-6)
+test("E7: kimi with KIMI_API_KEY unset returns None", () => {
+  let env = Dict.make()
+  let result = EnvSource.getCredential("kimi", env)
+  assertion(
+    ~message=`Expected None for unset var, got ${Belt.Option.map(result, _ => "Some(_)")->Belt.Option.getWithDefault("None")}`,
+    (a, b) => a == b,
+    result,
+    None,
+  )
+})
+
+test("E7b: kimi with KIMI_API_KEY empty string returns None", () => {
+  let env = Dict.fromArray([("KIMI_API_KEY", "")])
+  let result = EnvSource.getCredential("kimi", env)
+  assertion(
+    ~message=`Expected None for empty var, got ${Belt.Option.map(result, _ => "Some(_)")->Belt.Option.getWithDefault("None")}`,
+    (a, b) => a == b,
+    result,
+    None,
+  )
+})
+
 let () = runTests()
