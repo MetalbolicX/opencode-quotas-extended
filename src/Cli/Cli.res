@@ -49,6 +49,19 @@ let renderListTable = (providers: array<Provider.quotaProvider>): string => {
   [header, ...rows]->Array.join("\n")
 }
 
+// ── progressBar structural conversion (design §8) ──────────────────────────────
+// ConfigLoader.progressBar has all-required fields; ReportPipeline.progressBarConfig
+// has all-option fields wrapped in Some. Convert at the CLI boundary.
+let convertProgressBar = (pb: ConfigLoader.progressBar): ReportPipeline.progressBarConfig => {
+  {
+    width: Some(pb.width),
+    filledChar: Some(pb.filledChar),
+    emptyChar: Some(pb.emptyChar),
+    color: Some(pb.color),
+    gradients: Some(pb.gradients),
+  }
+}
+
 // ── Noop history store ───────────────────────────────────────────────────────
 
 // Deprecated: use makeDurableHistory instead for persistent quota history
@@ -173,6 +186,13 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
         Node.processStderrWrite(`${msg}\n`)->ignore
         Node.processExit(1)
       } else {
+        // REQ-E-3-2: load .opencode/quotas.json via ConfigLoader with defaults fallback
+        let configPath = Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
+        let cfg = try {
+          ConfigLoader.loadConfig(~configPath, ())
+        } catch {
+        | _ => ConfigLoader.defaults
+        }
         // REQ-PP-1..5: run the full pipeline
         let deps: ReportPipeline.reportDeps = {
           credentialResolver: {
@@ -186,13 +206,13 @@ let runProviderFlow = async (providerId: string, args: ParseArgs.parsedArgs): un
           historyStore: (historyStore :> ReportPipeline.historyStore),
           config: {
             displayMode: args.mode,
-            disabled: [],
-            aggregatedGroups: Dict.make(),
-            historyMaxAgeHours: 24.0,
-            predictionWindowMinutes: 60.0,
-            predictionShortWindowMinutes: 5.0,
-            showUnaggregated: false,
-            progressBar: None,
+            disabled: cfg.disabled,
+            aggregatedGroups: (cfg.aggregatedGroups :> dict<ReportPipeline.userGroupConfig>),
+            historyMaxAgeHours: cfg.historyMaxAgeHours,
+            predictionWindowMinutes: cfg.predictionWindowMinutes,
+            predictionShortWindowMinutes: cfg.predictionShortWindowMinutes,
+            showUnaggregated: cfg.showUnaggregated,
+            progressBar: Some(convertProgressBar(cfg.progressBar)),
           },
           logger: (logger :> ReportPipeline.logger),
           selectRenderer: (Renderers.selectRenderer :> (Domain.renderMode) => ReportPipeline.renderer),

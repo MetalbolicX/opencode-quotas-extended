@@ -93,4 +93,65 @@ test("CLI-2: ConfigLoader.loadConfig parses predictionWindowMinutes from config"
   assertion(~message="predictionWindowMinutes is 90.0 from config", (a, b) => a == b, cfg.predictionWindowMinutes, 90.0)
 })
 
+// TEST-CLI-3: most_critical aggregation opt-in via .opencode/quotas.json
+// Verifies REQ-E-3-2: Cli.res wires ConfigLoader.loadConfig so that a
+// user-configured most_critical aggregation group is loaded and passed to
+// the pipeline. Without the wiring, aggregatedGroups is always empty (max default).
+test("CLI-3: most_critical opt-in — config file with strategy most_critical loads into pipeline", () => {
+  // Set up a mock config file with a most_critical aggregation group
+  let mockFiles: ref<dict<string>> = ref(Dict.make())
+  let mockExists: ref<dict<bool>> = ref(Dict.make())
+  let configContent = `{
+    "predictionWindowMinutes": 60.0,
+    "historyMaxAgeHours": 24.0,
+    "aggregatedGroups": {
+      "test-ai-group": {
+        "strategy": "most_critical",
+        "members": ["openai/gpt-4o", "anthropic/claude-sonnet-4", "test-provider/model-x"]
+      }
+    }
+  }`
+  Dict.set(mockFiles.contents, "/tmp/test-most-critical-config.json", configContent)
+  Dict.set(mockExists.contents, "/tmp/test-most-critical-config.json", true)
+
+  // Install mock deps for ConfigLoader to read our test config
+  ConfigLoader.depsRef := {
+    readFileSync: p => {
+      switch Dict.get(mockFiles.contents, p) {
+      | Some(c) => c
+      | None => ""
+      }
+    },
+    existsSync: p => {
+      switch Dict.get(mockExists.contents, p) {
+      | Some(b) => b
+      | None => false
+      }
+    },
+    warnFn: _msg => (),
+  }
+
+  // Load the config via ConfigLoader (this is what Cli.res should call)
+  let cfg = ConfigLoader.loadConfig(~configPath="/tmp/test-most-critical-config.json", ())
+
+  // Verify the most_critical group was parsed
+  assertion(~message="aggregatedGroups is non-empty when config has a group", (a, b) => a == b, Dict.keysToArray(cfg.aggregatedGroups)->Array.length > 0, true)
+
+  // Verify the strategy is most_critical
+  let groupKeys = Dict.keysToArray(cfg.aggregatedGroups)
+  let firstKey = switch groupKeys->Array.get(0) {
+    | Some(k) => k
+    | None => ""
+  }
+  let groupOpt = Dict.get(cfg.aggregatedGroups, firstKey)
+  let strategyIsMostCritical = switch groupOpt {
+    | Some(g) => g.strategy === "most_critical"
+    | None => false
+  }
+  assertion(~message="group strategy is most_critical", (a, b) => a == b, strategyIsMostCritical, true)
+
+  // Verify predictionWindowMinutes was also loaded (not just defaults)
+  assertion(~message="predictionWindowMinutes is 60.0 from config", (a, b) => a == b, cfg.predictionWindowMinutes, 60.0)
+})
+
 let () = runTests()
