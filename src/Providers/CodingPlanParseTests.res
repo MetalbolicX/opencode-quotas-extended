@@ -1049,5 +1049,221 @@ test("parseKimiUsages window unknown enum → rolling / kimi-<duration><rawTimeU
   assertion(~message="id should be kimi-2TIME_UNIT_MONTH", (a, b) => a == b, first(result).id, "kimi-2TIME_UNIT_MONTH")
 })
 
+// =============================================================================
+// parseKimiUsages tests — tier 3 (T1.6 remainder, T1.8, T1.9)
+// Exercises: row leniency (missing used/limit/both), reset ISO parsing,
+// and unit="requests" assertion on every row.
+// =============================================================================
+
+// T1.6 remainder: missing used → 0.0
+test("parseKimiUsages missing used defaults to 0.0", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          // used absent
+          ("limit", JSON.String("50.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 1 row with used=0.0",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="used should be 0.0",
+    (a, b) => a == b,
+    first(result).used,
+    0.0,
+  )
+  assertion(
+    ~message="limit should be Some(50.0)",
+    (a, b) => a == b,
+    first(result).limit,
+    Some(50.0),
+  )
+})
+
+// T1.6 remainder: missing limit → None
+test("parseKimiUsages missing limit defaults to None", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("5.0")),
+          // limit absent
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 1 row with limit=None",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="limit should be None",
+    (a, b) => a == b,
+    first(result).limit,
+    None,
+  )
+})
+
+// T1.6 remainder: both used and limit absent → row skipped
+test("parseKimiUsages row missing both used and limit is skipped", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          // both used and limit absent
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 0 rows",
+    (a, b) => a == b,
+    result->Array.length,
+    0,
+  )
+})
+
+// T1.8: reset — valid ISO → Some(Date); missing → None; invalid → None
+test("parseKimiUsages valid ISO resetTime yields Some(Date) with correct epoch", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("1.0")),
+      ("limit", JSON.String("10.0")),
+      ("resetTime", JSON.String("1970-01-01T00:00:01Z")),
+    ]))),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="reset should be Some",
+    (a, b) => a == b,
+    first(result).reset->Option.isSome,
+    true,
+  )
+  assertion(
+    ~message="Date.getTime should be 1000 (epoch for 1970-01-01T00:00:01Z)",
+    (a, b) => a == b,
+    switch first(result).reset {
+    | Some(d) => Date.getTime(d)
+    | None => -1.0
+    },
+    1000.0,
+  )
+})
+
+test("parseKimiUsages missing resetTime yields None, row still present", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("1.0")),
+      ("limit", JSON.String("10.0")),
+      // resetTime absent
+    ]))),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 1 row",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="reset should be None",
+    (a, b) => a == b,
+    first(result).reset->Option.isNone,
+    true,
+  )
+})
+
+test("parseKimiUsages invalid resetTime string yields None, row still present", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("1.0")),
+      ("limit", JSON.String("10.0")),
+      ("resetTime", JSON.String("not-a-date")),
+    ]))),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 1 row",
+    (a, b) => a == b,
+    result->Array.length,
+    1,
+  )
+  assertion(
+    ~message="reset should be None",
+    (a, b) => a == b,
+    first(result).reset->Option.isNone,
+    true,
+  )
+})
+
+// T1.9: unit = "requests" for every row
+test("parseKimiUsages every row has unit requests", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("usage", JSON.Object(Dict.fromArray([
+      ("used", JSON.String("5.0")),
+      ("limit", JSON.String("50.0")),
+      ("resetTime", JSON.String("")),
+    ]))),
+    ("limits", JSON.Array([
+      JSON.Object(Dict.fromArray([
+        ("window", JSON.Object(Dict.fromArray([
+          ("duration", JSON.Number(300.0)),
+          ("timeUnit", JSON.String("TIME_UNIT_MINUTE")),
+        ]))),
+        ("detail", JSON.Object(Dict.fromArray([
+          ("used", JSON.String("2.0")),
+          ("resetTime", JSON.String("")),
+        ]))),
+      ])),
+    ])),
+  ]))
+  let result = parseKimiUsages(~json, ~idPrefix="kimi", ~providerName="Kimi / Moonshot")
+  assertion(
+    ~message="Should return 2 rows",
+    (a, b) => a == b,
+    result->Array.length,
+    2,
+  )
+  assertion(
+    ~message="First row unit should be requests",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 0).unit,
+    "requests",
+  )
+  assertion(
+    ~message="Second row unit should be requests",
+    (a, b) => a == b,
+    Belt.Array.getExn(result, 1).unit,
+    "requests",
+  )
+})
+
 // Run all tests
 let () = runTests()
