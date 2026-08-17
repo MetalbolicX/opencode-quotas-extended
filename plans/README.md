@@ -9,10 +9,12 @@ before starting, honor its STOP conditions, and update your row when done.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | 001  | Kimi table: percent units + row labels | P1 | S | — | DONE |
+| 006  | Clean up Renderers duplication and ConfigLoader structure | P2 | M | — | DONE |
 
 ## Dependency notes
 
 - 001 is self-contained; no other plans exist yet.
+- 006 is self-contained (independent of 002-005).
 
 ## Findings considered and rejected
 
