@@ -96,7 +96,7 @@ Lifecycle hooks: `postinstall` runs codegen on `pnpm install`; `prebuild` runs c
 | Minimax (mmx CLI) | ✅ Production |
 | opencode Zen | ⚠️ Needs web scraping (deferred) |
 | opencode Go | ⚠️ Needs web scraping (deferred) |
-| Kimi | ⚠️ Needs web scraping (deferred) |
+| Kimi | ✅ Production (subscription usage API; credential: `KIMI_API_KEY` env var or auth.json `kimi-for-coding` OAuth) |
 | Anthropic | 🔒 Live, requires admin-scope key |
 | Gemini | 🔒 Live, requires Antigravity credentials |
 

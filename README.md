@@ -136,7 +136,7 @@ Gates (run locally; CI is intentionally not part of this repository):
 | `node dist/cli/index.js --help` | ✅ works under plain Node |
 
 **8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
-Three (Zen, Go, Kimi) are deferred because they would require web scraping. Two (Anthropic, Gemini) are live-but-credential-blocked. Three (OpenAI, z.ai, Minimax) are production-ready.
+Two (Zen, Go) are deferred because they would require web scraping. Two (Anthropic, Gemini) are live-but-credential-blocked. Four (OpenAI, z.ai, Kimi, Minimax) are production-ready.
 
 ## Legacy archive
 

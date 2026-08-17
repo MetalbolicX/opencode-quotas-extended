@@ -29,5 +29,7 @@
   "concept.openai-secondary-rate": "Secondary rate limit",
   "concept.openai-credits": "Credit balance",
   "concept.openai-token-usage": "Token usage",
-  "concept.gemini-model-quota": "Model quota"
+  "concept.gemini-model-quota": "Model quota",
+  "concept.kimi-weekly-usage": "Kimi weekly usage",
+  "concept.kimi-5h-rolling": "Kimi 5h rolling limit"
 }
