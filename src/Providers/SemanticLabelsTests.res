@@ -72,5 +72,43 @@ test("enrichQuotaLabel returns result with label string", () => {
   )
 })
 
+test("enrichQuotaLabel primary (openaiVariant=primary) returns 5h rolling window label", () => {
+  let hints: SemanticLabels.providerPayloadHints = {
+    type_: None,
+    unit: None,
+    number: None,
+    modelName: None,
+    weekly: None,
+    openaiVariant: Some("primary"),
+    geminiModel: None,
+  }
+  let result = SemanticLabels.enrichQuotaLabel("openai", hints)
+  assertion(
+    ~message="Primary variant label is 5h rolling window",
+    (a, b) => a == b,
+    result.label,
+    "5h rolling window",
+  )
+})
+
+test("enrichQuotaLabel secondary (openaiVariant=secondary) returns Weekly limit label", () => {
+  let hints: SemanticLabels.providerPayloadHints = {
+    type_: None,
+    unit: None,
+    number: None,
+    modelName: None,
+    weekly: None,
+    openaiVariant: Some("secondary"),
+    geminiModel: None,
+  }
+  let result = SemanticLabels.enrichQuotaLabel("openai", hints)
+  assertion(
+    ~message="Secondary variant label is Weekly limit",
+    (a, b) => a == b,
+    result.label,
+    "Weekly limit",
+  )
+})
+
 // Run all tests
 let () = runTests()
