@@ -10,10 +10,10 @@ type windowType = Domain.windowType
 let zaiWindow = (
   limitType: string,
   unit: option<float>,
-  isLitePlan: bool,
+  usesUnitCodes: bool,
 ): windowType => {
   let t = limitType->String.toUpperCase
-  if isLitePlan {
+  if usesUnitCodes {
     if t === "TIME_LIMIT" && unit === Some(5.0) {
       #rollingMcp
     } else if t === "TOKENS_LIMIT" && unit === Some(3.0) {
@@ -88,7 +88,7 @@ let limitToQuota = (
   limDict: Dict.t<JSON.t>,
   idPrefix: string,
   providerName: string,
-  isLitePlan: bool,
+  usesUnitCodes: bool,
 ): option<quotaData> => {
   let type_ = switch Dict.get(limDict, "type") {
   | Some(JSON.String(s)) => s
@@ -110,7 +110,7 @@ let limitToQuota = (
   switch usedOpt {
   | None => None
   | Some(u) =>
-    let normalizedWindow = zaiWindow(type_, unit, isLitePlan)
+    let normalizedWindow = zaiWindow(type_, unit, usesUnitCodes)
     let id = `${idPrefix}-${type_->String.toLowerCase}-${switch unit {
       | Some(v) => Belt.Float.toString(v)
       | None => "u"
@@ -131,13 +131,13 @@ let limitToQuota = (
       geminiModel: None,
     }
     let baseConcept = SemanticLabels.enrichQuotaLabel(providerName, hints)
-    let concept: SemanticLabels.enrichedLabel = if isLitePlan {
+    let concept: SemanticLabels.enrichedLabel = if usesUnitCodes {
       if type_ === "TIME_LIMIT" && unit === Some(5.0) {
         {label: "MCP quota", concept: SemanticLabels.ZAiMcp}
       } else if type_ === "TOKENS_LIMIT" && unit === Some(3.0) {
         {label: "5h rolling window", concept: SemanticLabels.ZAi5HourRolling}
       } else if type_ === "TOKENS_LIMIT" && unit === Some(6.0) {
-        {label: "Weekly quota", concept: SemanticLabels.ZAiWeeklyRolling}
+        {label: "Weekly limit", concept: SemanticLabels.ZAiWeeklyRolling}
       } else {
         baseConcept
       }
@@ -185,20 +185,22 @@ let parseZaiLimits = (
       }
     | _ => []
     }
-    // Lite plan encodes MCP / 5h / weekly on different type+unit combinations than
-    // the full plan (no MCP_LIMIT, no TIME_LIMIT unit=168). Detect via data.level so
-    // we can map the right human label to each row.
-    let isLitePlan = switch Dict.get(root, "data") {
+    // lite and pro plans encode MCP / 5h / weekly on different type+unit
+    // combinations than the full plan (no MCP_LIMIT, no TIME_LIMIT unit=168):
+    // TIME_LIMIT u5 = MCP, TOKENS_LIMIT u3 = 5h, TOKENS_LIMIT u6 = weekly.
+    // Unknown or missing levels keep the conservative full-plan mapping.
+    let usesUnitCodes = switch Dict.get(root, "data") {
     | Some(JSON.Object(dataDict)) =>
       switch Dict.get(dataDict, "level") {
       | Some(JSON.String("lite")) => true
+      | Some(JSON.String("pro")) => true
       | _ => false
       }
     | _ => false
     }
     let entries: array<quotaData> = Belt.Array.keepMap(limits, (entry) => {
       switch entry {
-      | JSON.Object(limDict) => limitToQuota(limDict, idPrefix, providerName, isLitePlan)
+      | JSON.Object(limDict) => limitToQuota(limDict, idPrefix, providerName, usesUnitCodes)
       | _ => None
       }
     })

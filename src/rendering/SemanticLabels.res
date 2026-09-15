@@ -42,7 +42,7 @@ let labelMap: dict<string> = Dict.fromArray([
   ("minimax-weekly-request", "Weekly limit"),
   ("minimax-5h-window", "5h rolling limit"),
   ("minimax-video", "Video generation"),
-  ("z.ai-weekly-rolling", "Weekly quota"),
+  ("z.ai-weekly-rolling", "Weekly limit"),
   ("z.ai-generic-rolling", "Generic rolling limit"),
   ("openai-primary-rate", "5h rolling window"),
   ("openai-secondary-rate", "Weekly limit"),

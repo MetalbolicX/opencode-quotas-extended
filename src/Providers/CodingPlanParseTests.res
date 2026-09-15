@@ -602,10 +602,10 @@ test("parseZaiLimits lite plan TOKENS_LIMIT unit 6 becomes rolling-weekly", () =
     #rollingWeekly,
   )
   assertion(
-    ~message="Info label should be Weekly quota",
+    ~message="Info label should be Weekly limit",
     (a, b) => a == b,
     first(result).info,
-    Some("Weekly quota"),
+    Some("Weekly limit"),
   )
 })
 
@@ -741,10 +741,10 @@ test("parseZaiLimits output is sorted: rolling-mcp, rolling-5h, rolling-weekly",
   )
 })
 
-// Regression: lite plan detection must come from data.level, not a caller flag.
-// Guards against the bug where Zai.res hard-coded isLitePlan=false and
-// lite-plan rows rendered as `Token quota #N` instead of MCP/5h/Weekly.
-test("parseZaiLimits data.level pro yields full-plan labels for TOKENS_LIMIT", () => {
+// Regression: lite and pro plans encode MCP / 5h / weekly on different
+// type+unit combos than the full plan. Detection via data.level means
+// pro plan TOKENS_LIMIT unit 3 gets the 5h rolling label, not a token row.
+test("parseZaiLimits data.level pro yields unit-coded labels for TOKENS_LIMIT", () => {
   let json = JSON.Object(Dict.fromArray([
     ("data", JSON.Object(Dict.fromArray([
       ("limits", JSON.Array([
@@ -764,16 +764,93 @@ test("parseZaiLimits data.level pro yields full-plan labels for TOKENS_LIMIT", (
   ]))
   let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
   assertion(
-    ~message="level=pro TOKENS_LIMIT unit 3 should keep full-plan token label",
+    ~message="level=pro TOKENS_LIMIT unit 3 should use the 5h rolling label",
     (a, b) => a == b,
     first(result).info,
-    Some("Token quota #5"),
+    Some("5h rolling window"),
   )
   assertion(
-    ~message="level=pro TOKENS_LIMIT unit 3 should map to rolling-tokens (not 5h)",
+    ~message="level=pro TOKENS_LIMIT unit 3 should map to rolling-5h",
     (a, b) => a == b,
     first(result).window,
-    #rollingTokens,
+    #rolling5h,
+  )
+})
+
+test("parseZaiLimits pro response maps and sorts rows MCP, 5h, Weekly limit", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("level", JSON.String("pro")),
+      ("limits", JSON.Array([
+        // TOKENS_LIMIT unit 3 → 5h rolling window
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(3.0)),
+          ("number", JSON.Number(5.0)),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(1.0)),
+          ("remaining", JSON.Number(99.0)),
+          ("percentage", JSON.Number(1.0)),
+          ("nextResetTime", JSON.Number(1789455747809.0)),
+        ])),
+        // TOKENS_LIMIT unit 6 → Weekly limit
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(6.0)),
+          ("number", JSON.Number(1.0)),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(1.0)),
+          ("remaining", JSON.Number(99.0)),
+          ("percentage", JSON.Number(1.0)),
+          ("nextResetTime", JSON.Number(1790042247981.0)),
+        ])),
+        // TIME_LIMIT unit 5 → MCP quota
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TIME_LIMIT")),
+          ("unit", JSON.Number(5.0)),
+          ("percentage", JSON.Number(0.0)),
+          ("nextResetTime", JSON.Number(1792029447999.0)),
+        ])),
+      ])),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
+  // Sorted: MCP (rank 0) → 5h (rank 1) → weekly (rank 2)
+  assertion(
+    ~message="row 0 should be the MCP quota window",
+    (a, b) => a == b,
+    Array.get(result, 0)->Belt.Option.map(r => r.window)->Belt.Option.getExn,
+    #rollingMcp,
+  )
+  assertion(
+    ~message="row 0 label should be MCP quota",
+    (a, b) => a == b,
+    Array.get(result, 0)->Belt.Option.map(r => r.info)->Belt.Option.getExn,
+    Some("MCP quota"),
+  )
+  assertion(
+    ~message="row 1 should be the 5h rolling window",
+    (a, b) => a == b,
+    Array.get(result, 1)->Belt.Option.map(r => r.window)->Belt.Option.getExn,
+    #rolling5h,
+  )
+  assertion(
+    ~message="row 1 label should be 5h rolling window",
+    (a, b) => a == b,
+    Array.get(result, 1)->Belt.Option.map(r => r.info)->Belt.Option.getExn,
+    Some("5h rolling window"),
+  )
+  assertion(
+    ~message="row 2 should be the weekly window",
+    (a, b) => a == b,
+    Array.get(result, 2)->Belt.Option.map(r => r.window)->Belt.Option.getExn,
+    #rollingWeekly,
+  )
+  assertion(
+    ~message="row 2 label should be Weekly limit",
+    (a, b) => a == b,
+    Array.get(result, 2)->Belt.Option.map(r => r.info)->Belt.Option.getExn,
+    Some("Weekly limit"),
   )
 })
 

@@ -23,7 +23,7 @@
   "concept.minimax-weekly-request": "Weekly limit",
   "concept.minimax-5h-window": "5h rolling limit",
   "concept.minimax-video": "Video generation",
-  "concept.z.ai-weekly-rolling": "Weekly quota",
+  "concept.z.ai-weekly-rolling": "Weekly limit",
   "concept.z.ai-generic-rolling": "Generic rolling limit",
   "concept.openai-primary-rate": "5h rolling window",
   "concept.openai-secondary-rate": "Weekly limit",
