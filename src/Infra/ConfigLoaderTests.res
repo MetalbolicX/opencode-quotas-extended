@@ -322,9 +322,9 @@ test("partial config missing optional fields returns defaults", () => {
   )
 })
 
-// ─── Test 13: missing config file warns with the searched path ─────────────────
+// ─── Test 13: missing config file silently returns defaults ────────────────────
 
-test("missing config file warns with the searched path", () => {
+test("missing config file silently returns defaults", () => {
   let mock = makeMockDeps()
   // /test/quotas.json does NOT exist in mock.exists (returns false by default)
   installDeps(mock)
@@ -336,11 +336,11 @@ test("missing config file warns with the searched path", () => {
     result.displayMode,
     #table,
   )
-  // But a warning must have been emitted mentioning the path
+  // A missing optional config file is intentionally silent.
   let warningText = mock.warnings.contents->Array.joinUnsafe(", ")
   assertion(
-    ~message=`Expected warning to mention searched path, got: ${warningText}`,
-    (a, _b) => String.includes(a, "/test/quotas.json"),
+    ~message=`Expected no warning for missing file, got: ${warningText}`,
+    (a, b) => a == b,
     warningText,
     "",
   )
