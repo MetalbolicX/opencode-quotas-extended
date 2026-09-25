@@ -854,6 +854,82 @@ test("parseZaiLimits pro response maps and sorts rows MCP, 5h, Weekly limit", ()
   )
 })
 
+test("parseZaiLimits max response maps and sorts rows MCP, 5h, Weekly limit", () => {
+  let json = JSON.Object(Dict.fromArray([
+    ("data", JSON.Object(Dict.fromArray([
+      ("level", JSON.String("max")),
+      ("limits", JSON.Array([
+        // TOKENS_LIMIT unit 3 → 5h rolling window
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(3.0)),
+          ("number", JSON.Number(5.0)),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(1.0)),
+          ("remaining", JSON.Number(99.0)),
+          ("percentage", JSON.Number(1.0)),
+          ("nextResetTime", JSON.Number(1789455747809.0)),
+        ])),
+        // TOKENS_LIMIT unit 6 → Weekly limit
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TOKENS_LIMIT")),
+          ("unit", JSON.Number(6.0)),
+          ("number", JSON.Number(1.0)),
+          ("usage", JSON.Number(100.0)),
+          ("currentValue", JSON.Number(1.0)),
+          ("remaining", JSON.Number(99.0)),
+          ("percentage", JSON.Number(1.0)),
+          ("nextResetTime", JSON.Number(1790042247981.0)),
+        ])),
+        // TIME_LIMIT unit 5 → MCP quota
+        JSON.Object(Dict.fromArray([
+          ("type", JSON.String("TIME_LIMIT")),
+          ("unit", JSON.Number(5.0)),
+          ("percentage", JSON.Number(0.0)),
+          ("nextResetTime", JSON.Number(1792029447999.0)),
+        ])),
+      ])),
+    ]))),
+  ]))
+  let result = parseZaiLimits(~json, ~idPrefix="zai", ~providerName="z.ai")
+  assertion(
+    ~message="row 0 should be the MCP quota window",
+    (a, b) => a == b,
+    Array.get(result, 0)->Belt.Option.map(r => r.window)->Belt.Option.getExn,
+    #rollingMcp,
+  )
+  assertion(
+    ~message="row 0 label should be MCP quota",
+    (a, b) => a == b,
+    Array.get(result, 0)->Belt.Option.map(r => r.info)->Belt.Option.getExn,
+    Some("MCP quota"),
+  )
+  assertion(
+    ~message="row 1 should be the 5h rolling window",
+    (a, b) => a == b,
+    Array.get(result, 1)->Belt.Option.map(r => r.window)->Belt.Option.getExn,
+    #rolling5h,
+  )
+  assertion(
+    ~message="row 1 label should be 5h rolling window",
+    (a, b) => a == b,
+    Array.get(result, 1)->Belt.Option.map(r => r.info)->Belt.Option.getExn,
+    Some("5h rolling window"),
+  )
+  assertion(
+    ~message="row 2 should be the weekly window",
+    (a, b) => a == b,
+    Array.get(result, 2)->Belt.Option.map(r => r.window)->Belt.Option.getExn,
+    #rollingWeekly,
+  )
+  assertion(
+    ~message="row 2 label should be Weekly limit",
+    (a, b) => a == b,
+    Array.get(result, 2)->Belt.Option.map(r => r.info)->Belt.Option.getExn,
+    Some("Weekly limit"),
+  )
+})
+
 test("parseZaiLimits missing level field defaults to full-plan labels", () => {
   let json = JSON.Object(Dict.fromArray([
     ("data", JSON.Object(Dict.fromArray([

@@ -185,7 +185,7 @@ let parseZaiLimits = (
       }
     | _ => []
     }
-    // lite and pro plans encode MCP / 5h / weekly on different type+unit
+    // lite, pro, and max plans encode MCP / 5h / weekly on different type+unit
     // combinations than the full plan (no MCP_LIMIT, no TIME_LIMIT unit=168):
     // TIME_LIMIT u5 = MCP, TOKENS_LIMIT u3 = 5h, TOKENS_LIMIT u6 = weekly.
     // Unknown or missing levels keep the conservative full-plan mapping.
@@ -194,6 +194,7 @@ let parseZaiLimits = (
       switch Dict.get(dataDict, "level") {
       | Some(JSON.String("lite")) => true
       | Some(JSON.String("pro")) => true
+      | Some(JSON.String("max")) => true
       | _ => false
       }
     | _ => false
