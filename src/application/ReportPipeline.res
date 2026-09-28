@@ -44,6 +44,8 @@ type historyStore = {
   resetDetected: (string, historyPoint, float, option<float>) => bool,
 }
 
+let stringifyReason = (reason: 'a): string => %raw("(() => { if (reason == null) return String(reason); const payload = typeof reason === 'object' && reason.RE_EXN_ID === 'JsExn' ? reason._1 : reason; if (payload == null) return String(payload); if (typeof payload === 'object' && typeof payload.message === 'string') return payload.message; return String(payload); })()")
+
 type httpClientOptions = {
   timeoutMs: float,
   retries: float,
@@ -281,7 +283,7 @@ let reportQuotas = async (deps: reportDeps, opts: reportOptions): promise<report
         }
       } else {
         let provider = providers->Belt.Array.getExn(i)
-        let reason = String.make(r.reason)
+        let reason = stringifyReason(r.reason)
         Dict.set(errors, provider.id, reason)
       }
     }
