@@ -56,3 +56,20 @@ violating file and passes on a clean tree.
 - `%raw` in src/: 8 mentions, all inside the guard test's own strings (excluded from its walk)
 - `%raw` in scripts/: 0; `Obj.magic` in src (non-test): 0
 - All five gates green (codegen --check, 55 test files, pnpm build, smoke, secrets)
+
+## Review evidence (RDD)
+
+- Lineage: review-ec5ab01f184d8394 (contract gentle-ai.review-integration/v2)
+- Target: sha256:fe40d540a3b971d1417f96a8de66a4ddd49d0705a0119254a6814ba6ea0e8259
+  (committed range base 17c6f5fe..2ce6708, 14 paths, 223 lines, tier high,
+  correction budget 112 — unused)
+- Consent: granted by human via relayed gentle-ai.review-integration.consent/v3
+- Reviewers: review-risk, review-resilience, review-readability, review-reliability
+  (4 host-relayed runs, all admitted)
+- Outcome: APPROVED; authority burned
+  (consumed revision sha256:f71406870e946738720be61bc8dbf06523a35830441d8607f91532a8eec77170,
+  burn evidence gentle-ai.review-acknowledged/v1)
+- Advisory findings (non-blocking, informational, separate later work):
+  - R3-001 reliability WARNING src/Auth/CredentialResolverTests.res:220
+  - R4-001 resilience WARNING src/Auth/CredentialResolverTests.res:220
+- Delivery: ordinary repository policy (merge/push remain the user's decision)
