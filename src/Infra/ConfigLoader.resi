@@ -56,7 +56,8 @@ type quotasConfig = {
 type partialConfig = {
   displayMode: option<string>,
   disabled: option<array<string>>,
-  aggregatedGroups: option<dict<dict<string>>>,
+  // aggregatedGroups intentionally absent: never consumed here —
+  // mergeConfig re-derives groups from the validated raw JSON.
   historyMaxAgeHours: option<float>,
   pollingInterval: option<float>,
   predictionWindowMinutes: option<float>,

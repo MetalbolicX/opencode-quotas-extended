@@ -6,7 +6,9 @@
 type settlement<'a> = {
   status: [#fulfilled | #rejected],
   value: 'a,
-  reason: 'a,
+  // Rejection reasons are thrown values; ReScript models them as exn
+  // (same convention as the stdlib Promise.allSettled binding).
+  reason: exn,
 }
 
 @val
@@ -95,4 +97,7 @@ external spawnSync: (string, spawnSyncOpts) => spawnSyncResult = "spawnSync"
 @val external processStdoutWrite: string => bool = "process.stdout.write"
 @val external processStderrWrite: string => bool = "process.stderr.write"
 @val external processCwd: unit => string = "process.cwd"
+
+@val @scope("process")
+external processChdir: string => unit = "chdir"
 @val external importMetaUrl: string = "import.meta.url"

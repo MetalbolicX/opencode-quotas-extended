@@ -29,7 +29,7 @@ let makeThrowingProvider = (id: string): quotaProvider => {
     category: "test",
     authStrategy: "none",
     isAvailable: () => {
-      let e = %raw("new Error('availability check failed')")
+      let e = JsExn.anyToExnInternal(JsError.make("availability check failed"))
       Promise.make((_, reject) => reject(e))
     },
     fetchQuotas: () => Promise.resolve([]),

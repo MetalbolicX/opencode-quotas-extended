@@ -11,6 +11,10 @@ let stubFetch = (fn: (string, FetchHttp.fetchInit) => promise<JSON.t>) => {
   FetchHttp.fetchImpl := fn
 }
 
+// Reject like a real fetch failure: a genuine JS Error wrapped as an exn.
+let rejectWith = (msg: string): promise<'a> =>
+  Promise.reject(JsExn.anyToExnInternal(JsError.make(msg)))
+
 let defaultReq: FetchHttp.httpRequest = {
   url: "https://api.test/quota",
   method: #get,
@@ -64,7 +68,7 @@ testAsync("request returns body for non-2xx without throwing", callback => {
 
 // 3. abort stops
 testAsync("request throws on abort", callback => {
-  stubFetch((_url, _init) => Promise.reject(%raw("new Error('AbortError')")))
+  stubFetch((_url, _init) => rejectWith("AbortError"))
   let opts: FetchHttp.requestOptions = {timeoutMs: 5000.0, retries: 3.0, redact: true}
   let _ = FetchHttp.request(~logger=FetchHttp.noopLogger, defaultReq, opts)
     ->Promise.then(_result => {
@@ -80,7 +84,7 @@ testAsync("request throws on abort", callback => {
 
 // 4. retry exhaustion: all retries reject, final result is rejection
 testAsync("request rejects after retry exhaustion", callback => {
-  stubFetch((_url, _init) => Promise.reject(%raw("new Error('persistent failure')")))
+  stubFetch((_url, _init) => rejectWith("persistent failure"))
   let opts: FetchHttp.requestOptions = {timeoutMs: 5000.0, retries: 2.0, redact: true}
   FetchHttp.request(~logger=FetchHttp.noopLogger, defaultReq, opts)
   ->Promise.then(_result => {
@@ -106,7 +110,7 @@ testAsync("request retries then succeeds", callback => {
   stubFetch((_url, _init) => {
     counter := counter.contents + 1
     if counter.contents <= 3 {
-      Promise.reject(%raw("new Error('network error')"))
+      rejectWith("network error")
     } else {
       Promise.resolve(jsonResp([("ok", JSON.Encode.float(1.0))]))
     }

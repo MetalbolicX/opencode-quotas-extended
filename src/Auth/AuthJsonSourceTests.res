@@ -6,7 +6,7 @@ autoBoot := false
 
 // Unique timestamp-based path helper to avoid collisions
 let tmpPath = (~prefix: string): string => {
-  let ts = %raw("Date.now().toString()")
+  let ts = String.make(Date.now())
   Node.osHomedir() ++ "/" ++ prefix ++ "-" ++ ts ++ ".json"
 }
 

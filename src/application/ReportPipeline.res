@@ -44,9 +44,20 @@ type historyStore = {
   resetDetected: (string, historyPoint, float, option<float>) => bool,
 }
 
-// Raw function value (not lambda + %raw body): keeps the compiler warning-free
-// while the raw JS owns the `reason` parameter (ReScript cannot see through %raw).
-let stringifyReason: 'a => string = %raw("function (reason) { if (reason == null) return String(reason); const payload = typeof reason === 'object' && reason.RE_EXN_ID === 'JsExn' ? reason._1 : reason; if (payload == null) return String(payload); if (typeof payload === 'object' && typeof payload.message === 'string') return payload.message; return String(payload); }")
+// Render a settled-promise rejection reason as a human-readable string.
+// Covers: JS Errors (via .message), ReScript-wrapped JsExn payloads, ReScript-native
+// exceptions, and any other thrown value via JS String() coercion.
+// anyToExnInternal is the runtime's own unifier: it wraps non-exn thrown values
+// (native promise rejections are unwrapped) so a single switch handles every case.
+let stringifyReason = (reason: exn): string =>
+  switch JsExn.anyToExnInternal(reason) {
+  | JsExn(v) =>
+    switch JsExn.message(v) {
+    | Some(msg) => msg
+    | None => String.make(v)
+    }
+  | e => String.make(e)
+  }
 
 type httpClientOptions = {
   timeoutMs: float,

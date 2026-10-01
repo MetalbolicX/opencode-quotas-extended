@@ -7,7 +7,7 @@ autoBoot := false
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 let tmpDir = (): string => {
-  let ts = %raw("Date.now().toString()")
+  let ts = String.make(Date.now())
   Node.osTmpdir() ++ "/cr-test-" ++ ts
 }
 
@@ -44,7 +44,7 @@ testAsync("CR1: auth.json credential is returned", callback => {
   let _ = Node.writeFileSync(authPath, content)
 
   // Set XDG_DATA_HOME so Paths.getAuthJsonPath resolves to our temp auth.json
-  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   let result = CredentialResolver.resolve("openai")
 
   let _ = result->Promise.then(cred => {
@@ -75,8 +75,8 @@ testAsync("CR2: env credential is returned when auth.json is absent", callback =
   let _ = Node.writeFileSync(authPath, "{}")
 
   // Set XDG_DATA_HOME to our temp dir + set OPENAI_API_KEY in process.env
-  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
-  let _ = %raw("process.env['OPENAI_API_KEY'] = 'sk-env-key'")
+  let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
+  let _ = Dict.set(Node.processEnv, "OPENAI_API_KEY", "sk-env-key")
 
   let result = CredentialResolver.resolve("openai")
 
@@ -108,8 +108,8 @@ testAsync("CR3: resolver returns None when all three sources are empty", callbac
   let _ = Node.writeFileSync(authPath, "{}")
 
   // Set XDG_DATA_HOME to our temp dir; ensure no API key
-  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
-  let _ = %raw("delete process.env['OPENAI_API_KEY']")
+  let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
+  let _ = Dict.delete(Node.processEnv, "OPENAI_API_KEY")
 
   let result = CredentialResolver.resolve("openai")
 
@@ -206,17 +206,18 @@ testAsync("CR3: config credential is returned when auth.json + env are empty", c
   let _ = Node.writeFileSync(dir ++ "/.opencode/quotas.json", configContent)
 
   // Clear API key env var; set XDG_DATA_HOME so auth.json path resolves
-  let _ = %raw("delete process.env['OPENAI_API_KEY']")
-  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let _ = Dict.delete(Node.processEnv, "OPENAI_API_KEY")
+  let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
 
   // chdir into temp dir so ConfigLoader loads our quotas.json via cwd
-  let _ = %raw("process.chdir(dir)")
+  let prevCwd = Node.processCwd()
+  let _ = Node.processChdir(dir)
 
   let result = CredentialResolver.resolve("openai")
 
   let _ = result->Promise.then(cred => {
     // Restore cwd using the absolute path to the temp dir we can derive from dir
-    let _ = %raw("process.chdir(dir)")
+    let _ = Node.processChdir(dir)
     let expected = Some(Credential.Api({variant: "api", key: "sk-cfg-key"}))
     let passed = cred == expected
     assertion(
@@ -228,7 +229,7 @@ testAsync("CR3: config credential is returned when auth.json + env are empty", c
     callback()
     Promise.resolve()
   })->Promise.catch((. _err) => {
-    let _ = %raw("process.chdir(prevCwd)")
+    let _ = Node.processChdir(prevCwd)
     assertion(~message="CR3: Promise rejected unexpectedly", (a, b) => a == b, false, true)
     callback()
     Promise.resolve()
@@ -242,8 +243,8 @@ testAsync("ROE1: resolveOrEmpty returns [] when credential is None", callback =>
   let authPath = tmpAuthJsonPath(dir)
   ensureOpencodeDir(dir)
   let _ = Node.writeFileSync(authPath, "{}")
-  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
-  let _ = %raw("delete process.env['NONEXISTENT_PROVIDER_KEY']")
+  let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
+  let _ = Dict.delete(Node.processEnv, "NONEXISTENT_PROVIDER_KEY")
 
   let fnCalled = ref(false)
   let dummyFn = (_cred: Credential.credential): Promise.t<array<Domain.quotaData>> => {
@@ -282,7 +283,7 @@ testAsync("ROE2: resolveOrEmpty calls fn when credential is Some", callback => {
       ]))),
     ]))
   ))
-  let _ = %raw("process.env['XDG_DATA_HOME'] = dir")
+  let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
 
   let fnCalled = ref(false)
   let dummyFn = (_cred: Credential.credential): Promise.t<array<Domain.quotaData>> => {
