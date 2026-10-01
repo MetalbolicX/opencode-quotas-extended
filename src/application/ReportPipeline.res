@@ -44,7 +44,9 @@ type historyStore = {
   resetDetected: (string, historyPoint, float, option<float>) => bool,
 }
 
-let stringifyReason = (reason: 'a): string => %raw("(() => { if (reason == null) return String(reason); const payload = typeof reason === 'object' && reason.RE_EXN_ID === 'JsExn' ? reason._1 : reason; if (payload == null) return String(payload); if (typeof payload === 'object' && typeof payload.message === 'string') return payload.message; return String(payload); })()")
+// Raw function value (not lambda + %raw body): keeps the compiler warning-free
+// while the raw JS owns the `reason` parameter (ReScript cannot see through %raw).
+let stringifyReason: 'a => string = %raw("function (reason) { if (reason == null) return String(reason); const payload = typeof reason === 'object' && reason.RE_EXN_ID === 'JsExn' ? reason._1 : reason; if (payload == null) return String(payload); if (typeof payload === 'object' && typeof payload.message === 'string') return payload.message; return String(payload); }")
 
 type httpClientOptions = {
   timeoutMs: float,
