@@ -46,9 +46,11 @@ let walkResFiles = (dir: string): array<string> => {
 }
 
 // Count occurrences of a substring in a string.
+// NOTE: Js.String.split is (separator, string) in ReScript 12 — data-last.
+// (The previous (src, pat) call silently computed pat.split(src) and always
+// returned 0, making both architecture guards vacuous.)
 let countSubstring = (src: string, pat: string): int => {
-  // Split by pattern and count gaps between parts.
-  let parts = Js.String.split(src, pat)
+  let parts = Js.String.split(pat, src)
   Belt.Array.length(parts) - 1
 }
 
@@ -95,7 +97,9 @@ test("src/**/*.res (excluding *Tests.res) contains ZERO Obj.magic occurrences", 
 
 // ── %raw budget ───────────────────────────────────────────────────────────────
 
-test("src/**/*.res (excluding *Tests.res) contains at most 12 %raw occurrences", () => {
+// %raw was fully eliminated (raw-to-typed-migration): use typed stdlib APIs or
+// FFI externals instead. This guard keeps it that way.
+test("src/**/*.res (excluding *Tests.res) contains ZERO %raw occurrences", () => {
   let files = walkResFiles(srcDir)
   assertion(
     ~message=`Expected to find .res files, found ${Belt.Array.length(files)->Belt.Int.toString}`,
@@ -121,15 +125,15 @@ test("src/**/*.res (excluding *Tests.res) contains at most 12 %raw occurrences",
   }
 
   let (total, details) = checkFiles(0, 0, [])
-  if total > 12 {
-    let msg = "%raw count must be <= 12. Found " ++ Belt.Int.toString(total) ++ " in:\n" ++ Js.Array.joinWith("\n", details)
-    assertion(~message=msg, (a, _b) => a <= 12, total, 12)
+  if total > 0 {
+    let msg = "%raw count must be 0. Found " ++ Belt.Int.toString(total) ++ " in:\n" ++ Js.Array.joinWith("\n", details)
+    assertion(~message=msg, (a, _b) => a == 0, total, 0)
   } else {
     assertion(
-      ~message=`%raw count ${Belt.Int.toString(total)} is within budget of 12`,
-      (a, _b) => a <= 12,
+      ~message="Zero %raw occurrences",
+      (a, _b) => a == 0,
       total,
-      12,
+      0,
     )
   }
 })
