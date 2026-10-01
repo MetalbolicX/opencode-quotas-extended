@@ -67,10 +67,14 @@ subscription usage API. No web scraping — API only.
 
 - `4951925` feat(go): parse official subscription usage API envelope
 - `b9f786d` feat(go): fetch Go quota from official usage endpoint
+- `48675c2` fix(status): restore first-match gradient semantics
+- Native review (branch candidate): review-89916421ca23416f — approved, authority burned.
 
 ## Follow-ups (out of scope here)
 
 - Zen: pinned endpoint `api/billing/balance` is dead (404); needs a decision
   (scrape / find replacement endpoint / drop provider).
-- Pre-existing warning 27 (unused `reason`) in `src/application/ReportPipeline.res:47`.
-- Stale doc figure: CLAUDE.md test-file count (says 47, observed 54).
+- [x] Pre-existing warning 27 — still open (ReportPipeline.res:47).
+- [x] Status ERR regression: FIXED in `48675c2` (first-match gradient semantics
+      restored; StatusBarTests.res added). Found during live Go verification.
+- Stale doc figure: CLAUDE.md test-file count (says 47, observed 54/55).
