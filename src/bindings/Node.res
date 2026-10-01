@@ -6,7 +6,9 @@
 type settlement<'a> = {
   status: [#fulfilled | #rejected],
   value: 'a,
-  reason: 'a,
+  // Rejection reasons are thrown values; ReScript models them as exn
+  // (same convention as the stdlib Promise.allSettled binding).
+  reason: exn,
 }
 
 @val
