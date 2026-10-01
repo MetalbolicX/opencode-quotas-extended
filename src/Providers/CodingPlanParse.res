@@ -23,3 +23,6 @@ let kimiWindow = KimiParser.kimiWindow
 let summaryToQuota = KimiParser.summaryToQuota
 let limitRowToQuota = KimiParser.limitRowToQuota
 let parseKimiUsages = KimiParser.parseKimiUsages
+
+// Re-exports from GoParser
+let parseGoUsage = GoParser.parseUsage
