@@ -50,11 +50,13 @@ let getStatus = (
     } else {
       let ratio = used /. lim
       // Find first matching gradient
+      // First matching gradient wins (legacy TS returned on first match; see
+      // legacy/rendering/status-bar.ts:38). Last-match here made every used > 0 ERR.
       let matchingIdx = {
         let found = ref(-1)
         for i in 0 to Array.length(gradients) - 1 {
           switch gradients[i] {
-          | Some(g) if ratio < g.threshold => found := i
+          | Some(g) if found.contents == -1 && ratio < g.threshold => found := i
           | _ => ()
           }
         }
