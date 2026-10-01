@@ -62,7 +62,8 @@ type quotasConfig = {
 type partialConfig = {
   displayMode: option<string>,
   disabled: option<array<string>>,
-  aggregatedGroups: option<dict<dict<string>>>,
+  // aggregatedGroups intentionally absent: never consumed here —
+  // mergeConfig re-derives groups from the validated raw JSON.
   historyMaxAgeHours: option<float>,
   pollingInterval: option<float>,
   predictionWindowMinutes: option<float>,
@@ -162,6 +163,12 @@ let _optFloat = (j: option<JSON.t>): option<float> =>
   | _ => None
   }
 
+let _optBool = (j: option<JSON.t>): option<bool> =>
+  switch j {
+  | Some(JSON.Boolean(b)) => Some(b)
+  | _ => None
+  }
+
 let _objDict = (j: JSON.t): dict<JSON.t> =>
   switch j {
   | JSON.Object(d) => d
@@ -179,18 +186,25 @@ let coerceToPartial = (_raw: JSON.t): partialConfig => {
       }))
     | _ => None
     },
-    aggregatedGroups: %raw("_raw.aggregatedGroups === undefined ? undefined : _raw.aggregatedGroups"),
     historyMaxAgeHours: _optFloat(Dict.get(d, "historyMaxAgeHours")),
     pollingInterval: _optFloat(Dict.get(d, "pollingInterval")),
     predictionWindowMinutes: _optFloat(Dict.get(d, "predictionWindowMinutes")),
     predictionShortWindowMinutes: _optFloat(Dict.get(d, "predictionShortWindowMinutes")),
-    // Booleans: JSON module has no Bool variant in this ReScript, use %raw
-    showUnaggregated: %raw("_raw.showUnaggregated === undefined ? undefined : _raw.showUnaggregated"),
-    show: %raw("_raw.show === undefined ? undefined : _raw.show"),
-    filterByCurrentModel: %raw("_raw.filterByCurrentModel === undefined ? undefined : _raw.filterByCurrentModel"),
-    // progressBar: use %raw to access nested fields since JSON module lacks Bool variant
-    // Use == null (loose equality) so both null and undefined map to None (absent config)
-    progressBar: %raw("_raw.progressBar == null ? undefined : _raw.progressBar"),
+    // JSON.Boolean decodes both null and undefined to None (absent config)
+    showUnaggregated: _optBool(Dict.get(d, "showUnaggregated")),
+    show: _optBool(Dict.get(d, "show")),
+    filterByCurrentModel: _optBool(Dict.get(d, "filterByCurrentModel")),
+    progressBar: switch Dict.get(d, "progressBar") {
+    | Some(JSON.Object(pb)) =>
+      Some({
+        width: _optFloat(Dict.get(pb, "width")),
+        filledChar: _optStr(Dict.get(pb, "filledChar")),
+        emptyChar: _optStr(Dict.get(pb, "emptyChar")),
+        color: _optBool(Dict.get(pb, "color")),
+        gradients: _optBool(Dict.get(pb, "gradients")),
+      })
+    | _ => None
+    },
     credentials: Dict.get(d, "credentials"),
     anthropic: switch Dict.get(d, "anthropic") {
     | Some(JSON.Object(a)) => Some({orgId: _optStr(Dict.get(a, "orgId"))})
