@@ -26,11 +26,20 @@ credential key (`opencode-go`), filter id (`go`), and README unchanged.
 
 ## Tasks
 
-- [ ] T1. SemanticLabels: add Go5hRolling/GoWeekly/GoMonthly variants + concept strings (go-5h-rolling, go-weekly, go-monthly); mirror .resi.
-- [ ] T2. en.json: add concept.go-5h-rolling / concept.go-weekly / concept.go-monthly; pnpm codegen to regenerate EnCatalog.
-- [ ] T3. GoParser: window→concept mapping, render via buildProviderName; update GoParserTests expectations.
-- [ ] T4. All five gates green; close out.
+- [x] T1. SemanticLabels (d310bef): add Go5hRolling/GoWeekly/GoMonthly variants + concept strings (go-5h-rolling, go-weekly, go-monthly); mirror .resi.
+- [x] T2. en.json (d310bef): add concept.go-5h-rolling / concept.go-weekly / concept.go-monthly; pnpm codegen to regenerate EnCatalog.
+- [x] T3. GoParser (d310bef): window→concept mapping, render via buildProviderName; update GoParserTests expectations.
+- [x] T4. All five gates green; close out.
 
 ## Evidence log
 
 (commit identities appended per task)
+
+## Evidence log
+
+| Commit | Scope |
+|---|---|
+| d310bef | feat(providers): Go concepts + conceptKey extraction + branded GoParser rows + tests |
+
+All five gates green (codegen --check, 55 test files, build, smoke, secrets).
+Rendered rows verified: "Go · 5h rolling window" / "Go · Weekly limit" / "Go · Monthly quota".
