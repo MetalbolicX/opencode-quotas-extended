@@ -15,11 +15,11 @@ let parseUsage = (
     switch Dict.get(root, "usage") {
     | Some(JSON.Object(usage)) =>
       let windows = [
-        ("rolling", "5h", #rolling5h),
-        ("weekly", "Weekly", #rollingWeekly),
-        ("monthly", "Monthly", #monthly),
+        ("rolling", #rolling5h, SemanticLabels.Go5hRolling),
+        ("weekly", #rollingWeekly, SemanticLabels.GoWeekly),
+        ("monthly", #monthly, SemanticLabels.GoMonthly),
       ]
-      windows->Belt.Array.keepMap(((key, label, windowType)) => {
+      windows->Belt.Array.keepMap(((key, windowType, concept)) => {
         switch Dict.get(usage, key) {
         | Some(JSON.Object(windowDict)) =>
           let percent = switch Dict.get(windowDict, "percent") {
@@ -28,16 +28,18 @@ let parseUsage = (
           }
           switch percent {
           | Some(used) =>
-            let info = `${providerName} ${label}`
+            // Same treatment as z.ai rows: brand · translated concept label.
+            let branded = SemanticLabels.buildProviderName(providerName, concept)
+            let label = SemanticLabels.getLabel(SemanticLabels.conceptKey(concept))
             let entry: quotaData = {
               id: `${idPrefix}-${key}`,
-              providerName: info,
+              providerName: branded,
               used,
               limit: Some(100.0),
               unit: "%",
               reset: Shared.parseIsoReset(windowDict, "resetsAt"),
               window: windowType,
-              info: Some(info),
+              info: Some(label),
               modelId: None,
             }
             Some(entry)

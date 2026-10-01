@@ -18,6 +18,9 @@ type quotaConcept =
   | @as("gemini-model-quota") GeminiModelQuota
   | @as("kimi-weekly-usage") KimiWeeklyUsage
   | @as("kimi-5h-rolling") Kimi5hRolling
+  | @as("go-5h-rolling") Go5hRolling
+  | @as("go-weekly") GoWeekly
+  | @as("go-monthly") GoMonthly
 
 type providerPayloadHints = {
   type_: option<string>,
@@ -51,6 +54,9 @@ let labelMap: dict<string> = Dict.fromArray([
   ("gemini-model-quota", "Model quota"),
   ("kimi-weekly-usage", "Kimi weekly usage"),
   ("kimi-5h-rolling", "Kimi 5h rolling limit"),
+  ("go-5h-rolling", "5h rolling window"),
+  ("go-weekly", "Weekly limit"),
+  ("go-monthly", "Monthly quota"),
 ])
 
 let getLabel = (concept: string): string => {
@@ -139,13 +145,8 @@ let enrichQuotaLabel = (_providerId: string, hints: providerPayloadHints): enric
   }
 }
 
-let buildProviderName = (
-  brand: string,
-  concept: quotaConcept,
-  ~model: option<string>=?,
-  ~labelOverride: option<string>=?,
-): string => {
-  let conceptStr = switch concept {
+let conceptKey = (concept: quotaConcept): string =>
+  switch concept {
   | ZAi5HourRolling => "z.ai-5-hour-rolling"
   | ZAiMcp => "z.ai-mcp"
   | ZAiToken => "z.ai-token"
@@ -162,7 +163,18 @@ let buildProviderName = (
   | GeminiModelQuota => "gemini-model-quota"
   | KimiWeeklyUsage => "kimi-weekly-usage"
   | Kimi5hRolling => "kimi-5h-rolling"
+  | Go5hRolling => "go-5h-rolling"
+  | GoWeekly => "go-weekly"
+  | GoMonthly => "go-monthly"
   }
+
+let buildProviderName = (
+  brand: string,
+  concept: quotaConcept,
+  ~model: option<string>=?,
+  ~labelOverride: option<string>=?,
+): string => {
+  let conceptStr = conceptKey(concept)
   let label = switch labelOverride {
   | Some(ov) => ov
   | None => getLabel(conceptStr)
