@@ -43,3 +43,12 @@ credential key (`opencode-go`), filter id (`go`), and README unchanged.
 
 All five gates green (codegen --check, 55 test files, build, smoke, secrets).
 Rendered rows verified: "Go · 5h rolling window" / "Go · Weekly limit" / "Go · Monthly quota".
+
+## Review evidence (RDD)
+
+- Lineage: review-c7e16a9005d312d7 | target sha256:e42f2eaa4c775aad8c9501485ef5b1cad61d471f7b122f5c3d48982f963875e9
+  (committed range base a8a0e84, 6 paths incl. user's 0.4.0 version bump, tier medium, budget 50 — unused)
+- Consent: granted by human via relayed consent/v3
+- Reviewer: review-reliability (1 host-relayed run, admitted) — APPROVED, no findings
+- Authority burned (consumed revision sha256:85cbc4ec410350e42c80e4b9ee10e4918e2c4deb66fd8258d51ca7894b8387dd,
+  burn evidence gentle-ai.review-acknowledged/v1); delivery = ordinary repository policy
