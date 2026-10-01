@@ -45,9 +45,9 @@ test("parseGoUsage maps windows and labels", () => {
   assertion(~message="rolling maps to rolling5h", (a, b) => a == b, Belt.Array.getExn(result, 0).window, #rolling5h)
   assertion(~message="weekly maps to rollingWeekly", (a, b) => a == b, Belt.Array.getExn(result, 1).window, #rollingWeekly)
   assertion(~message="monthly maps to monthly", (a, b) => a == b, Belt.Array.getExn(result, 2).window, #monthly)
-  assertion(~message="rolling info", (a, b) => a == b, Belt.Array.getExn(result, 0).info, Some("Go 5h"))
-  assertion(~message="weekly info", (a, b) => a == b, Belt.Array.getExn(result, 1).info, Some("Go Weekly"))
-  assertion(~message="monthly info", (a, b) => a == b, Belt.Array.getExn(result, 2).info, Some("Go Monthly"))
+  assertion(~message="rolling info", (a, b) => a == b, Belt.Array.getExn(result, 0).info, Some("5h rolling window"))
+  assertion(~message="weekly info", (a, b) => a == b, Belt.Array.getExn(result, 1).info, Some("Weekly limit"))
+  assertion(~message="monthly info", (a, b) => a == b, Belt.Array.getExn(result, 2).info, Some("Monthly quota"))
 })
 
 test("parseGoUsage maps percentages, limit, unit, and provider names", () => {
@@ -56,7 +56,7 @@ test("parseGoUsage maps percentages, limit, unit, and provider names", () => {
   assertion(~message="used equals percent", (a, b) => a == b, entry.used, 19.5)
   assertion(~message="limit is 100 percent", (a, b) => a == b, entry.limit, Some(100.0))
   assertion(~message="unit is percent", (a, b) => a == b, entry.unit, "%")
-  assertion(~message="providerName has the 5h label", (a, b) => a == b, entry.providerName, "Go 5h")
+  assertion(~message="providerName has the branded 5h label", (a, b) => a == b, entry.providerName, "Go\u00A0·\u00A05h rolling window")
   assertion(~message="modelId is absent", (a, b) => a == b, entry.modelId, None)
 })
 
