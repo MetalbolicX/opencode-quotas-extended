@@ -2,8 +2,8 @@
 open RescriptTest
 
 testAsync("stringifyReason unwraps a caught JsExn Error", testDone => {
-  let rawErr = %raw("new Error('HTTP 401: https://example.com')")
-  let wrappedP = Promise.reject(rawErr)
+  let jsErr = JsExn.anyToExnInternal(JsError.make("HTTP 401: https://example.com"))
+  let wrappedP = Promise.reject(jsErr)
     ->Promise.catch(e => Promise.resolve(e))
   let _ = wrappedP->Promise.then(wrapped => {
     assertion(
@@ -19,8 +19,8 @@ testAsync("stringifyReason unwraps a caught JsExn Error", testDone => {
 })
 
 test("stringifyReason extracts a raw Error message", () => {
-  let rawErr = %raw("new Error('boom')")
-  assertion(~message="raw Error message is extracted", (a, b) => a == b, ReportPipeline.stringifyReason(rawErr), "boom")
+  let jsErr = JsExn.anyToExnInternal(JsError.make("boom"))
+  assertion(~message="raw Error message is extracted", (a, b) => a == b, ReportPipeline.stringifyReason(jsErr), "boom")
 })
 
 test("stringifyReason preserves a plain string", () => {

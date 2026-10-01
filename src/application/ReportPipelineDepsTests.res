@@ -20,7 +20,7 @@ module FakeHistory = {
   }
   let rejecting = (): t => {
     let getHistory = (_id: string, _windowMs: float) =>
-      Promise.reject(%raw("new Error('simulated failure')"))
+      Promise.reject(JsExn.anyToExnInternal(JsError.make("simulated failure")))
     let append = (_id, _pt) => Promise.resolve()
     let prune = (_ms) => Promise.resolve()
     let resetDetected = (_id, _pt, _prev, _curr) => false

@@ -97,4 +97,7 @@ external spawnSync: (string, spawnSyncOpts) => spawnSyncResult = "spawnSync"
 @val external processStdoutWrite: string => bool = "process.stdout.write"
 @val external processStderrWrite: string => bool = "process.stderr.write"
 @val external processCwd: unit => string = "process.cwd"
+
+@val @scope("process")
+external processChdir: string => unit = "chdir"
 @val external importMetaUrl: string = "import.meta.url"
