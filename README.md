@@ -32,7 +32,7 @@ OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic ·
 
 **Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription).
 
-**Endpoints pending web scraping** (deferred, not implemented): opencode Zen, opencode Go. These providers do not publish a public quota API; the maintainers deferred implementation because reliable quota data requires scraping the web console.
+**Endpoint pending web scraping** (deferred, not implemented): opencode Zen. opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
 
 **Endpoints live but credential-blocked**: Anthropic (admin-scope key required), Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
 
@@ -136,7 +136,7 @@ Gates (run locally; CI is intentionally not part of this repository):
 | `node dist/cli/index.js --help` | ✅ works under plain Node |
 
 **8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
-Two (Zen, Go) are deferred because they would require web scraping. Two (Anthropic, Gemini) are live-but-credential-blocked. Four (OpenAI, z.ai, Kimi, Minimax) are production-ready.
+One (Zen) is deferred because it would require web scraping. One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. Two (Anthropic, Gemini) are live-but-credential-blocked. Four (OpenAI, z.ai, Kimi, Minimax) are production-ready.
 
 ## Legacy archive
 

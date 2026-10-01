@@ -1,10 +1,10 @@
 // src/Providers/Go.res
-// opencode Go provider — api variant.
-// Endpoint: https://opencode.ai/api/billing/balance
+// opencode Go provider — official subscription usage API (no scraping).
+// Endpoint: https://opencode.ai/zen/go/v1/usage
 
 // -----------------------------------------------------------------------------
 
-let usageUrl = "https://opencode.ai/api/billing/balance"
+let usageUrl = "https://opencode.ai/zen/go/v1/usage"
 
 let createGoProvider = (): Provider.quotaProvider => {
   id: "go",
@@ -19,7 +19,7 @@ let createGoProvider = (): Provider.quotaProvider => {
     ProviderFetch.fetch(
       ~key="opencode-go",
       ~buildUrl=() => usageUrl,
-      ~parse=json => CodingPlanParse.parseUsage(
+      ~parse=json => CodingPlanParse.parseGoUsage(
         ~json,
         ~idPrefix="go",
         ~providerName="Go",
