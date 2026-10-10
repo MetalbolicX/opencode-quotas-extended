@@ -25,21 +25,59 @@ let resetDate = (afterSeconds: option<float>, atEpoch: option<float>): option<Da
 
 let whamUrl = "https://chatgpt.com/backend-api/wham/usage"
 
-let fetchQuotasOAuth = (
-  ~cred: Credential.credential,
+type oauthRefreshHooks = {
+  reread: unit => option<Credential.credential>,
+  persist: (string, string, float) => bool,
+}
+
+type refreshedOAuth = {access: string, refresh: string, expires: float}
+
+let refreshInFlight: ref<option<Promise.t<option<refreshedOAuth>>>> = ref(None)
+
+let refreshOAuth = (
+  ~cred: refreshedOAuth,
+  ~http: FetchHttp.httpClient,
+  ~hooks: oauthRefreshHooks,
+): Promise.t<option<refreshedOAuth>> => {
+  switch refreshInFlight.contents {
+  | Some(promise) => promise
+  | None =>
+    let req: FetchHttp.httpRequest = {
+      url: TokenRefresh.tokenUrl,
+      method: #post,
+      headers: Some(Dict.fromArray([("Content-Type", "application/x-www-form-urlencoded")])),
+      body: Some(JSON.String(TokenRefresh.refreshRequestBody(cred.refresh))),
+    }
+    let opts: FetchHttp.requestOptions = {timeoutMs: 15000.0, retries: 0.0, redact: true}
+    let promise = http.request(req, opts)->Promise.then(json => {
+      let parsed = TokenRefresh.parseRefreshResponse(JSON.stringify(json))
+      switch parsed {
+      | None => Promise.resolve(None)
+      | Some(tokens) =>
+        let refresh = Belt.Option.getWithDefault(tokens.refresh, cred.refresh)
+        let expires = Date.now() +. tokens.expiresInSeconds *. 1000.0
+        try {
+          let _ = hooks.persist(tokens.access, refresh, expires)
+        } catch {
+        | _ => ()
+        }
+        Promise.resolve(Some({access: tokens.access, refresh, expires}))
+      }
+    })->Promise.catch(. _err => Promise.resolve(None))
+    refreshInFlight := Some(promise)
+    let _ = promise->Promise.then(_ => {
+      refreshInFlight := None
+      Promise.resolve()
+    })
+    promise
+  }
+}
+
+let fetchWhamWithAccess = (
+  ~access: string,
   ~http: FetchHttp.httpClient,
 ): Promise.t<array<Domain.quotaData>> => {
-  // Build auth header from credential
-  let auth = switch cred {
-  | Credential.Api(c) => `Bearer ${c.key}`
-  | Credential.OAuth(c) => `Bearer ${c.access}`
-  | Credential.Wellknown(c) => `Bearer ${c.token}`
-  | Credential.Env(c) =>
-    switch Node.processEnv->Dict.get(c.envVar) {
-    | Some(v) => v
-    | None => ""
-    }
-  }
+  let auth = `Bearer ${access}`
   // Wrap client with Authorization header
   let authedClient: FetchHttp.httpClient = {
     request: (req: FetchHttp.httpRequest, opts) => {
@@ -191,6 +229,82 @@ let fetchQuotasOAuth = (
     Promise.resolve(quotaData)
   })
 }
+
+let fetchQuotasOAuthWithHooks = (
+  ~cred: Credential.credential,
+  ~http: FetchHttp.httpClient,
+  ~hooks: oauthRefreshHooks,
+): Promise.t<array<Domain.quotaData>> => {
+  switch cred {
+  | Credential.OAuth(initial) =>
+    let initialRefreshed = ref(false)
+    let initialOAuth: refreshedOAuth = {access: initial.access, refresh: initial.refresh, expires: initial.expires}
+    let proactively = TokenRefresh.needsRefresh(initial.expires, Date.now()) && initial.refresh !== ""
+    let ready = if proactively {
+      refreshOAuth(~cred=initialOAuth, ~http, ~hooks)->Promise.then(result => {
+        switch result {
+        | Some(tokens) =>
+          initialRefreshed := true
+          Promise.resolve(tokens)
+        | None => Promise.resolve(initialOAuth)
+        }
+      })
+    } else {
+      Promise.resolve(initialOAuth)
+    }
+    ready->Promise.then(used => {
+      fetchWhamWithAccess(~access=used.access, ~http)->Promise.catch(. err => {
+        let message = switch JsExn.anyToExnInternal(err) {
+        | JsExn(v) => Belt.Option.getWithDefault(JsExn.message(v), String.make(v))
+        | e => String.make(e)
+        }
+        let message = message ++ " " ++ String.make(err)
+        if String.includes(message, "HTTP 401") {
+          switch hooks.reread() {
+          | Some(Credential.OAuth(latest)) if latest.access !== used.access =>
+            fetchWhamWithAccess(~access=latest.access, ~http)
+          | Some(Credential.OAuth(latest)) if !initialRefreshed.contents && latest.refresh !== "" =>
+            let refreshCred: refreshedOAuth = {access: latest.access, refresh: latest.refresh, expires: latest.expires}
+            refreshOAuth(~cred=refreshCred, ~http, ~hooks)->Promise.then(result =>
+              switch result {
+              | Some(tokens) =>
+                initialRefreshed := true
+                fetchWhamWithAccess(~access=tokens.access, ~http)
+              | None => Promise.reject(err)
+              }
+            )
+          | _ if !initialRefreshed.contents && used.refresh !== "" =>
+            let refreshCred: refreshedOAuth = {access: used.access, refresh: used.refresh, expires: used.expires}
+            refreshOAuth(~cred=refreshCred, ~http, ~hooks)->Promise.then(result =>
+              switch result {
+              | Some(tokens) =>
+                initialRefreshed := true
+                fetchWhamWithAccess(~access=tokens.access, ~http)
+              | None => Promise.reject(err)
+              }
+            )
+          | _ => Promise.reject(err)
+          }
+        } else {
+          Promise.reject(err)
+        }
+      })
+    })
+  | _ => Promise.resolve([])
+  }
+}
+
+let defaultOAuthRefreshHooks: oauthRefreshHooks = {
+  reread: () => AuthJsonSource.getCredential("openai"),
+  persist: (access, refresh, expiresMs) =>
+    AuthJsonSource.persistOAuthTokens(~env=None, "openai", access, refresh, expiresMs),
+}
+
+let fetchQuotasOAuth = (
+  ~cred: Credential.credential,
+  ~http: FetchHttp.httpClient,
+): Promise.t<array<Domain.quotaData>> =>
+  fetchQuotasOAuthWithHooks(~cred, ~http, ~hooks=defaultOAuthRefreshHooks)
 
 // --- API key path: cursor-based pagination ------------------------------------
 

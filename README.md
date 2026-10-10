@@ -32,6 +32,8 @@ OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic ·
 
 **Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription).
 
+OpenAI OAuth tokens refresh automatically: when the access token is expired or within 60s of expiry (or WHAM answers 401), the CLI exchanges the refresh token at `auth.openai.com/oauth/token` and persists the rotated tokens back to the `openai` entry of opencode's `auth.json` (atomic read-modify-write; other entries untouched). No manual `opencode auth login` needed after the initial one.
+
 **Endpoint pending web scraping** (deferred, not implemented): opencode Zen. opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
 
 **Endpoints live but credential-blocked**: Anthropic (admin-scope key required), Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
