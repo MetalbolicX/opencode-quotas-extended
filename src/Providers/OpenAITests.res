@@ -37,5 +37,169 @@ test("isAvailable returns a Promise<bool>", () => {
 // ("one fails, one succeeds" — src/application/ReportPipeline.test.mjs).
 // The bug fix (removing .catch that swallows HTTP errors) is verified there.
 
+// OAuth refresh wiring tests use only in-memory HTTP and hooks.
+@new external testError: string => exn = "Error"
+
+let oauth = (~access: string, ~refresh: string, ~expires: float): Credential.credential =>
+  Credential.OAuth({variant: "oauth", access, refresh, expires})
+
+let usageJson = () => JSON.parseOrThrow("{}")
+
+let testHttp = (handler: FetchHttp.httpRequest => promise<JSON.t>): FetchHttp.httpClient =>
+  {request: (req, _opts) => handler(req)}
+
+let errorMessage = (err: exn): string =>
+  switch JsExn.anyToExnInternal(err) {
+  | JsExn(v) => Belt.Option.getWithDefault(JsExn.message(v), String.make(v))
+  | e => String.make(e)
+  }
+
+let hooks = (
+  ~reread: unit => option<Credential.credential>=() => None,
+  ~persist: (string, string, float) => bool=(_, _, _) => true,
+): oauthRefreshHooks => {reread, persist}
+
+testAsync("OAuth refresh wiring uses, persists, retries, and shares refreshes", callback => {
+  let freshCalls = ref(0)
+  let freshPersist = ref(0)
+  let freshHttp = testHttp(_req => {
+    freshCalls := freshCalls.contents + 1
+    Promise.resolve(usageJson())
+  })
+  let freshHooks = hooks(~reread=() => { fail(~message="fresh credential must not be reread", ()); None }, ~persist=(_, _, _) => {
+    freshPersist := freshPersist.contents + 1
+    true
+  })
+  let _ = fetchQuotasOAuthWithHooks(~cred=oauth(~access="fresh", ~refresh="refresh", ~expires=Date.now() +. 600000.0), ~http=freshHttp, ~hooks=freshHooks)->Promise.then(_ => {
+    assertion(~message="fresh access makes only WHAM request", (a, b) => a == b, freshCalls.contents, 1)
+    assertion(~message="fresh token does not persist", (a, b) => a == b, freshPersist.contents, 0)
+
+    let calls = ref([])
+    let persisted = ref([])
+    let expiringHttp = testHttp(req => {
+      calls.contents->Array.push((req.url, req.headers->Option.flatMap(h => Dict.get(h, "Authorization")), req.method))->ignore
+      if req.url === TokenRefresh.tokenUrl {
+        Promise.resolve(JSON.parseOrThrow("{\"access_token\":\"rotated\",\"refresh_token\":\"next\",\"expires_in\":3600}"))
+      } else {
+        Promise.resolve(usageJson())
+      }
+    })
+    let expiringHooks = hooks(~persist=(a, r, e) => {
+      persisted.contents->Array.push((a, r, e))->ignore
+      false
+    })
+    let _ = fetchQuotasOAuthWithHooks(~cred=oauth(~access="old", ~refresh="current", ~expires=Date.now()), ~http=expiringHttp, ~hooks=expiringHooks)->Promise.then(_ => {
+      assertion(~message="refresh and WHAM each called once", (a, b) => a == b, calls.contents->Array.length, 2)
+      let (_, rotatedAuth, _) = Belt.Array.getExn(calls.contents, 1)
+      assertion(~message="WHAM uses rotated access", (a, b) => a == b, rotatedAuth, Some("Bearer rotated"))
+      assertion(~message="persist rotated tokens", (a, b) => a == b, persisted.contents->Array.length, 1)
+
+      // A failed proactive refresh is swallowed, then WHAM uses the old token.
+      let fallbackAuth = ref(None)
+      let failedHttp = testHttp(req => {
+        if req.url === TokenRefresh.tokenUrl {
+          Promise.reject(testError("refresh unavailable"))
+        } else {
+          fallbackAuth := req.headers->Option.flatMap(h => Dict.get(h, "Authorization"))
+          Promise.resolve(usageJson())
+        }
+      })
+      let _ = fetchQuotasOAuthWithHooks(~cred=oauth(~access="stale", ~refresh="refresh", ~expires=Date.now()), ~http=failedHttp, ~hooks=hooks())->Promise.then(_ => {
+        assertion(~message="refresh failure falls back to old token", (a, b) => a == b, fallbackAuth.contents, Some("Bearer stale"))
+
+        let retryCount = ref(0)
+        let retryHttp = testHttp(req => {
+          retryCount := retryCount.contents + 1
+          let auth = req.headers->Option.flatMap(h => Dict.get(h, "Authorization"))
+          if auth === Some("Bearer old") {
+            Promise.reject(testError("HTTP 401: wham"))
+          } else {
+            Promise.resolve(usageJson())
+          }
+        })
+        let rereadHooks = hooks(~reread=() => Some(oauth(~access="new", ~refresh="unused", ~expires=0.0)))
+        let _ = fetchQuotasOAuthWithHooks(~cred=oauth(~access="old", ~refresh="unused", ~expires=0.0), ~http=retryHttp, ~hooks=rereadHooks)->Promise.then(_ => {
+          assertion(~message="changed credential is retried once", (a, b) => a == b, retryCount.contents, 2)
+
+          // If re-read is unchanged, force refresh even when expires is unknown.
+          let forceCount = ref(0)
+          let forceHttp = testHttp(req => {
+            if req.url === TokenRefresh.tokenUrl {
+              forceCount := forceCount.contents + 1
+              Promise.resolve(JSON.parseOrThrow("{\"access_token\":\"forced\",\"refresh_token\":\"forced-next\"}"))
+            } else if req.headers->Option.flatMap(h => Dict.get(h, "Authorization")) === Some("Bearer forced") {
+              forceCount := forceCount.contents + 1
+              Promise.resolve(usageJson())
+            } else {
+              Promise.reject(testError("HTTP 401: wham"))
+            }
+          })
+          let forceHooks = hooks(~reread=() => Some(oauth(~access="old", ~refresh="refresh", ~expires=0.0)), ~persist=(_, _, _) => true)
+          let _ = fetchQuotasOAuthWithHooks(~cred=oauth(~access="old", ~refresh="refresh", ~expires=0.0), ~http=forceHttp, ~hooks=forceHooks)->Promise.then(_ => {
+            assertion(~message="401 forces refresh and one successful retry", (a, b) => a == b, forceCount.contents, 2)
+
+            let finalAttempts = ref(0)
+            let finalFailure = ref("")
+            let always401 = testHttp(req => {
+              if req.url === TokenRefresh.tokenUrl {
+                Promise.resolve(JSON.parseOrThrow("{\"access_token\":\"last-refreshed\",\"refresh_token\":\"last-next\"}"))
+              } else {
+                finalAttempts := finalAttempts.contents + 1
+                Promise.reject(testError("HTTP 401: wham"))
+              }
+            })
+            let sameAccessHooks = hooks(~reread=() => Some(oauth(~access="last", ~refresh="last-refresh", ~expires=0.0)))
+            let _ = fetchQuotasOAuthWithHooks(~cred=oauth(~access="last", ~refresh="last-refresh", ~expires=0.0), ~http=always401, ~hooks=sameAccessHooks)->Promise.then(_ => {
+              fail(~message="second 401 must reject", ())
+              callback()
+              Promise.resolve()
+            })->Promise.catch(. err => {
+              finalFailure := errorMessage(err)
+              assertion(~message="second 401 rejects after one retry", (a, b) => a == b, finalAttempts.contents, 2)
+              assertion(~message="final rejection preserves 401", (a, b) => a == b, String.includes(finalFailure.contents, "HTTP 401"), true)
+              callback()
+              Promise.resolve()
+            })
+            Promise.resolve()
+          })
+          Promise.resolve()
+        })
+        Promise.resolve()
+      })
+      Promise.resolve()
+    })
+    Promise.resolve()
+  })->Promise.catch(. _err => {
+    fail(~message="OAuth refresh wiring scenario rejected unexpectedly", ())
+    callback()
+    Promise.resolve()
+  })
+})
+
+testAsync("concurrent OAuth callers share one proactive refresh", callback => {
+  let refreshPosts = ref(0)
+  let concurrentHttp = testHttp(req => {
+    if req.url === TokenRefresh.tokenUrl {
+      refreshPosts := refreshPosts.contents + 1
+      Promise.resolve(JSON.parseOrThrow("{\"access_token\":\"shared\",\"refresh_token\":\"shared-next\"}"))
+    } else {
+      Promise.resolve(usageJson())
+    }
+  })
+  let sharedHooks = hooks()
+  let cred = oauth(~access="concurrent-old", ~refresh="concurrent-refresh", ~expires=Date.now())
+  let first = fetchQuotasOAuthWithHooks(~cred, ~http=concurrentHttp, ~hooks=sharedHooks)
+  let second = fetchQuotasOAuthWithHooks(~cred, ~http=concurrentHttp, ~hooks=sharedHooks)
+  let _ = Promise.all([first, second])->Promise.then(_ => {
+    assertion(~message="one refresh POST serves both callers", (a, b) => a == b, refreshPosts.contents, 1)
+    callback()
+    Promise.resolve()
+  })->Promise.catch(. _err => {
+    fail(~message="concurrent fetches should succeed", ())
+    callback()
+    Promise.resolve()
+  })
+})
+
 // Run all tests
 let () = runTests()
