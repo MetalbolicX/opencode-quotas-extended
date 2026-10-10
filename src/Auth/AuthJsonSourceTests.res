@@ -4,10 +4,10 @@ open RescriptTest
 
 autoBoot := false
 
-// Unique timestamp-based path helper to avoid collisions
+// Unique timestamp-based path helper; isolated under the OS temp dir (never $HOME).
 let tmpPath = (~prefix: string): string => {
   let ts = String.make(Date.now())
-  Node.osHomedir() ++ "/" ++ prefix ++ "-" ++ ts ++ ".json"
+  Node.osTmpdir() ++ "/" ++ prefix ++ "-" ++ ts ++ ".json"
 }
 
 // Helper: parse a JSON string safely (mirrors readJson contract)
@@ -85,12 +85,8 @@ test("A5: malformed JSON returns None", () => {
   let path = tmpPath(~prefix="test-auth-malformed")
   let _ = Node.writeFileSync(path, "{ bad json")
   let result = AuthJsonSource.readJson(path)
-  // clean up
-  try {
-    let _ = Node.writeFileSync(path, "")
-  } catch {
-  | _ => ()
-  }
+  // Remove the temp file — overwriting with "" would leave it behind in tmpdir.
+  Node.rmSync(path)
   assertion(
     ~message=`Expected None for malformed JSON, got ${Belt.Option.map(result, _ => "Some(_)")->Belt.Option.getWithDefault("None")}`,
     (a, b) => a == b,
@@ -126,13 +122,17 @@ test("A6: provider absent from valid auth.json returns None", () => {
   )
 })
 
-// Persistence tests use an isolated XDG data home and dummy token values only.
+// Persistence tests use an isolated temp-dir data home and dummy token values only.
 let persistenceHome = (~prefix: string): string => {
-  let dir = Node.osHomedir() ++ "/" ++ prefix ++ "-" ++ String.make(Date.now())
+  let dir = Node.osTmpdir() ++ "/" ++ prefix ++ "-" ++ String.make(Date.now())
   let _ = Node.mkdirSync(dir)
   let _ = Node.mkdirSync(dir ++ "/opencode")
   dir
 }
+
+// Removes a persistence test home and everything under it. Call after capturing
+// any reads the assertions need, so teardown always runs before assertions throw.
+let cleanupHome = (home: string): unit => Node.rmSyncRecursive(home, {recursive: true, force: true})
 
 let persistedAuthPath = (home: string): string => home ++ "/opencode/auth.json"
 let readUtf8 = (path: string): string => Node.readFileSyncUtf8(path, {encoding: "utf8"})
@@ -156,6 +156,7 @@ test("persist OAuth tokens merges only token fields and preserves other entries"
   let env = Some(Dict.fromArray([("XDG_DATA_HOME", home)]))
   let result = AuthJsonSource.persistOAuthTokens(~env, "openai", "dummy-access", "dummy-refresh", 123456.0)
   let content = readUtf8(path)
+  cleanupHome(home)
   assertion(~message="persist reports success", (a, b) => a == b, result, true)
   assertion(~message="access updated", (a, b) => a == b, entryField(content, "openai", "access"), Some(JSON.String("dummy-access")))
   assertion(~message="refresh updated", (a, b) => a == b, entryField(content, "openai", "refresh"), Some(JSON.String("dummy-refresh")))
@@ -174,8 +175,10 @@ test("persist OAuth tokens no-ops for missing file and provider", () => {
   let _ = Node.writeFileSync(path, "{\"anthropic\":{\"type\":\"api\",\"key\":\"dummy-key\"}}")
   let before = readUtf8(path)
   let result = AuthJsonSource.persistOAuthTokens(~env, "openai", "dummy-access", "dummy-refresh", 1.0)
+  let after = readUtf8(path)
+  cleanupHome(home)
   assertion(~message="missing provider returns false", (a, b) => a == b, result, false)
-  assertion(~message="missing provider file remains untouched", (a, b) => a == b, readUtf8(path), before)
+  assertion(~message="missing provider file remains untouched", (a, b) => a == b, after, before)
 })
 
 test("persist OAuth tokens no-ops on malformed JSON", () => {
@@ -184,8 +187,10 @@ test("persist OAuth tokens no-ops on malformed JSON", () => {
   let _ = Node.writeFileSync(path, "{ malformed")
   let env = Some(Dict.fromArray([("XDG_DATA_HOME", home)]))
   let result = AuthJsonSource.persistOAuthTokens(~env, "openai", "dummy-access", "dummy-refresh", 1.0)
+  let content = readUtf8(path)
+  cleanupHome(home)
   assertion(~message="malformed file returns false", (a, b) => a == b, result, false)
-  assertion(~message="malformed file remains untouched", (a, b) => a == b, readUtf8(path), "{ malformed")
+  assertion(~message="malformed file remains untouched", (a, b) => a == b, content, "{ malformed")
 })
 
 test("persist OAuth tokens completes atomic temp-file rename", () => {
@@ -194,9 +199,12 @@ test("persist OAuth tokens completes atomic temp-file rename", () => {
   let _ = Node.writeFileSync(path, "{\"openai\":{\"type\":\"oauth\",\"access\":\"old\",\"refresh\":\"old-refresh\",\"expires\":1}}")
   let env = Some(Dict.fromArray([("XDG_DATA_HOME", home)]))
   let result = AuthJsonSource.persistOAuthTokens(~env, "openai", "dummy-access", "dummy-refresh", 2000.0)
+  let content = readUtf8(path)
+  let tempGone = Node.existsSync(path ++ ".tmp") == false
+  cleanupHome(home)
   assertion(~message="atomic persistence succeeds", (a, b) => a == b, result, true)
-  assertion(~message="renamed file contains new token", (a, b) => a == b, entryField(readUtf8(path), "openai", "access"), Some(JSON.String("dummy-access")))
-  assertion(~message="atomic temp file is no longer present", (a, b) => a == b, Node.existsSync(path ++ ".tmp"), false)
+  assertion(~message="renamed file contains new token", (a, b) => a == b, entryField(content, "openai", "access"), Some(JSON.String("dummy-access")))
+  assertion(~message="atomic temp file is no longer present", (a, b) => a == b, tempGone, true)
 })
 
 let () = runTests()

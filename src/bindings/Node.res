@@ -41,6 +41,8 @@ external readFileSyncUtf8: (string, readFileSyncUtf8Opts) => string = "readFileS
 @module("node:fs") external existsSync: string => bool = "existsSync"
 @module("node:fs") external mkdirSync: string => unit = "mkdirSync"
 @module("node:fs") external rmSync: string => unit = "rmSync"
+type rmSyncRecursiveOpts = { recursive: bool, force: bool }
+@module("node:fs") external rmSyncRecursive: (string, rmSyncRecursiveOpts) => unit = "rmSync"
 
 type dirEnt = {
   name: string,
