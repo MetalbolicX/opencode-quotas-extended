@@ -80,3 +80,14 @@ All five gates PASS on d3ce5f6 (gentle-ai-verify, 2026-10-09): `pnpm res:build`,
 `pnpm test` (56 files), `pnpm build`, `node dist/cli/index.js --help`,
 `bash scripts/check-secrets.sh`. Runtime refresh against the live endpoint not
 exercised (no expired token available); covered by fake-http tests.
+
+## Native review receipt (approved)
+
+- Lineage `review-8b0652d9db4f4f74` · target `sha256:642b91bc…` · tier **high**
+  (auth surface: `src/Auth/AuthJsonSource.res`) · 4 lenses · 16 files · 692 lines.
+- Outcome: **approved**, zero blocking findings, zero corrections. Acknowledged
+  and burned: `gentle-ai.review-acknowledged/v1`, consumed revision
+  `sha256:9468ebad…`.
+- Advisory (non-blocking, later work): R1-001 risk AuthJsonSource.res:50 ·
+  R1-002 risk OpenAI.res:59 · R2-001 readability odd doc:57 · R3-001/002
+  reliability OpenAI.res:34/51 · R4-001 resilience OpenAI.res:59.
