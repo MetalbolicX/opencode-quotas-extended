@@ -19,7 +19,7 @@ ReScript-based CLI that fetches AI provider quota usage and renders a status rep
 
 ```bash
 pnpm install      # Runs postinstall: pnpm codegen (generates schema + catalog .res modules)
-pnpm test        # Run all ReScript tests (47 files: lib/es6/**/*Tests.res.mjs + *.test.res.mjs)
+pnpm test        # Run all ReScript tests (56 files: lib/es6/**/*Tests.res.mjs)
 pnpm res:build   # ReScript compiler → lib/es6/
 pnpm build       # codegen → res:build → rolldown bundle → dist/cli/index.js
 pnpm codegen     # Deterministic asset codegen (schema + catalog); idempotent, --check mode available
@@ -106,6 +106,7 @@ Lifecycle hooks: `postinstall` runs codegen on `pnpm install`; `prebuild` runs c
 - Don't add a CI workflow unless explicitly asked — user opted out of CI.
 - Don't add a lint/format tool unless asked — keep the toolchain lean.
 - Translation labels (`y.*/z.ai` rows, `en.json` keys) were aligned in earlier sessions; tests in ReScript provider test files assert the shipped labels.
+- OpenAI OAuth tokens auto-refresh: `src/Providers/OpenAI/TokenRefresh.res` (pure decision/parse) + `AuthJsonSource.persistOAuthTokens` (atomic read-modify-write). OpenAI refresh tokens ROTATE on every refresh — any future change must keep persisting the rotated tokens back to auth.json or the next refresh fails.
 - When making a non-trivial change, write a ReScript test first. Architecture guards in `src/architecture/*Tests.res` enforce domain purity, scaffold structure, build-script invariants, and type-safety.
 - `legacy/` contains the archived TypeScript source (46 files). It is not built or tested — do not make changes there.
 
