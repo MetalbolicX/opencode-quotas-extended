@@ -43,7 +43,7 @@
 | T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | T2+T3 commit (L7) |
 | T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Kimi (Minimax: first candidate, L8); origin-scoped refresh; pi OAuth read-only | inline | T2+T3 commit (L7) |
 | T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | gentle-ai-worker (context backstop) | T4 commit (L11) |
-| T5 | S1–S6 | README, CLAUDE.md, help text | inline | |
+| T5 | S1–S6 | README, CLAUDE.md, help text (no flag changes; help already names anthropic) | inline | T5 commit |
 
 ## Log
 
@@ -103,3 +103,6 @@
   (all exit 0). Live CLI run `-p anthropic`: "5h rolling window 9%", "Weekly limit 4%",
   "Weekly limit (Fable) 0%" from the Claude Code login. Anthropic metadata → category
   `subscription`, authStrategy `#oauth` (no consumer branches on them).
+- **L12** (evidence, differential vs `main` in a scratch worktree, numbers normalized): `-p` zai/go/kimi/
+  minimax/openai/gemini/zen/bogus identical exit code, stdout and stderr. Only `--list` differs:
+  Anthropic now "available" (requested, S4). Slice 2 = T4–T5.
