@@ -47,6 +47,8 @@ testAsync("CR1: auth.json credential is returned", callback => {
   let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   // Isolate pi's auth.json too, so the real ~/.pi/agent/auth.json never leaks in.
   let _ = Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  // Isolate Claude Code credentials too, so the real ~/.claude never leaks in.
+  let _ = Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
   let result = CredentialResolver.resolve("openai")
 
   let _ = result->Promise.then(cred => {
@@ -80,6 +82,8 @@ testAsync("CR2: env credential is returned when auth.json is absent", callback =
   let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   // Isolate pi's auth.json too, so the real ~/.pi/agent/auth.json never leaks in.
   let _ = Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  // Isolate Claude Code credentials too, so the real ~/.claude never leaks in.
+  let _ = Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
   let _ = Dict.set(Node.processEnv, "OPENAI_API_KEY", "sk-env-key")
 
   let result = CredentialResolver.resolve("openai")
@@ -115,6 +119,8 @@ testAsync("CR3: resolver returns None when all three sources are empty", callbac
   let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   // Isolate pi's auth.json too, so the real ~/.pi/agent/auth.json never leaks in.
   let _ = Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  // Isolate Claude Code credentials too, so the real ~/.claude never leaks in.
+  let _ = Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
   let _ = Dict.delete(Node.processEnv, "OPENAI_API_KEY")
 
   let result = CredentialResolver.resolve("openai")
@@ -216,6 +222,8 @@ testAsync("CR3: config credential is returned when auth.json + env are empty", c
   let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   // Isolate pi's auth.json too, so the real ~/.pi/agent/auth.json never leaks in.
   let _ = Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  // Isolate Claude Code credentials too, so the real ~/.claude never leaks in.
+  let _ = Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
 
   // chdir into temp dir so ConfigLoader loads our quotas.json via cwd
   let prevCwd = Node.processCwd()
@@ -254,6 +262,8 @@ testAsync("ROE1: resolveOrEmpty returns [] when credential is None", callback =>
   let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   // Isolate pi's auth.json too, so the real ~/.pi/agent/auth.json never leaks in.
   let _ = Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  // Isolate Claude Code credentials too, so the real ~/.claude never leaks in.
+  let _ = Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
   let _ = Dict.delete(Node.processEnv, "NONEXISTENT_PROVIDER_KEY")
 
   let fnCalled = ref(false)
@@ -296,6 +306,8 @@ testAsync("ROE2: resolveOrEmpty calls fn when credential is Some", callback => {
   let _ = Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
   // Isolate pi's auth.json too, so the real ~/.pi/agent/auth.json never leaks in.
   let _ = Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  // Isolate Claude Code credentials too, so the real ~/.claude never leaks in.
+  let _ = Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
 
   let fnCalled = ref(false)
   let dummyFn = (_cred: Credential.credential): Promise.t<array<Domain.quotaData>> => {

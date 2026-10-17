@@ -41,4 +41,27 @@ test("getAuthJsonPath returns string ending in auth.json when XDG_DATA_HOME not 
   )
 })
 
+// ─── Claude Code credentials path ─────────────────────────────────────────────
+
+test("getClaudeCredentialsPath honors CLAUDE_CONFIG_DIR", () => {
+  let env = envOf("CLAUDE_CONFIG_DIR", "/custom/claude")
+  let result = Infra.getClaudeCredentialsPath(~env=Some(env))
+  assertion(
+    ~message=`Expected "/custom/claude/.credentials.json", got "${result}"`,
+    (a, b) => a == b,
+    result,
+    "/custom/claude/.credentials.json",
+  )
+})
+
+test("getClaudeCredentialsPath defaults to ~/.claude/.credentials.json", () => {
+  let result = Infra.getClaudeCredentialsPath(~env=Some(Dict.make()))
+  assertion(
+    ~message=`Expected path to end with /.claude/.credentials.json, got "${result}"`,
+    (a, b) => a == b,
+    String.endsWith(result, "/.claude/.credentials.json"),
+    true,
+  )
+})
+
 let () = runTests()

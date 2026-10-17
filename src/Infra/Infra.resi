@@ -3,6 +3,7 @@
 let getDataHome: (~env: Paths.env) => option<string>
 let getAuthJsonPath: (~env: Paths.env) => string
 let getPiAuthJsonPath: (~env: Paths.env) => string
+let getClaudeCredentialsPath: (~env: Paths.env) => string
 let getHistoryPath: (~env: Paths.env) => string
 
 let request: (~logger: FetchHttp.logger=?, FetchHttp.httpRequest, FetchHttp.requestOptions) => promise<JSON.t>

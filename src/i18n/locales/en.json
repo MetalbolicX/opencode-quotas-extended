@@ -34,5 +34,9 @@
   "concept.openai-token-usage": "Token usage",
   "concept.gemini-model-quota": "Model quota",
   "concept.kimi-weekly-usage": "Kimi weekly usage",
-  "concept.kimi-5h-rolling": "Kimi 5h rolling limit"
+  "concept.kimi-5h-rolling": "Kimi 5h rolling limit",
+  "concept.anthropic-5h-rolling": "5h rolling window",
+  "concept.anthropic-weekly-usage": "Weekly limit",
+  "concept.anthropic-weekly-scoped": "Weekly limit",
+  "concept.anthropic-usage": "Usage"
 }

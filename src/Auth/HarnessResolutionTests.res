@@ -8,7 +8,7 @@ autoBoot := false
 
 let counter = ref(0)
 
-// Creates <tmp>/<prefix>-<ts>-<n>/{opencode,pi,.opencode} and returns the root.
+// Creates <tmp>/<prefix>-<ts>-<n>/{opencode,pi,.opencode,claude} and returns the root.
 let makeRoot = (~prefix: string): string => {
   counter := counter.contents + 1
   let root =
@@ -17,19 +17,28 @@ let makeRoot = (~prefix: string): string => {
   let _ = Node.mkdirSync(root ++ "/opencode")
   let _ = Node.mkdirSync(root ++ "/pi")
   let _ = Node.mkdirSync(root ++ "/.opencode")
+  let _ = Node.mkdirSync(root ++ "/claude")
   root
 }
 
 let cleanup = (root: string): unit => Node.rmSyncRecursive(root, {recursive: true, force: true})
 
+// CLAUDE_CONFIG_DIR is always isolated so the real ~/.claude never leaks in.
 let envFor = (root: string, ~extra: array<(string, string)>=[]): dict<string> =>
-  Dict.fromArray(Array.concat([("XDG_DATA_HOME", root), ("PI_CODING_AGENT_DIR", root ++ "/pi")], extra))
+  Dict.fromArray(
+    Array.concat(
+      [("XDG_DATA_HOME", root), ("PI_CODING_AGENT_DIR", root ++ "/pi"), ("CLAUDE_CONFIG_DIR", root ++ "/claude")],
+      extra,
+    ),
+  )
 
 let configPathFor = (root: string): string => root ++ "/.opencode/quotas.json"
 
 let writeOpencode = (root: string, json: string) => Node.writeFileSync(root ++ "/opencode/auth.json", json)
 let writePi = (root: string, json: string) => Node.writeFileSync(root ++ "/pi/auth.json", json)
 let writeConfig = (root: string, json: string) => Node.writeFileSync(configPathFor(root), json)
+let writeClaude = (root: string, json: string) =>
+  Node.writeFileSync(root ++ "/claude/.credentials.json", json)
 
 let resolveIn = (root: string, ~extra: array<(string, string)>=[], providerId: string) =>
   CredentialResolver.resolveAllWith(~env=envFor(root, ~extra), ~configPath=configPathFor(root), providerId)
@@ -124,6 +133,44 @@ test("pi anthropic entry is never a candidate", () => {
   let cands = resolveIn(root, "anthropic")
   cleanup(root)
   assertion(~message="no pi candidate", (a, b) => a == b, origins(cands)->Array.includes(#pi), false)
+})
+
+// ─── Claude Code candidate (anthropic only) ──────────────────────────────────
+
+let claudeOAuth = `{"claudeAiOauth":{"accessToken":"cc-access","refreshToken":"cc-refresh","expiresAt":1735689600000}}`
+
+test("anthropic: claudeCode candidate is first, then opencode, then env", () => {
+  let root = makeRoot(~prefix="harness-claude-first")
+  let _ = writeOpencode(root, `{"anthropic":{"type":"api","key":"oc-admin"}}`)
+  let _ = writeClaude(root, claudeOAuth)
+  let cands = resolveIn(root, ~extra=[("ANTHROPIC_API_KEY", "sk-env")], "anthropic")
+  cleanup(root)
+  assertion(~message="order", (a, b) => a == b, origins(cands), [#claudeCode, #opencode, #env])
+  assertion(
+    ~message="claudeCode carries the OAuth credential",
+    (a, b) => a == b,
+    cands->Array.get(0)->Option.map(c => c.credential),
+    Some(Credential.OAuth({variant: "oauth", access: "cc-access", refresh: "cc-refresh", expires: 1735689600000.0})),
+  )
+})
+
+test("anthropic: no claude file → no claudeCode candidate", () => {
+  let root = makeRoot(~prefix="harness-claude-absent")
+  let _ = writeOpencode(root, `{"anthropic":{"type":"api","key":"oc-admin"}}`)
+  let cands = resolveIn(root, "anthropic")
+  cleanup(root)
+  assertion(~message="no claudeCode origin", (a, b) => a == b, origins(cands)->Array.includes(#claudeCode), false)
+  assertion(~message="opencode kept", (a, b) => a == b, origins(cands), [#opencode])
+})
+
+test("non-anthropic providers never get a claudeCode candidate", () => {
+  let root = makeRoot(~prefix="harness-claude-other")
+  let _ = writeClaude(root, claudeOAuth)
+  let _ = writeOpencode(root, opencodeOpenAI)
+  let cands = resolveIn(root, "openai")
+  cleanup(root)
+  assertion(~message="no claudeCode origin", (a, b) => a == b, origins(cands)->Array.includes(#claudeCode), false)
+  assertion(~message="opencode only", (a, b) => a == b, origins(cands), [#opencode])
 })
 
 test("credentialSources reorders and filters harnesses", () => {

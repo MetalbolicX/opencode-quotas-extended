@@ -42,7 +42,7 @@
 | T1 | S1 | `Credential.fromJson` accepts `api_key` | inline | fd21edf |
 | T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | T2+T3 commit (L7) |
 | T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Kimi (Minimax: first candidate, L8); origin-scoped refresh; pi OAuth read-only | inline | T2+T3 commit (L7) |
-| T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | inline | |
+| T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | gentle-ai-worker (context backstop) | T4 commit (L11) |
 | T5 | S1–S6 | README, CLAUDE.md, help text | inline | |
 
 ## Log
@@ -80,3 +80,26 @@
 - **L8** (decision): Minimax keeps first-candidate resolution. Its key path runs
   `mmx auth login --api-key`, which mutates the mmx CLI session; cycling candidates there would
   be a side effect, not a read.
+- **L9** (slice boundary): slice 1 = T1–T3 (`fd21edf`, `415662a`, ~780 lines). T4–T5 form slice 2.
+- **L10** (T4 design, parent decision):
+  - `Paths.getClaudeCredentialsPath(~env)`: `$CLAUDE_CONFIG_DIR/.credentials.json`, else
+    `~/.claude/.credentials.json`; re-exported from `Infra`.
+  - New `src/Auth/ClaudeCodeSource.res(+.resi)`: read-only `getCredential(~env)` that decodes
+    `claudeAiOauth.{accessToken, refreshToken, expiresAt}` → `Credential.OAuth`. No write function.
+  - `CredentialResolver.resolveAllWith`: for provider id `"anthropic"` only, a `#claudeCode`
+    candidate comes FIRST, before harness/env/config candidates (S4 primary, S5 fallback).
+  - `Anthropic` provider uses `resolveEach`: `#claudeCode` OAuth → subscription path; every other
+    candidate → the existing admin org-usage path, unchanged (S5).
+  - Subscription path: expired (`expires > 0 && now >= expires`) → reject with exactly
+    "Claude Code token expired — run `claude` to refresh" (contains `expiredHint`), no HTTP.
+    Otherwise `GET https://api.anthropic.com/api/oauth/usage` with
+    `Authorization: Bearer <access>` and `anthropic-beta: oauth-2025-04-20`.
+  - Pure parser over the L6 shape: rows from `limits[]` (`session` → 5h, `weekly_all` → weekly,
+    `weekly_scoped` → weekly <model display_name>, unknown kinds kept generically), `percent`
+    clamped 0–100, `limit` 100, unit `%`, reset from `resets_at`. When `limits` is absent or
+    empty, fall back to `five_hour` / `seven_day` / `seven_day_opus` / `seven_day_sonnet`
+    `utilization`.
+- **L11** (evidence, T4): worker RED→GREEN, 59 test files pass; parent re-ran build/test/secrets/codegen
+  (all exit 0). Live CLI run `-p anthropic`: "5h rolling window 9%", "Weekly limit 4%",
+  "Weekly limit (Fable) 0%" from the Claude Code login. Anthropic metadata → category
+  `subscription`, authStrategy `#oauth` (no consumer branches on them).

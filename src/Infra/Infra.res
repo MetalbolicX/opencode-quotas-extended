@@ -3,6 +3,7 @@
 let getDataHome = Paths.getDataHome
 let getAuthJsonPath = Paths.getAuthJsonPath
 let getPiAuthJsonPath = Paths.getPiAuthJsonPath
+let getClaudeCredentialsPath = Paths.getClaudeCredentialsPath
 let getHistoryPath = Paths.getHistoryPath
 
 let request = FetchHttp.request

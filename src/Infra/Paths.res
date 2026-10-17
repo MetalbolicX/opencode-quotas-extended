@@ -48,3 +48,11 @@ let getPiAuthJsonPath = (~env: option<dict<string>>) =>
   | Some(dir) if dir !== "" => Node.pathJoin(expandTilde(dir), "auth.json")
   | _ => join3(Node.osHomedir(), ".pi/agent", "auth.json")
   }
+
+// Claude Code credentials: $CLAUDE_CONFIG_DIR/.credentials.json, else
+// ~/.claude/.credentials.json (Claude Code's own config dir override).
+let getClaudeCredentialsPath = (~env: option<dict<string>>) =>
+  switch Dict.get(envSource(~env), "CLAUDE_CONFIG_DIR") {
+  | Some(dir) if dir !== "" => Node.pathJoin(expandTilde(dir), ".credentials.json")
+  | _ => join3(Node.osHomedir(), ".claude", ".credentials.json")
+  }

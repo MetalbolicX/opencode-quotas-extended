@@ -1,6 +1,8 @@
 // src/Auth/CredentialResolver.res
 // Priority resolver: harness auth.json files (opencode → pi by default, reorderable
 // via quotas.json `credentialSources`) → env → config.
+// Anthropic additionally gets a Claude Code login candidate FIRST (S4), before all
+// harness/env/config candidates; its admin API key stays as fallback (S5).
 // Every source that has a credential becomes a candidate, so a provider present in
 // only one harness still resolves, and a provider in both can fall through to the
 // next harness when the first credential is rejected or expired.
@@ -26,6 +28,18 @@ let harnessCredential = (~env: dict<string>, harness: origin, providerId: string
   | #claudeCode | #env | #config => None
   }
 
+// Claude Code is a first-class source for Anthropic only (S4): its OAuth login
+// is the primary subscription path, with harness/env/config as admin fallbacks.
+let claudeCodeCandidate = (~env: dict<string>, providerId: string): array<candidate> =>
+  if providerId === "anthropic" {
+    switch ClaudeCodeSource.getCredential(~env=Some(env)) {
+    | Some(credential) => [{credential, origin: #claudeCode}]
+    | None => []
+    }
+  } else {
+    []
+  }
+
 let resolveAllWith = (~env: dict<string>, ~configPath: string, providerId: string): array<candidate> => {
   // An invalid quotas.json is reported by the CLI's own config load; here it only
   // means "no overrides", so resolution keeps working with the default order.
@@ -43,7 +57,10 @@ let resolveAllWith = (~env: dict<string>, ~configPath: string, providerId: strin
     EnvSource.getCredential(providerId, env)->Option.map(credential => {credential, origin: #env})
   let fromConfig =
     ConfigSource.getCredential(config, providerId)->Option.map(credential => {credential, origin: #config})
-  Array.concat(fromHarnesses, [fromEnv, fromConfig]->Array.filterMap(c => c))
+  Array.concat(
+    Array.concat(claudeCodeCandidate(~env, providerId), fromHarnesses),
+    [fromEnv, fromConfig]->Array.filterMap(c => c),
+  )
 }
 
 let defaultConfigPath = () => Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
