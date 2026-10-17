@@ -21,6 +21,10 @@ type quotaConcept =
   | @as("go-5h-rolling") Go5hRolling
   | @as("go-weekly") GoWeekly
   | @as("go-monthly") GoMonthly
+  | @as("anthropic-5h-rolling") Anthropic5hRolling
+  | @as("anthropic-weekly-usage") AnthropicWeeklyUsage
+  | @as("anthropic-weekly-scoped") AnthropicWeeklyScoped
+  | @as("anthropic-usage") AnthropicUsage
 
 type providerPayloadHints = {
   type_: option<string>,
@@ -57,6 +61,10 @@ let labelMap: dict<string> = Dict.fromArray([
   ("go-5h-rolling", "5h rolling window"),
   ("go-weekly", "Weekly limit"),
   ("go-monthly", "Monthly quota"),
+  ("anthropic-5h-rolling", "5h rolling window"),
+  ("anthropic-weekly-usage", "Weekly limit"),
+  ("anthropic-weekly-scoped", "Weekly limit"),
+  ("anthropic-usage", "Usage"),
 ])
 
 let getLabel = (concept: string): string => {
@@ -145,6 +153,23 @@ let enrichQuotaLabel = (_providerId: string, hints: providerPayloadHints): enric
   }
 }
 
+// Anthropic subscription usage labels (Claude Code OAuth usage endpoint).
+// `kind` is the limit kind from the payload (session | weekly_all | weekly_scoped);
+// unknown kinds are kept generically by their raw kind string.
+let anthropicUsageLabel = (kind: string, model: option<string>): enrichedLabel =>
+  switch kind {
+  | "session" => {label: getLabel("anthropic-5h-rolling"), concept: Anthropic5hRolling}
+  | "weekly_all" => {label: getLabel("anthropic-weekly-usage"), concept: AnthropicWeeklyUsage}
+  | "weekly_scoped" =>
+    let base = getLabel("anthropic-weekly-scoped")
+    let label = switch model {
+    | Some(m) if m !== "" => `${base} (${m})`
+    | _ => base
+    }
+    {label, concept: AnthropicWeeklyScoped}
+  | _ => {label: kind === "" ? getLabel("anthropic-usage") : kind, concept: AnthropicUsage}
+  }
+
 let conceptKey = (concept: quotaConcept): string =>
   switch concept {
   | ZAi5HourRolling => "z.ai-5-hour-rolling"
@@ -166,6 +191,10 @@ let conceptKey = (concept: quotaConcept): string =>
   | Go5hRolling => "go-5h-rolling"
   | GoWeekly => "go-weekly"
   | GoMonthly => "go-monthly"
+  | Anthropic5hRolling => "anthropic-5h-rolling"
+  | AnthropicWeeklyUsage => "anthropic-weekly-usage"
+  | AnthropicWeeklyScoped => "anthropic-weekly-scoped"
+  | AnthropicUsage => "anthropic-usage"
   }
 
 let buildProviderName = (

@@ -16,3 +16,18 @@ let authKey = (providerId: string): string => {
   | other => other
   }
 }
+
+// pi's auth.json keys (pi provider ids), keyed by the ids providers resolve with.
+// None = pi is never a source for that provider: Anthropic subscription usage comes
+// from Claude Code's login only, and Gemini credential resolution is unchanged.
+let piAuthKey = (providerId: string): option<string> => {
+  switch providerId {
+  | "openai" => Some("openai-codex")
+  | "zen" => Some("opencode")
+  | "go" | "opencode-go" => Some("opencode-go")
+  | "zai" | "zai-coding-plan" => Some("zai")
+  | "kimi" => Some("kimi-coding")
+  | "minimax" | "minimax-coding-plan" => Some("minimax")
+  | _ => None
+  }
+}

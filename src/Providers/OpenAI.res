@@ -300,11 +300,22 @@ let defaultOAuthRefreshHooks: oauthRefreshHooks = {
     AuthJsonSource.persistOAuthTokens(~env=None, "openai", access, refresh, expiresMs),
 }
 
-let fetchQuotasOAuth = (
+@new external makeError: string => exn = "Error"
+
+// pi rotates and locks its own auth.json, so a pi token is used as-is: never
+// refreshed, never written back. Expired → reject with the resolver's fallthrough
+// hint so the next candidate (or a "run pi" message) takes over.
+let fetchQuotasOAuthReadOnly = (
   ~cred: Credential.credential,
   ~http: FetchHttp.httpClient,
+  ~harness: string,
 ): Promise.t<array<Domain.quotaData>> =>
-  fetchQuotasOAuthWithHooks(~cred, ~http, ~hooks=defaultOAuthRefreshHooks)
+  switch cred {
+  | Credential.OAuth(o) if o.expires > 0.0 && Date.now() >= o.expires =>
+    Promise.reject(makeError(`OpenAI token from ${harness} ${CredentialResolver.expiredHint} \`${harness}\` to refresh`))
+  | Credential.OAuth(o) => fetchWhamWithAccess(~access=o.access, ~http)
+  | _ => Promise.resolve([])
+  }
 
 // --- API key path: cursor-based pagination ------------------------------------
 
@@ -422,6 +433,19 @@ let fetchQuotasApiKey = (
 
 // --- Provider ----------------------------------------------------------------
 
+// Refresh write-back only ever targets the file the token came from: opencode's.
+let fetchQuotasForCandidate = (
+  ~candidate: CredentialResolver.candidate,
+  ~http: FetchHttp.httpClient,
+  ~hooks: oauthRefreshHooks,
+): Promise.t<array<Domain.quotaData>> =>
+  switch (candidate.credential, candidate.origin) {
+  | (Credential.OAuth(_) as cred, #opencode) => fetchQuotasOAuthWithHooks(~cred, ~http, ~hooks)
+  | (Credential.OAuth(_) as cred, #pi) => fetchQuotasOAuthReadOnly(~cred, ~http, ~harness="pi")
+  | (Credential.OAuth(_) as cred, _) => fetchQuotasOAuthReadOnly(~cred, ~http, ~harness="its harness")
+  | (cred, _) => fetchQuotasApiKey(~cred, ~http)
+  }
+
 let createOpenAIProvider = (): Provider.quotaProvider => {
   id: "openai",
   displayName: "OpenAI",
@@ -433,13 +457,8 @@ let createOpenAIProvider = (): Provider.quotaProvider => {
     ),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
-    CredentialResolver.resolveOrEmpty(~key="openai", ~fn=cred =>
-      switch cred {
-      | Credential.OAuth(_) =>
-        fetchQuotasOAuth(~cred, ~http)
-      | _ =>
-        fetchQuotasApiKey(~cred, ~http)
-      }
+    CredentialResolver.resolveEach(~key="openai", ~fn=candidate =>
+      fetchQuotasForCandidate(~candidate, ~http, ~hooks=defaultOAuthRefreshHooks)
     )
   },
 }

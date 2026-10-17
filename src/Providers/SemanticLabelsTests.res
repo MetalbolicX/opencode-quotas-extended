@@ -110,5 +110,29 @@ test("enrichQuotaLabel secondary (openaiVariant=secondary) returns Weekly limit 
   )
 })
 
+// ─── Anthropic subscription labels ─────────────────────────────────────────
+
+test("anthropicUsageLabel maps kind to concept labels", () => {
+  let session = SemanticLabels.anthropicUsageLabel("session", None)
+  let weekly = SemanticLabels.anthropicUsageLabel("weekly_all", None)
+  let scoped = SemanticLabels.anthropicUsageLabel("weekly_scoped", Some("Fable"))
+  let generic = SemanticLabels.anthropicUsageLabel("monthly_all", None)
+  assertion(~message="session label", (a, b) => a == b, session.label, "5h rolling window")
+  assertion(~message="weekly label", (a, b) => a == b, weekly.label, "Weekly limit")
+  assertion(~message="scoped label includes model", (a, b) => a == b, scoped.label, "Weekly limit (Fable)")
+  assertion(~message="unknown kind kept", (a, b) => a == b, generic.label, "monthly_all")
+})
+
+test("buildProviderName appends the Anthropic label override", () => {
+  let concept = SemanticLabels.anthropicUsageLabel("weekly_scoped", Some("Fable"))
+  let name = SemanticLabels.buildProviderName("Anthropic", concept.concept, ~labelOverride=concept.label)
+  assertion(
+    ~message="brand + label",
+    (a, b) => a == b,
+    name,
+    `Anthropic\u00A0·\u00A0Weekly limit (Fable)`,
+  )
+})
+
 // Run all tests
 let () = runTests()

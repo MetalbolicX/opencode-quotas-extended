@@ -30,13 +30,15 @@ sources → Bootstrap.res (CLI entry)
 
 OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini
 
-**Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription).
+**Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription), Anthropic (Claude subscription via Claude Code login).
 
-OpenAI OAuth tokens refresh automatically: when the access token is expired or within 60s of expiry (or WHAM answers 401), the CLI exchanges the refresh token at `auth.openai.com/oauth/token` and persists the rotated tokens back to the `openai` entry of opencode's `auth.json` (atomic read-modify-write; other entries untouched). No manual `opencode auth login` needed after the initial one.
+OpenAI OAuth tokens from opencode refresh automatically: when the access token is expired or within 60s of expiry (or WHAM answers 401), the CLI exchanges the refresh token at `auth.openai.com/oauth/token` and persists the rotated tokens back to the `openai` entry of opencode's `auth.json` (atomic read-modify-write; other entries untouched). No manual `opencode auth login` needed after the initial one. Tokens from pi are used read-only (see [Credentials](#credentials)).
+
+Anthropic shows your Claude subscription limits (5h session, weekly, weekly per-model) from `GET https://api.anthropic.com/api/oauth/usage`, using the token Claude Code stores after `claude` browser login (`~/.claude/.credentials.json`, or `$CLAUDE_CONFIG_DIR/.credentials.json`). The file is never written: when the token has expired, the CLI reports `Claude Code token expired — run \`claude\` to refresh`. Launching `claude` once refreshes it. Without a Claude Code login, the Anthropic admin org-usage API (admin-scope key + `orgId`) is still used as a fallback.
 
 **Endpoint pending web scraping** (deferred, not implemented): opencode Zen. opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
 
-**Endpoints live but credential-blocked**: Anthropic (admin-scope key required), Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
+**Endpoints live but credential-blocked**: Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
 
 ## Installation
 
@@ -70,7 +72,25 @@ opencode-quotas --help
 
 Place `.opencode/quotas.json` in the directory where you run the CLI (config is resolved from `process.cwd()`). See `schemas/quotas.schema.json` for the full schema.
 
-Credentials are resolved in order: `auth.json` (XDG data dir) → environment variables → `quotas.json` credential override.
+### Credentials
+
+The CLI reads the credentials your coding harnesses already store, so no extra login is needed:
+
+| Source | File | Used for |
+|---|---|---|
+| opencode | `$XDG_DATA_HOME/opencode/auth.json` (default `~/.local/share/opencode/auth.json`) | all providers |
+| pi | `$PI_CODING_AGENT_DIR/auth.json` (default `~/.pi/agent/auth.json`) | OpenAI (`openai-codex`), opencode Go, z.ai (`zai`), Kimi (`kimi-coding`), Minimax (`minimax`) |
+| Claude Code | `$CLAUDE_CONFIG_DIR/.credentials.json` (default `~/.claude/.credentials.json`) | Anthropic subscription usage |
+
+Resolution order per provider: Claude Code (Anthropic only) → opencode → pi → environment variables → `quotas.json` `credentials` override. A provider that only one harness knows is still found. When a credential is rejected (HTTP 401/403) or expired, the next one is tried; an error is reported only when every candidate fails. Minimax uses its first credential only, because its key path logs the `mmx` CLI in.
+
+Change which harnesses are read, and in what order, with `credentialSources`:
+
+```json
+{ "credentialSources": ["pi", "opencode"] }
+```
+
+Harnesses not listed are skipped. Only opencode's `auth.json` is ever written (rotated OpenAI tokens); pi and Claude Code files are read-only, because those tools rotate their own tokens.
 
 ## CLI
 
@@ -131,14 +151,14 @@ Gates (run locally; CI is intentionally not part of this repository):
 
 | Gate | Result |
 |------|--------|
-| `pnpm test` | ✅ 47/47 ReScript test files passed |
+| `pnpm test` | ✅ 59/59 ReScript test files passed |
 | `pnpm res:build` | ✅ clean |
 | `pnpm build` | ✅ `dist/cli/index.js` produced |
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |
 | `node dist/cli/index.js --help` | ✅ works under plain Node |
 
 **8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
-One (Zen) is deferred because it would require web scraping. One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. Two (Anthropic, Gemini) are live-but-credential-blocked. Four (OpenAI, z.ai, Kimi, Minimax) are production-ready.
+One (Zen) is deferred because it would require web scraping. One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. One (Gemini) is live-but-credential-blocked. Five (OpenAI, z.ai, Kimi, Minimax, Anthropic) are production-ready.
 
 ## Legacy archive
 
@@ -146,8 +166,9 @@ One (Zen) is deferred because it would require web scraping. One (Go) now uses t
 
 ## Open issues / Caveats
 
-- Anthropic admin-usage endpoint (was TODO): implemented as a mock-only defensive parser with documented-shape fixture (validation-pending until admin-scope credential is available). Requires an Anthropic admin key with `usage:read` scope plus an `orgId`.
+- Anthropic admin-usage endpoint (fallback when no Claude Code login exists): implemented as a mock-only defensive parser with documented-shape fixture (validation-pending until admin-scope credential is available). Requires an Anthropic admin key with `usage:read` scope plus an `orgId`.
+- Anthropic subscription endpoint `/api/oauth/usage` is undocumented by Anthropic; its parser was validated against a live response (Max plan) and falls back to the `five_hour` / `seven_day` fields if `limits` disappears.
 - Gemini Antigravity quota endpoint (was TODO): implemented via Google's Cloud Code Antigravity API (`fetchAvailableModels`). Reads OAuth refresh_token from `~/.config/opencode/antigravity-accounts.json`.
 - OpenAI `/v1/usage` pagination: implemented as a mock-only cursor-based pagination loop (cap 20) on the raw-key platform path. OAuth WHAM path is unchanged.
-- Anthropic/Gemini credentials: adapters activate automatically when credentials appear; no code change needed.
+- Gemini credentials: the adapter activates automatically when credentials appear; no code change needed.
 - Prediction/ETTL wiring: the prediction module exists in `src/domain/Prediction.res` but is not connected to the pipeline. Default aggregation is `max`.

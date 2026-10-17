@@ -201,5 +201,108 @@ testAsync("concurrent OAuth callers share one proactive refresh", callback => {
   })
 })
 
+// --- Origin-aware routing (opencode refreshes; pi is read-only) ----------------
+
+let candidate = (cred, origin): CredentialResolver.candidate => {credential: cred, origin}
+
+let trackingHooks = (rereads: ref<int>, persists: ref<int>) =>
+  hooks(
+    ~reread=() => {
+      rereads := rereads.contents + 1
+      None
+    },
+    ~persist=(_, _, _) => {
+      persists := persists.contents + 1
+      true
+    },
+  )
+
+testAsync("expired pi OAuth token rejects with a fallthrough hint and no HTTP", callback => {
+  let calls = ref(0)
+  let rereads = ref(0)
+  let persists = ref(0)
+  let http = testHttp(_req => {
+    calls := calls.contents + 1
+    Promise.resolve(usageJson())
+  })
+  let cred = oauth(~access="pi-old", ~refresh="pi-refresh", ~expires=Date.now() -. 1000.0)
+  fetchQuotasForCandidate(~candidate=candidate(cred, #pi), ~http, ~hooks=trackingHooks(rereads, persists))
+  ->Promise.then(_ => {
+    fail(~message="expired pi token must reject", ())
+    callback()
+    Promise.resolve()
+  })
+  ->Promise.catch(err => {
+    assertion(
+      ~message="actionable message",
+      (a, b) => a == b,
+      errorMessage(err),
+      "OpenAI token from pi expired — run `pi` to refresh",
+    )
+    assertion(~message="resolver falls through on it", (a, b) => a == b, CredentialResolver.isFallthroughError(err), true)
+    assertion(~message="no HTTP (no refresh POST)", (a, b) => a == b, calls.contents, 0)
+    assertion(~message="pi file never reread or written", (a, b) => a == b, (rereads.contents, persists.contents), (0, 0))
+    callback()
+    Promise.resolve()
+  })
+  ->ignore
+})
+
+testAsync("valid pi OAuth token is used as-is and a 401 is not refreshed", callback => {
+  let urls = ref([])
+  let auths = ref([])
+  let rereads = ref(0)
+  let persists = ref(0)
+  let http = testHttp(req => {
+    urls := Array.concat(urls.contents, [req.url])
+    auths := Array.concat(auths.contents, [req.headers->Option.flatMap(h => h->Dict.get("Authorization"))])
+    Promise.reject(testError("HTTP 401: " ++ req.url))
+  })
+  let cred = oauth(~access="pi-live", ~refresh="pi-refresh", ~expires=Date.now() +. 600000.0)
+  fetchQuotasForCandidate(~candidate=candidate(cred, #pi), ~http, ~hooks=trackingHooks(rereads, persists))
+  ->Promise.then(_ => {
+    fail(~message="401 must reject", ())
+    callback()
+    Promise.resolve()
+  })
+  ->Promise.catch(err => {
+    assertion(~message="401 surfaces for fallthrough", (a, b) => a == b, CredentialResolver.isFallthroughError(err), true)
+    assertion(~message="only the usage call, no refresh POST", (a, b) => a == b, urls.contents, [whamUrl])
+    assertion(~message="pi access token sent", (a, b) => a == b, auths.contents, [Some("Bearer pi-live")])
+    assertion(~message="pi file never reread or written", (a, b) => a == b, (rereads.contents, persists.contents), (0, 0))
+    callback()
+    Promise.resolve()
+  })
+  ->ignore
+})
+
+testAsync("opencode OAuth candidate keeps refreshing and persisting", callback => {
+  let refreshPosts = ref(0)
+  let rereads = ref(0)
+  let persists = ref(0)
+  let http = testHttp(req =>
+    if req.url === TokenRefresh.tokenUrl {
+      refreshPosts := refreshPosts.contents + 1
+      Promise.resolve(JSON.parseOrThrow("{\"access_token\":\"oc-new\",\"refresh_token\":\"oc-next\"}"))
+    } else {
+      Promise.resolve(usageJson())
+    }
+  )
+  let cred = oauth(~access="oc-old", ~refresh="oc-refresh-unique", ~expires=Date.now())
+  fetchQuotasForCandidate(~candidate=candidate(cred, #opencode), ~http, ~hooks=trackingHooks(rereads, persists))
+  ->Promise.then(_ => {
+    assertion(~message="refresh POST sent", (a, b) => a == b, refreshPosts.contents, 1)
+    assertion(~message="rotated tokens persisted", (a, b) => a == b, persists.contents, 1)
+    callback()
+    Promise.resolve()
+  })
+  ->Promise.catch(_ => {
+    fail(~message="opencode refresh path should succeed", ())
+    callback()
+    Promise.resolve()
+  })
+  ->ignore
+})
+
 // Run all tests
 let () = runTests()

@@ -12,11 +12,12 @@ type credential =
 // Decode a credential from JSON. Handles both the credentialEntry schema
 // (config source: {type:"api",key:} | {type:"env",envVar:}) and the auth.json
 // schema (auth-json source: {type:"api",key:} | {type:"oauth",...} | {type:"wellknown",...}).
+// pi's auth.json spells API keys {type:"api_key",key:}; both decode to Api.
 let fromJson = (json: JSON.t): option<credential> => {
   switch json {
   | JSON.Object(dict) =>
     switch Dict.get(dict, "type") {
-    | Some(JSON.String("api")) =>
+    | Some(JSON.String("api" | "api_key")) =>
       switch Dict.get(dict, "key") {
       | Some(JSON.String(k)) => Some(Api({variant: "api", key: k}))
       | _ => None

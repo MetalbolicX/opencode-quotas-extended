@@ -6,3 +6,5 @@ type env = option<dict<string>>
 let getDataHome: (~env: env) => option<string>
 let getAuthJsonPath: (~env: env) => string
 let getHistoryPath: (~env: env) => string
+let getPiAuthJsonPath: (~env: env) => string
+let getClaudeCredentialsPath: (~env: env) => string
