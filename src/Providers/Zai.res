@@ -15,6 +15,7 @@ let createZaiProvider = (): Provider.quotaProvider => {
     CredentialResolver.resolve("zai-coding-plan")->Promise.then(opt =>
       Promise.resolve(Belt.Option.isSome(opt))
     ),
+  credentialSource: () => CredentialResolver.firstOriginLabel("zai-coding-plan"),
   fetchQuotas: () =>
     ProviderFetch.fetch(
       ~key="zai-coding-plan",

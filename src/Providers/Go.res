@@ -15,6 +15,7 @@ let createGoProvider = (): Provider.quotaProvider => {
     CredentialResolver.resolve("opencode-go")->Promise.then(opt =>
       Promise.resolve(Belt.Option.isSome(opt))
     ),
+  credentialSource: () => CredentialResolver.firstOriginLabel("opencode-go"),
   fetchQuotas: () =>
     ProviderFetch.fetch(
       ~key="opencode-go",

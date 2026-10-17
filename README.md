@@ -94,17 +94,48 @@ Change which harnesses are read, and in what order, with `credentialSources`:
 
 Harnesses not listed are skipped. Only opencode's `auth.json` is ever written (rotated OpenAI tokens); pi and Claude Code files are read-only, because those tools rotate their own tokens.
 
+`-l` reports which source was selected for each provider (`opencode`, `pi`,
+`claude-code`, `env`, `config`, or `mmx`) using the first candidate in this order.
+The label is decided locally: listing does not validate the credential or call
+any provider API.
+
 ## CLI
 
 ```bash
-opencode-quotas                        # Full table report
-opencode-quotas --list               # List available providers
-opencode-quotas --provider openai     # Single provider report
+opencode-quotas                        # Available subscriptions (default)
+opencode-quotas --list                 # List available subscriptions
+opencode-quotas --list --mode json     # Same list as JSON
+opencode-quotas --provider openai      # Single provider report
 opencode-quotas --provider openai --color green  # With colored usage bar
 opencode-quotas --mode json           # JSON output
 opencode-quotas --mode markdown       # Markdown table
 opencode-quotas --help                # Show usage
 ```
+
+### Available subscriptions (`-l`, `--list`)
+
+`-l` is also the default when no flags are given. It lists only the providers that
+have a locally selected credential, in registry order:
+
+```
+## Available subscriptions (2)
+
+| # | ID     | Provider         | Credential |
+|--:|--------|------------------|------------|
+| 1 | openai | OpenAI           | opencode   |
+| 2 | zai    | z.ai Coding Plan | opencode   |
+
+Run `opencode-quotas -p <id>` to see usage for one subscription.
+```
+
+- `Credential` is the **first locally selected source**, not a validated credential:
+  `opencode`, `pi`, `claude-code`, `env`, `config`, or `mmx` (an already-authenticated
+  Minimax `mmx` session). It is a label; no credential material is printed.
+- `-m table` and `-m markdown` render that same table; `-m json` prints a
+  2-space-indented array of objects with only `id`, `name` and `credential`.
+- Listing never calls provider `fetchQuotas`, refreshes tokens, or writes credential files. Minimax without a stored key retains its existing `mmx quota show` session probe; that external CLI may contact its service.
+- `-l` together with `-p` is a usage error (exit 2). No subscriptions exits 1, and a
+  missing `auth.json` keeps its existing diagnostic and exit 1.
 
 Run directly from the build output (no global install needed):
 
@@ -153,7 +184,7 @@ Gates (run locally; CI is intentionally not part of this repository):
 
 | Gate | Result |
 |------|--------|
-| `pnpm test` | ✅ 59/59 ReScript test files passed |
+| `pnpm test` | ✅ 61/61 ReScript test files passed |
 | `pnpm res:build` | ✅ clean |
 | `pnpm build` | ✅ `dist/cli/index.js` produced |
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |

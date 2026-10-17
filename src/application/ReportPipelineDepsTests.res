@@ -37,6 +37,7 @@ let quota: quotaData = {
 let quotaProvider: ReportPipeline.quotaProvider = {
   id: "test", displayName: "Test", category: "test", authStrategy: #api,
   isAvailable: () => Promise.resolve(true),
+  credentialSource: () => Promise.resolve(None),
   fetchQuotas: () => Promise.resolve([quota]),
 }
 

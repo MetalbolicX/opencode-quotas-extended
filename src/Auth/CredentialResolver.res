@@ -65,6 +65,30 @@ let resolveAllWith = (~env: dict<string>, ~configPath: string, providerId: strin
 
 let defaultConfigPath = () => Node.pathJoin(Node.pathJoin(Node.processCwd(), ".opencode"), "quotas.json")
 
+// --- Source labels (S2) -------------------------------------------------------
+// The `-l` list reports where a credential was picked from. The origin is the
+// label; the credential itself is never serialized into it.
+let originLabel = (origin: origin): string =>
+  switch origin {
+  | #opencode => "opencode"
+  | #pi => "pi"
+  | #claudeCode => "claude-code"
+  | #env => "env"
+  | #config => "config"
+  }
+
+// First candidate only — "the first locally selected source", not a validated one.
+// Nothing is fetched, refreshed, or written: listing must not touch a provider.
+let firstOriginLabelWith = (
+  ~env: dict<string>,
+  ~configPath: string,
+  providerId: string,
+): option<string> =>
+  resolveAllWith(~env, ~configPath, providerId)->Array.get(0)->Option.map(c => originLabel(c.origin))
+
+let firstOriginLabel = (providerId: string): Promise.t<option<string>> =>
+  Promise.resolve(firstOriginLabelWith(~env=Node.processEnv, ~configPath=defaultConfigPath(), providerId))
+
 let resolveAll = (providerId: string): Promise.t<array<candidate>> =>
   Promise.resolve(resolveAllWith(~env=Node.processEnv, ~configPath=defaultConfigPath(), providerId))
 

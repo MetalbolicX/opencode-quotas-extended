@@ -455,6 +455,7 @@ let createOpenAIProvider = (): Provider.quotaProvider => {
     CredentialResolver.resolve("openai")->Promise.then(opt =>
       Promise.resolve(Belt.Option.isSome(opt))
     ),
+  credentialSource: () => CredentialResolver.firstOriginLabel("openai"),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
     CredentialResolver.resolveEach(~key="openai", ~fn=candidate =>

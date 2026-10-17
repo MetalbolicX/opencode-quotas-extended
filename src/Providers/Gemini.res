@@ -284,6 +284,7 @@ let createGeminiProvider = (): Provider.quotaProvider => {
     CredentialResolver.resolve("gemini")->Promise.then(opt => {
       Promise.resolve(Belt.Option.isSome(opt))
     }),
+  credentialSource: () => CredentialResolver.firstOriginLabel("gemini"),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
     CredentialResolver.resolveOrEmpty(~key="gemini", ~fn=_cred => {

@@ -134,5 +134,138 @@ test("decideFetchStep: no session + no key -> GiveUp", () => {
   assertion(~message="expected GiveUp", (a, b) => a == b, ok, true)
 })
 
+// ── S2: mmx session fallback reported as a credential source ────────────────
+// A fake `mmx` shell script stands in for the real CLI: no live session, no
+// login round-trip, no network. The fixture is the documented
+// `mmx quota show --output json` shape. Every touched env var is restored.
+
+let mmxEnvKeys = [
+  "PATH",
+  "XDG_DATA_HOME",
+  "PI_CODING_AGENT_DIR",
+  "CLAUDE_CONFIG_DIR",
+  "MINIMAX_API_KEY",
+]
+
+let savedMmxEnv: ref<Dict.t<string>> = ref(Dict.make())
+
+let saveMmxEnv = (): unit =>
+  mmxEnvKeys->Array.forEach(key =>
+    switch Dict.get(Node.processEnv, key) {
+    | Some(value) => Dict.set(savedMmxEnv.contents, key, value)
+    | None => Dict.delete(savedMmxEnv.contents, key)->ignore
+    }
+  )
+
+let restoreMmxEnv = (): unit =>
+  mmxEnvKeys->Array.forEach(key =>
+    switch Dict.get(savedMmxEnv.contents, key) {
+    | Some(value) => Dict.set(Node.processEnv, key, value)
+    | None => Dict.delete(Node.processEnv, key)->ignore
+    }
+  )
+
+let ensureDir = (path: string): unit =>
+  try {
+    let _ = Node.mkdirSync(path)
+  } catch {
+  | _ => ()
+  }
+
+// Builds an isolated home plus a fake mmx binary; returns the temp dir.
+let mmxHomeCounter = ref(0)
+
+let makeMmxHome = (): string => {
+  mmxHomeCounter := mmxHomeCounter.contents + 1
+  let dir =
+    Node.osTmpdir() ++
+    "/minimax-mmx-" ++
+    String.make(Date.now()) ++
+    "-" ++
+    Int.toString(mmxHomeCounter.contents)
+  ensureDir(dir)
+  ensureDir(dir ++ "/opencode")
+  ensureDir(dir ++ "/bin")
+  ensureDir(dir ++ "/bin-fail")
+  // No stored Minimax credential: the session fallback is the only source.
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+  let fixture = "#!/bin/sh\necho '{\"model_remains\":[{\"model_name\":\"general\",\"current_interval_remaining_percent\":90,\"current_weekly_remaining_percent\":80,\"remains_time\":9600000,\"weekly_remains_time\":214848000}]}'\n"
+  let script = dir ++ "/bin/mmx"
+  let _ = Node.writeFileSync(script, fixture)
+  // Installed but not authenticated: `which mmx` succeeds, every quota call fails.
+  let failing = dir ++ "/bin-fail/mmx"
+  let _ = Node.writeFileSync(failing, "#!/bin/sh\nexit 1\n")
+  let _ = Node.execSync("chmod 755 " ++ script ++ " " ++ failing, {
+    encoding: "utf8",
+    timeout: 10_000,
+    stdio: "pipe",
+  })
+  dir
+}
+
+// `bin` is prepended to a real PATH so `which` resolves while the fake mmx
+// shadows any real binary.
+let isolateForMmx = (~dir: string, ~bin: string): unit => {
+  saveMmxEnv()
+  mmxEnvKeys->Array.forEach(key => Dict.delete(Node.processEnv, key)->ignore)
+  Dict.set(Node.processEnv, "XDG_DATA_HOME", dir)
+  Dict.set(Node.processEnv, "PI_CODING_AGENT_DIR", dir ++ "/pi")
+  Dict.set(Node.processEnv, "CLAUDE_CONFIG_DIR", dir ++ "/claude")
+  Dict.set(Node.processEnv, "PATH", `${bin}:/usr/bin:/bin`)
+}
+
+testAsync("S2: an authenticated mmx session labels the source as mmx", testDone => {
+  let dir = makeMmxHome()
+  isolateForMmx(~dir, ~bin=dir ++ "/bin")
+  let provider = createMinimaxProvider()
+  let _ = provider.credentialSource()->Promise.then(label => {
+    let _ = provider.isAvailable()->Promise.then(available => {
+      restoreMmxEnv()
+      assertion(
+        ~message="credentialSource reports the mmx session",
+        (a, b) => a == b,
+        label,
+        Some("mmx"),
+      )
+      assertion(
+        ~message="isAvailable behavior is unchanged for the same session",
+        (a, b) => a == b,
+        available,
+        true,
+      )
+      testDone()
+      Promise.resolve()
+    })
+    Promise.resolve()
+  })->Promise.catch(. _err => {
+    restoreMmxEnv()
+    fail(~message="credentialSource rejected unexpectedly", ())
+    testDone()
+    Promise.resolve()
+  })
+})
+
+testAsync("S2: an unauthenticated mmx CLI and no stored key means no source", testDone => {
+  let dir = makeMmxHome()
+  isolateForMmx(~dir, ~bin=dir ++ "/bin-fail")
+  let provider = createMinimaxProvider()
+  let _ = provider.credentialSource()->Promise.then(label => {
+    restoreMmxEnv()
+    assertion(
+      ~message="credentialSource is None without a session",
+      (a, b) => a == b,
+      label,
+      None,
+    )
+    testDone()
+    Promise.resolve()
+  })->Promise.catch(. _err => {
+    restoreMmxEnv()
+    fail(~message="credentialSource rejected unexpectedly", ())
+    testDone()
+    Promise.resolve()
+  })
+})
+
 // Run all tests
 let () = runTests()
