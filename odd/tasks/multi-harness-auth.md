@@ -106,3 +106,8 @@
 - **L12** (evidence, differential vs `main` in a scratch worktree, numbers normalized): `-p` zai/go/kimi/
   minimax/openai/gemini/zen/bogus identical exit code, stdout and stderr. Only `--list` differs:
   Anthropic now "available" (requested, S4). Slice 2 = T4–T5.
+- **L13** (review): assess on slice 2 (base `415662a`) → `reviewDue: true` (high_risk, auth). Inspect
+  stopped with `managed_assets_outdated`; continuation is
+  `~/.pi/agent/npm/node_modules/gentle-pi/.gentle-ai/v4.2.0/gentle-ai sync --agent pi` (writes outside
+  the repo) → awaiting user decision. Inspect also projected the whole branch vs `origin/main`
+  (31 paths), not the slice.
