@@ -50,6 +50,7 @@ type quotasConfig = {
   filterByCurrentModel: option<bool>,
   progressBar: progressBar,
   credentials: option<JSON.t>,
+  credentialSources: option<array<string>>,
   anthropic: option<anthropicConfig>,
 }
 
@@ -67,6 +68,7 @@ type partialConfig = {
   filterByCurrentModel: option<bool>,
   progressBar: option<progressBarPartial>,
   credentials: option<JSON.t>,
+  credentialSources: option<array<string>>,
   anthropic: option<anthropicConfigPartial>,
 }
 

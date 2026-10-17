@@ -5,4 +5,6 @@ type oauthRefreshHooks = {
 }
 
 let fetchQuotasOAuthWithHooks: (~cred: Credential.credential, ~http: FetchHttp.httpClient, ~hooks: oauthRefreshHooks) => Promise.t<array<Domain.quotaData>>
+let whamUrl: string
+let fetchQuotasForCandidate: (~candidate: CredentialResolver.candidate, ~http: FetchHttp.httpClient, ~hooks: oauthRefreshHooks) => Promise.t<array<Domain.quotaData>>
 let createOpenAIProvider: unit => Provider.quotaProvider

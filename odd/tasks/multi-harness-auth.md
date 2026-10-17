@@ -39,9 +39,9 @@
 | ID | Specs | Task | Route | Commit |
 |---|---|---|---|---|
 | T0 | S1, S4 | Read-only checks: pi auth path override, pi provider IDs (kimi/anthropic), pi auth.json locking; live probe of Claude usage endpoint → redacted fixture | inline | — (done, L5–L6) |
-| T1 | S1 | `Credential.fromJson` accepts `api_key` | inline | |
-| T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | |
-| T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Minimax/Kimi; origin-scoped refresh; pi OAuth read-only | inline | |
+| T1 | S1 | `Credential.fromJson` accepts `api_key` | inline | fd21edf |
+| T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | T2+T3 commit (L7) |
+| T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Kimi (Minimax: first candidate, L8); origin-scoped refresh; pi OAuth read-only | inline | T2+T3 commit (L7) |
 | T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | inline | |
 | T5 | S1–S6 | README, CLAUDE.md, help text | inline | |
 
@@ -73,3 +73,10 @@
   `limits[]` `{kind: session|weekly_all|weekly_scoped, group, percent, resets_at,
   scope: null | {model: {display_name}}}`. Values: session 7%, weekly_all 4%, weekly_scoped
   "Fable" 0%.
+- **L7** (decision): T2 and T3 ship in one commit. Exposing pi's OAuth entry before origin-scoped
+  refresh existed would let the opencode refresh path rotate pi's token (violates S3).
+  Fallthrough triggers: messages containing "HTTP 401", "HTTP 403" (wrong key type, e.g. a
+  non-coding-plan key) or `expiredHint` ("expired — run"); other errors reject immediately.
+- **L8** (decision): Minimax keeps first-candidate resolution. Its key path runs
+  `mmx auth login --api-key`, which mutates the mmx CLI session; cycling candidates there would
+  be a side effect, not a read.

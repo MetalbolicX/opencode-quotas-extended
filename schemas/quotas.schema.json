@@ -138,6 +138,14 @@
       "default": []
     },
     "credentials": { "$ref": "#/definitions/credentials" },
+    "credentialSources": {
+      "description": "Harness auth.json files to read credentials from, in priority order. Unlisted harnesses are skipped. Env vars and the credentials block are always tried afterwards.",
+      "type": "array",
+      "items": { "type": "string", "enum": ["opencode", "pi"] },
+      "minItems": 1,
+      "uniqueItems": true,
+      "default": ["opencode", "pi"]
+    },
     "aggregatedGroups": { "$ref": "#/definitions/aggregatedGroups" },
     "historyMaxAgeHours": {
       "type": "integer",

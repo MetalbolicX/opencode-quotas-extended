@@ -55,6 +55,7 @@ type quotasConfig = {
   filterByCurrentModel: option<bool>,
   progressBar: progressBar,
   credentials: option<JSON.t>,
+  credentialSources: option<array<string>>,
   anthropic: option<anthropicConfig>,
 }
 
@@ -73,6 +74,7 @@ type partialConfig = {
   filterByCurrentModel: option<bool>,
   progressBar: option<progressBarPartial>,
   credentials: option<JSON.t>,
+  credentialSources: option<array<string>>,
   anthropic: option<anthropicConfigPartial>,
 }
 
@@ -132,6 +134,7 @@ let defaults: quotasConfig = {
     gradients: false,
   },
   credentials: None,
+  credentialSources: None,
   anthropic: None,
 }
 
@@ -206,6 +209,13 @@ let coerceToPartial = (_raw: JSON.t): partialConfig => {
     | _ => None
     },
     credentials: Dict.get(d, "credentials"),
+    credentialSources: switch Dict.get(d, "credentialSources") {
+    | Some(JSON.Array(arr)) => Some(arr->Array.filterMap(v => switch v {
+      | JSON.String(s) => Some(s)
+      | _ => None
+      }))
+    | _ => None
+    },
     anthropic: switch Dict.get(d, "anthropic") {
     | Some(JSON.Object(a)) => Some({orgId: _optStr(Dict.get(a, "orgId"))})
     | _ => None
@@ -372,6 +382,7 @@ let mergeConfig = (raw: JSON.t): quotasConfig => {
     filterByCurrentModel: partial.filterByCurrentModel,
     progressBar: mergedPb,
     credentials: partial.credentials,
+    credentialSources: partial.credentialSources,
     anthropic: switch partial.anthropic {
     | Some(a) => Some({orgId: a.orgId})
     | None => None
