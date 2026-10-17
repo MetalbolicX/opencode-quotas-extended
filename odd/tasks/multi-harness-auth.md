@@ -45,6 +45,7 @@
 | T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | gentle-ai-worker (context backstop) | 022659e |
 | T5 | S1–S6 | README, CLAUDE.md, help text (no flag changes; help already names anthropic) | inline | 9f92991 |
 | T6 | S2, S5 | Correct R3-001: preserve HTTP auth status in admin-denial errors; pin candidate fallthrough | gentle-ai-worker (context backstop) | 4dea523 |
+| T7 | S1–S6 | Native review, bounded correction validation, and exact approved acknowledgement | native review | b38b7cd reviewed; approved (L17) |
 
 ## Log
 
@@ -119,4 +120,9 @@
 - **L16** (T6 evidence): RED 3 failing tests; GREEN 13 tests/71 assertions, full 59-file suite,
   build/help/secrets/codegen all exit 0. Independent verifier confirmed S1-S6 affected interactions;
   differential vs 1000ce4 changes only typed-status 401/403 and final hint. Parent focused check exit 0.
-  Correction slice: 4dea523 plus tracking evidence; native targeted validation pending.
+  Correction slice: 4dea523 plus tracking evidence; native targeted validation completed (L17).
+- **L17** (review complete): `review-0f2efb9d9502bf8a` approved corrected candidate at b38b7cd;
+  native acknowledgement returned `authority: burned`, target
+  `sha256:efea44d6efab3d9bd903314a68874778c1234012cc46bc70f5115684d686c733`.
+  R3-001 resolved; ten non-blocking advisories remain separate follow-up work. No push, PR or merge.
+  This final log-only evidence update is outside the reviewed source candidate.
