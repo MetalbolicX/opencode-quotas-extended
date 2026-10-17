@@ -4,7 +4,7 @@ ReScript-based CLI that fetches AI provider quota usage and renders a status rep
 
 ## Overview
 
-This CLI provides AI provider quota monitoring for the opencode editor. It fetches usage data from 8 providers (OpenAI, opencode Zen, opencode Go, z.ai, Kimi, Minimax, Anthropic, Gemini), renders usage status (OK/WRN/ERR) with progress bars, and aggregates multi-provider data.
+This CLI provides AI provider quota monitoring for the opencode editor. It fetches usage data from 7 providers (OpenAI, opencode Go, z.ai, Kimi, Minimax, Anthropic, Gemini), renders usage status (OK/WRN/ERR) with progress bars, and aggregates multi-provider data.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ sources → Bootstrap.res (CLI entry)
 
 - **Domain** (`src/domain/`): Pure ReScript — zero I/O imports. `QuotaData` types, aggregation strategies, history reset detection.
 - **Ports** (`src/ports/`): Interface definitions — `QuotaProvider`, `CredentialSource`, `HistoryStore`, `Renderer`, `Translator`, `HttpClient`, `Logger`.
-- **Adapters** (`src/Providers/`, `src/Auth/`, `src/Infra/`): Concrete implementations — 8 provider adapters, auth sources, HTTP client, config loader.
+- **Adapters** (`src/Providers/`, `src/Auth/`, `src/Infra/`): Concrete implementations — 7 provider adapters, auth sources, HTTP client, config loader.
 - **Rendering** (`src/rendering/`): Table, JSON, and Markdown renderers with ANSI status bars.
 - **i18n** (`src/i18n/`): Translator with English locale (generated from `src/i18n/locales/en.json`).
 - **CLI** (`src/Cli/`): `Bootstrap.res` — rolldown bundles the compiled `lib/es6/src/Cli/Bootstrap.res.mjs` into `dist/cli/index.js`.
@@ -28,7 +28,7 @@ sources → Bootstrap.res (CLI entry)
 
 ## Providers
 
-OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini
+OpenAI · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini
 
 **Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription), Anthropic (Claude subscription via Claude Code login).
 
@@ -36,9 +36,11 @@ OpenAI OAuth tokens from opencode refresh automatically: when the access token i
 
 Anthropic shows your Claude subscription limits (5h session, weekly, weekly per-model) from `GET https://api.anthropic.com/api/oauth/usage`, using the token Claude Code stores after `claude` browser login (`~/.claude/.credentials.json`, or `$CLAUDE_CONFIG_DIR/.credentials.json`). The file is never written: when the token has expired, the CLI reports `Claude Code token expired — run \`claude\` to refresh`. Launching `claude` once refreshes it. Without a Claude Code login, the Anthropic admin org-usage API (admin-scope key + `orgId`) is still used as a fallback.
 
-**Endpoint pending web scraping** (deferred, not implemented): opencode Zen. opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
+opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
 
 **Endpoints live but credential-blocked**: Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
+
+Zen is no longer supported: its prepaid balance is not a subscription usage limit. Remove any `aggregatedGroups` entries with `providerId: "zen"` from your config; they no longer receive quota data. `-p zen` now reports an unknown provider. Stored credentials are not deleted.
 
 ## Installation
 
@@ -157,8 +159,8 @@ Gates (run locally; CI is intentionally not part of this repository):
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |
 | `node dist/cli/index.js --help` | ✅ works under plain Node |
 
-**8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
-One (Zen) is deferred because it would require web scraping. One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. One (Gemini) is live-but-credential-blocked. Five (OpenAI, z.ai, Kimi, Minimax, Anthropic) are production-ready.
+**7 providers**: OpenAI · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
+One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. One (Gemini) is live-but-credential-blocked. Five (OpenAI, z.ai, Kimi, Minimax, Anthropic) are production-ready.
 
 ## Legacy archive
 

@@ -1,10 +1,10 @@
 // src/Providers/InfoWindowInvariantTests.res
-// Tests for window + info strict-union invariant across all 8 providers.
+// Tests for window + info strict-union invariant across all registered providers.
 // The window field is a CLOSED ReScript variant (Domain.windowType) — invalid
 // windows cannot be constructed at compile time. This test verifies:
 //   1. All 8 window variants are representable and round-trip through windowToString
 //   2. info field (option<string>) is None OR Some(non-empty) — never Some("")
-//   3. All 8 providers are present in the default registry
+//   3. All 7 registered providers are present in the default registry
 //
 // The TS test (info-window-invariant.test.ts) enforces the same invariants at
 // runtime via string-union checks. In ReScript, the variant type provides a
@@ -132,27 +132,27 @@ test("I5: info is Some(non-empty) — satisfies invariant when present", () => {
   }
 })
 
-// ─── Registry coverage — all 8 providers present ─────────────────────────────
+// ─── Registry coverage — all 7 registered providers present ──────────────────
 
-test("I6: default registry has exactly 8 providers", () => {
+test("I6: default registry has exactly 7 providers", () => {
   let reg = Registry.buildDefaultRegistry()
   let ids = reg.ids()
   assertion(
-    ~message="default registry has 8 providers",
+    ~message="default registry has 7 providers",
     (a, b) => a == b,
     Array.length(ids),
-    8,
+    7,
   )
 })
 
-test("I7: all 8 provider IDs are present in default registry", () => {
+test("I7: all 7 registered provider IDs are present in default registry", () => {
   let reg = Registry.buildDefaultRegistry()
-  let expectedIds = ["openai", "zen", "go", "zai", "kimi", "minimax", "anthropic", "gemini"]
+  let expectedIds = ["openai", "go", "zai", "kimi", "minimax", "anthropic", "gemini"]
   let allPresent = expectedIds->Array.every(id => {
     Belt.Array.getBy(reg.ids(), rid => rid == id) != None
   })
   assertion(
-    ~message="all 8 expected provider IDs are in registry",
+    ~message="all 7 expected provider IDs are in registry",
     (a, b) => a == b,
     allPresent,
     true,

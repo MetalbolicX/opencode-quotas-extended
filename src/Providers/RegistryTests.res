@@ -1,22 +1,22 @@
 // src/Providers/RegistryTests.res
 // Tests for ProviderRegistry: buildDefaultRegistry, ids, get, all.
-// R1: buildDefaultRegistry returns registry with all 8 providers.
+// R1: buildDefaultRegistry returns registry with all 7 providers.
 // R2: registry.get("openai") returns Some(OpenAI provider).
 // R3: registry.get("unknown") returns None.
-// R4: registry.ids() returns 8 ids.
+// R4: registry.ids() returns 7 ids.
 
 open Registry
 open RescriptTest
 
 autoBoot := false
 
-test("buildDefaultRegistry returns registry with all 8 providers", () => {
+test("buildDefaultRegistry returns registry with all 7 providers", () => {
   let reg = buildDefaultRegistry()
   assertion(
-    ~message="8 provider ids",
+    ~message="7 provider ids",
     (a, b) => a == b,
     reg.ids()->Array.length,
-    8,
+    7,
   )
 })
 
@@ -28,6 +28,17 @@ test("registry.ids() contains openai", () => {
     (a, b) => a == b,
     ids->Array.some(id => id == "openai"),
     true,
+  )
+})
+
+test("registry.ids() no longer contains zen", () => {
+  let reg = buildDefaultRegistry()
+  let ids = reg.ids()
+  assertion(
+    ~message="ids excludes zen",
+    (a, b) => a == b,
+    ids->Array.some(id => id == "zen"),
+    false,
   )
 })
 
@@ -53,13 +64,24 @@ test("registry.get(\"unknown-xyz\") returns None", () => {
   )
 })
 
-test("registry.all() returns 8 providers", () => {
+test("registry.get(\"zen\") returns None after removal", () => {
+  let reg = buildDefaultRegistry()
+  let zen = reg.get("zen")
+  assertion(
+    ~message="zen provider is None",
+    (a, b) => a == b,
+    Belt.Option.isNone(zen),
+    true,
+  )
+})
+
+test("registry.all() returns 7 providers", () => {
   let reg = buildDefaultRegistry()
   assertion(
-    ~message="all() returns 8 providers",
+    ~message="all() returns 7 providers",
     (a, b) => a == b,
     reg.all()->Array.length,
-    8,
+    7,
   )
 })
 
@@ -67,10 +89,10 @@ test("buildDefaultRegistryWith accepts deps and returns same registry", () => {
   let deps: deps = {credentialResolver: None, httpClient: None}
   let reg = buildDefaultRegistryWith(deps)
   assertion(
-    ~message="injected registry has 8 providers",
+    ~message="injected registry has 7 providers",
     (a, b) => a == b,
     reg.ids()->Array.length,
-    8,
+    7,
   )
 })
 
@@ -81,10 +103,10 @@ test("buildDefaultRegistryWith with Some(deps) returns same registry", () => {
   }
   let reg = buildDefaultRegistryWith(deps)
   assertion(
-    ~message="injected registry with deps still has 8 providers",
+    ~message="injected registry with deps still has 7 providers",
     (a, b) => a == b,
     reg.ids()->Array.length,
-    8,
+    7,
   )
 })
 

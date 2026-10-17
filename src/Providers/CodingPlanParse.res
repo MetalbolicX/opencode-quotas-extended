@@ -5,11 +5,9 @@
 type quotaData = Domain.quotaData
 type windowType = Domain.windowType
 
-// Re-exports from ZenParser (public API + helpers tests call directly)
-let windowMap = ZenParser.windowMap
+// Re-exports from Shared (window mapping used by facade consumers + tests)
+let windowMap = Shared.windowMap
 let windowRank = Shared.windowRank
-let parseUsage = ZenParser.parseUsage
-let parseMonitorLimits = ZenParser.parseUsage
 
 // Re-exports from ZaiParser (public API + helpers tests call directly)
 let zaiWindow = ZaiParser.zaiWindow

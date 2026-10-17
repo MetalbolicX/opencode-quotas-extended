@@ -36,7 +36,7 @@ src/
   domain/        # Pure logic — zero I/O, zero Node imports
     Types.res             # QuotaData, HistoryPoint
     Aggregation.res       # max/min/mean/median/most_critical
-    AggregationDefaults.res  # 5 default groups
+    AggregationDefaults.res  # 4 default groups
     Prediction.res        # ETTL module (not wired yet)
     Reset.res             # History reset detection
   ports/         # Interfaces only
@@ -47,7 +47,7 @@ src/
     Renderer.res             # Renderer, RenderContext
     Translator.res, Logger.res
   Providers/     # Concrete provider adapters
-    OpenAI, Zen, Go, Zai, Kimi, Minimax, Anthropic, Gemini
+    OpenAI, Go, Zai, Kimi, Minimax, Anthropic, Gemini
   Auth/          # Credential sources
     CredentialResolver, EnvSource, ConfigSource, AuthJsonSource (opencode + pi), ClaudeCodeSource, Redactor, ProviderKeys
   Infra/         # Infrastructure adapters
@@ -95,7 +95,6 @@ Lifecycle hooks: `postinstall` runs codegen on `pnpm install`; `prebuild` runs c
 | OpenAI (OAuth) | ✅ Production |
 | z.ai | ✅ Production |
 | Minimax (mmx CLI) | ✅ Production |
-| opencode Zen | ⚠️ Needs web scraping (deferred) |
 | opencode Go | ✅ Production (official usage API `/zen/go/v1/usage`; credential: auth.json `opencode-go` entry from `/connect`) |
 | Kimi | ✅ Production (subscription usage API; credential: `KIMI_API_KEY` env var or auth.json `kimi-for-coding` OAuth) |
 | Anthropic | ✅ Production (Claude subscription `/api/oauth/usage`; credential: Claude Code `~/.claude/.credentials.json`, read-only). Admin org-usage API key path kept as fallback |
