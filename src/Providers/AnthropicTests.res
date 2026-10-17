@@ -9,6 +9,15 @@ autoBoot := false
 
 @new external testError: string => exn = "Error"
 
+// Typed status on a test Error (R3-001).
+@set external setErrorStatus: (exn, float) => unit = "status"
+
+let statusError = (~message: string, ~status: float): exn => {
+  let err = testError(message)
+  setErrorStatus(err, status)
+  err
+}
+
 let testHttp = (handler: FetchHttp.httpRequest => promise<JSON.t>): FetchHttp.httpClient =>
   {request: (req, _opts) => handler(req)}
 
@@ -308,6 +317,114 @@ testAsync("non-claudeCode Api candidate routes to the admin path, never oauth us
     Promise.resolve()
   })
   ->ignore
+})
+
+// ─── Admin fallthrough (S2/S5, R3-001) ────────────────────────────────────────
+// Admin denial must keep the HTTP status so tryCandidates still falls through.
+
+let adminConfig = {...ConfigLoader.defaults, anthropic: Some({orgId: Some("org-1")})}
+let adminOk = (): JSON.t => JSON.parseOrThrow(`{"data":[{"model":"claude-opus-4","time_bucket":"2025-09-01","usage":{"input_tokens":10,"output_tokens":5}}],"has_more":false}`)
+
+let adminCandidate = (key: string, origin): CredentialResolver.candidate =>
+  {credential: Credential.Api({variant: "api", key}), origin}
+
+// Two keys; the first request fails. Asserts count, key order and URL, then
+// resolves the served rows.
+let runAdminPair = (label: string, failFirst: FetchHttp.httpRequest => promise<JSON.t>) => {
+  let calls = ref([])
+  let http = testHttp(req => {
+    calls.contents->Array.push(req)->ignore
+    calls.contents->Array.length == 1 ? failFirst(req) : Promise.resolve(adminOk())
+  })
+  CredentialResolver.tryCandidates(
+    [adminCandidate("first-key", #opencode), adminCandidate("second-key", #env)],
+    c => fetchQuotasForCandidate(~candidate=c, ~http, ~config=adminConfig, ~env=Dict.make()),
+  )->Promise.then(rows => {
+    assertion(~message=`${label} calls`, (a, b) => a == b, calls.contents->Array.length, 2)
+    assertion(
+      ~message=`${label} key order`,
+      (a, b) => a == b,
+      calls.contents->Array.map(r => r.headers->Option.flatMap(h => Dict.get(h, "x-api-key"))),
+      [Some("first-key"), Some("second-key")],
+    )
+    assertion(
+      ~message=`${label} second URL`,
+      (a, b) => a == b,
+      (calls.contents->Belt.Array.getExn(1)).url,
+      "https://api.anthropic.com/v1/organizations/org-1/usage",
+    )
+    Promise.resolve(rows)
+  })
+}
+
+let deny = (status: float) => (_req: FetchHttp.httpRequest) =>
+  Promise.reject(statusError(~message="denied", ~status))
+
+testAsync("admin 401 and 403 typed statuses fall through to the next key", callback => {
+  runAdminPair("401", deny(401.0))->Promise.then(rows => {
+    assertion(~message="401 rows", (a, b) => a == b, rows->Array.length, 1)
+    runAdminPair("403", deny(403.0))
+  })->Promise.then(rows => {
+    assertion(~message="403 rows", (a, b) => a == b, rows->Array.length, 1)
+    callback()
+    Promise.resolve()
+  })->Promise.catch(. _err => {
+    fail(~message="401/403 should fall through to the second key", ())
+    callback()
+    Promise.resolve()
+  })->ignore
+})
+
+testAsync("last admin 401 rejects actionably and stays fallthrough-able", callback => {
+  let http = testHttp(_req => Promise.reject(statusError(~message="denied", ~status=401.0)))
+  CredentialResolver.tryCandidates([adminCandidate("only-key", #config)], c =>
+    fetchQuotasForCandidate(~candidate=c, ~http, ~config=adminConfig, ~env=Dict.make())
+  )->Promise.then(_ => {
+    fail(~message="expected rejection on 401", ())
+    callback()
+    Promise.resolve()
+  })->Promise.catch(err => {
+    let msg = errorMessage(err)
+    assertion(~message="HTTP 401 kept", (a, b) => a == b, String.includes(msg, "HTTP 401"), true)
+    assertion(~message="admin hint kept", (a, b) => a == b, String.includes(msg, "Admin API organization usage read permission"), true)
+    assertion(~message="fallthrough-able", (a, b) => a == b, CredentialResolver.isFallthroughError(err), true)
+    callback()
+    Promise.resolve()
+  })->ignore
+})
+
+testAsync("admin 500 rejects unchanged without another candidate", callback => {
+  let calls = ref([])
+  let http = testHttp(req => {
+    calls.contents->Array.push(req)->ignore
+    Promise.reject(statusError(~message="boom", ~status=500.0))
+  })
+  CredentialResolver.tryCandidates([adminCandidate("k1", #opencode), adminCandidate("k2", #env)], c =>
+    fetchQuotasForCandidate(~candidate=c, ~http, ~config=adminConfig, ~env=Dict.make())
+  )->Promise.then(_ => {
+    fail(~message="expected 500 rejection", ())
+    callback()
+    Promise.resolve()
+  })->Promise.catch(err => {
+    assertion(~message="original kept", (a, b) => a == b, errorMessage(err), "boom")
+    assertion(~message="not fallthrough", (a, b) => a == b, CredentialResolver.isFallthroughError(err), false)
+    assertion(~message="one request", (a, b) => a == b, calls.contents->Array.length, 1)
+    callback()
+    Promise.resolve()
+  })->ignore
+})
+
+// FetchHttp reports non-2xx as `HTTP <code>: url` with no numeric `status`.
+testAsync("FetchHttp-style HTTP 401 text falls through without a status field", callback => {
+  runAdminPair("fetch", req => Promise.reject(testError("HTTP 401: " ++ req.url)))->Promise.then(rows => {
+    assertion(~message="fetch rows", (a, b) => a == b, rows->Array.length, 1)
+    callback()
+    Promise.resolve()
+  })->Promise.catch(. _err => {
+    fail(~message="HTTP 401 text should fall through", ())
+    callback()
+    Promise.resolve()
+  })->ignore
 })
 
 let () = runTests()

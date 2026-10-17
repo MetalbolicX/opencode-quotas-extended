@@ -180,8 +180,19 @@ let fetchSubscriptionUsage = (
 // Typed external for admin-usage error with status property.
 @new external makeAdminError: string => exn = "Error"
 
-// @get on exn to read the status field from a JS Error object.
-@get external errorStatus: exn => float = "status"
+// @get on a JS value to read an HTTP status field.
+@get external statusOf: 'a => float = "status"
+
+// Promise.catch wraps rejections as JsExn; unwrap so `status` is visible (R3-001).
+let errorStatus = (err: exn): option<float> =>
+  JsExn.fromException(err)->Option.flatMap(inner => {
+    let status = statusOf(inner)
+    status > 0.0 ? Some(status) : None
+  })
+
+// Keep the literal HTTP status so isFallthroughError still detects it (R3-001).
+let adminDeniedMessage = (status: string): string =>
+  `Anthropic admin-usage request denied (HTTP ${status}). Confirm your API key has the Admin API organization usage read permission.`
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -363,19 +374,11 @@ let fetchAdminUsage = (
       }
     })
     ->Promise.catch(. err => {
-      // 401/403 = admin scope required — fail-fast with actionable message
-      let status = try {
-        Some(errorStatus(err))
-      } catch {
-      | _ => None
-      }
-      switch status {
-      | Some(401.0) | Some(403.0) =>
-        Promise.reject(
-          makeAdminError(
-            "Anthropic admin-usage request denied (401/403). Confirm your API key has the Admin API organization usage read permission.",
-          ),
-        )
+      // 401/403 = admin scope required — fail-fast with an actionable message
+      // that keeps the HTTP status so the resolver can fall through (R3-001).
+      switch errorStatus(err) {
+      | Some(401.0) => Promise.reject(makeAdminError(adminDeniedMessage("401")))
+      | Some(403.0) => Promise.reject(makeAdminError(adminDeniedMessage("403")))
       | _ => Promise.reject(err)
       }
     })
