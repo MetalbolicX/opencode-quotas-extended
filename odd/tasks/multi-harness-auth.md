@@ -40,10 +40,11 @@
 |---|---|---|---|---|
 | T0 | S1, S4 | Read-only checks: pi auth path override, pi provider IDs (kimi/anthropic), pi auth.json locking; live probe of Claude usage endpoint → redacted fixture | inline | — (done, L5–L6) |
 | T1 | S1 | `Credential.fromJson` accepts `api_key` | inline | fd21edf |
-| T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | T2+T3 commit (L7) |
-| T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Kimi (Minimax: first candidate, L8); origin-scoped refresh; pi OAuth read-only | inline | T2+T3 commit (L7) |
-| T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | gentle-ai-worker (context backstop) | T4 commit (L11) |
-| T5 | S1–S6 | README, CLAUDE.md, help text (no flag changes; help already names anthropic) | inline | T5 commit |
+| T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | 415662a |
+| T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Kimi (Minimax: first candidate, L8); origin-scoped refresh; pi OAuth read-only | inline | 415662a |
+| T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | gentle-ai-worker (context backstop) | 022659e |
+| T5 | S1–S6 | README, CLAUDE.md, help text (no flag changes; help already names anthropic) | inline | 9f92991 |
+| T6 | S2, S5 | Correct R3-001: preserve HTTP auth status in admin-denial errors; pin candidate fallthrough | gentle-ai-worker (context backstop) | 4dea523 |
 
 ## Log
 
@@ -111,3 +112,11 @@
   `~/.pi/agent/npm/node_modules/gentle-pi/.gentle-ai/v4.2.0/gentle-ai sync --agent pi` (writes outside
   the repo) → awaiting user decision. Inspect also projected the whole branch vs `origin/main`
   (31 paths), not the slice.
+- **L14** (user): "Execute you". Sync succeeded; review `review-0f2efb9d9502bf8a` collected four lenses and a refuter.
+- **L15** (correction R3-001, S2/S5): admin denial messages must retain HTTP 401/403 so `tryCandidates`
+  reaches remaining credentials. Scope: Anthropic error conversion plus regression tests for 401/403,
+  final actionable error, and 500 no-fallthrough. Native correction plan accepted 180 diff lines.
+- **L16** (T6 evidence): RED 3 failing tests; GREEN 13 tests/71 assertions, full 59-file suite,
+  build/help/secrets/codegen all exit 0. Independent verifier confirmed S1-S6 affected interactions;
+  differential vs 1000ce4 changes only typed-status 401/403 and final hint. Parent focused check exit 0.
+  Correction slice: 4dea523 plus tracking evidence; native targeted validation pending.
