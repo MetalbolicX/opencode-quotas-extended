@@ -1,0 +1,75 @@
+# Feature: multi-harness auth (opencode + pi) and Claude Code subscription usage
+
+> ODD feature document. Created before the first source write. Branch: `feat/multi-harness-auth`.
+> Engram mirror: `odd/multi-harness-auth/tasks`. Read until `## Log`.
+
+## Specs
+
+- **S1 — pi credentials.** "use pi authentication to get the automatic API key to use subscriptions".
+  Read `~/.pi/agent/auth.json` as a second harness source. pi stores API keys as
+  `"type": "api_key"` (opencode: `"api"`); both decode to an API credential. pi uses its
+  own key names (`openai-codex`, `zai`, `minimax`, `opencode-go`), so each harness has its
+  own provider-key map.
+- **S2 — Overlap and union.** "We need to consider what if opencode has all subscriptions and
+  pi too, if any harness has one more than the other". Decision: "Ordered + fallthrough".
+  Default order opencode → pi (then env → config), changeable via an optional
+  `credentialSources` setting in `quotas.json`. A provider present in only one harness is
+  still resolved. A provider tries candidates in order and moves to the next when a token is
+  expired and cannot be refreshed, or on HTTP 401; it records an error only when every
+  candidate fails.
+- **S3 — pi OAuth is read-only.** Decision "pi OAuth read-only: Yes". Never write pi's
+  `auth.json`. An expired pi OAuth token falls through to the next candidate; if it is the
+  last, the error tells the user to run pi to refresh. OpenAI refresh write-back persists
+  only to the file the credential came from (opencode), never across harnesses.
+- **S4 — Claude Code subscription.** "I am have an antrophic subscription now, but the token
+  should be on claude login like openai, it require me use login via browser". Decisions:
+  "Read-only, ask to re-run claude"; Anthropic subscription source: "Claude Code login".
+  Read `~/.claude/.credentials.json` (`claudeAiOauth`, honor `CLAUDE_CONFIG_DIR`), never
+  write it. Expired `expiresAt` → rejected with
+  "Claude Code token expired — run `claude` to refresh". Usage rows (5h, weekly, weekly
+  Opus/Sonnet) as % with reset times from the subscription usage endpoint.
+- **S5 — Admin API kept as fallback.** "Keep it as fallback." The existing
+  `ANTHROPIC_API_KEY` + `ANTHROPIC_ORG_ID` admin org-usage path stays, tried after the
+  Claude Code candidate.
+- **S6 — Gemini out of scope.** "Yes, I don't have a subscription to check that is getting
+  the correct info". Gemini credential resolution is unchanged.
+
+## Tasks
+
+| ID | Specs | Task | Route | Commit |
+|---|---|---|---|---|
+| T0 | S1, S4 | Read-only checks: pi auth path override, pi provider IDs (kimi/anthropic), pi auth.json locking; live probe of Claude usage endpoint → redacted fixture | inline | — (done, L5–L6) |
+| T1 | S1 | `Credential.fromJson` accepts `api_key` | inline | |
+| T2 | S1, S2 | Harness auth source (path + key map), pi path, `credentialSources` schema, `resolveAll` with origin | inline | |
+| T3 | S2, S3 | Fallthrough in OpenAI/Go/z.ai/Minimax/Kimi; origin-scoped refresh; pi OAuth read-only | inline | |
+| T4 | S4, S5 | `ClaudeCodeSource` + Anthropic subscription rows; admin path as fallback; labels | inline | |
+| T5 | S1–S6 | README, CLAUDE.md, help text | inline | |
+
+## Log
+
+- **L1** (user, original request): "Lets plan to expand this project so that I can also use pi
+  authentication to get the automatic API key to use subscriptions. We need to consider what if
+  opencode has all subscriptions and pi too, if any harness has one more than the other. In
+  addition, I am have an antrophic subscription now, but the token should be on claude login
+  like openai, it require me use login via browser. We're planning"
+- **L2** (user, questionnaire): outside reads "Yes, structure only"; overlap "Ordered +
+  fallthrough"; Claude refresh "Read-only, ask to re-run claude"; Anthropic sources
+  "Claude Code login".
+- **L3** (evidence, structure-only reads): pi auth.json keys `minimax`, `zai`, `opencode-go`
+  (`type: api_key`), `openai-codex` (`type: oauth`, access/refresh/expires/accountId).
+  opencode auth.json keys `openai` (oauth), `opencode`, `opencode-go`, `minimax-coding-plan`,
+  `zai-coding-plan`, `kimi-for-coding` (`type: api`). Claude `claudeAiOauth`:
+  accessToken, refreshToken, expiresAt (number), refreshTokenExpiresAt, scopes,
+  subscriptionType, rateLimitTier.
+- **L4** (user): "1. Keep it as fallback. 2. Yes. 3. Yes, I don't have a subscription to check
+  that is getting the correct info"
+- **L5** (evidence, pi dist `config.js`): `getAgentDir()` = `$PI_CODING_AGENT_DIR` (tilde
+  expanded) else `~/.pi/agent`; auth path `join(getAgentDir(), "auth.json")`. pi Kimi provider id
+  is `kimi-coding` (baseUrl `https://api.kimi.com/coding/v1`). pi uses `proper-lockfile`
+  (supports S3 read-only).
+- **L6** (evidence, live probe, user-consented): `GET https://api.anthropic.com/api/oauth/usage`
+  with `Authorization: Bearer <claude accessToken>` + `anthropic-beta: oauth-2025-04-20` → HTTP 200.
+  Shape: `five_hour`/`seven_day` `{utilization, resets_at(ISO)}`; `seven_day_opus`/`_sonnet` null;
+  `limits[]` `{kind: session|weekly_all|weekly_scoped, group, percent, resets_at,
+  scope: null | {model: {display_name}}}`. Values: session 7%, weekly_all 4%, weekly_scoped
+  "Fable" 0%.

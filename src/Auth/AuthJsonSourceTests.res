@@ -35,6 +35,22 @@ test("A1: api entry in auth.json resolves to api credential", () => {
   )
 })
 
+// A1b: pi stores API keys as type "api_key"; it decodes like opencode's "api"
+test("A1b: pi api_key entry resolves to api credential", () => {
+  let entry = JSON.Object(Dict.fromArray([
+    ("type", JSON.String("api_key")),
+    ("key", JSON.String("sk-pi-key")),
+  ]))
+  assertion(
+    ~message="Expected Api for pi api_key entry",
+    (a, b) => a == b,
+    Credential.fromJson(entry),
+    Some(Credential.Api({variant: "api", key: "sk-pi-key"})),
+  )
+  let keyless = JSON.Object(Dict.fromArray([("type", JSON.String("api_key"))]))
+  assertion(~message="api_key without key is rejected", (a, b) => a == b, Credential.fromJson(keyless), None)
+})
+
 // A2: oauth entry resolves with expires default
 test("A2: oauth entry without expires defaults to 0", () => {
   let entry = JSON.Object(Dict.fromArray([
