@@ -2,12 +2,12 @@
 open RescriptTest
 open Domain
 
-test("defaultAggregationGroups: array has 5 entries", () => {
+test("defaultAggregationGroups: array has 4 entries", () => {
   assertion(
-    ~message="length == 5",
+    ~message="length == 4",
     (a, b) => a == b,
     defaultAggregationGroups->Belt.Array.length,
-    5,
+    4,
   )
 })
 
@@ -81,9 +81,9 @@ test("id is unique per default group (no duplicates)", () => {
   assertion(~message="no duplicate ids", (a, b) => a == b, hasDuplicates(0), false)
 })
 
-test("all 5 providerIds are the coding-plan providers", () => {
+test("all 4 providerIds are the coding-plan providers", () => {
   let providerIds = defaultAggregationGroups->Belt.Array.map(g => g.providerId)
-  let expected = ["zen", "go", "zai", "kimi", "minimax"]
+  let expected = ["go", "zai", "kimi", "minimax"]
   let rec check = (i, failures) => {
     if i >= expected->Belt.Array.length {
       failures
@@ -96,7 +96,7 @@ test("all 5 providerIds are the coding-plan providers", () => {
       }
     }
   }
-  assertion(~message="all 5 expected providerIds are present", (a, b) => a == b, check(0, 0), 0)
+  assertion(~message="all 4 expected providerIds are present", (a, b) => a == b, check(0, 0), 0)
 })
 
 test("every default uses max strategy", () => {
@@ -119,7 +119,6 @@ test("expected ids are present (specific ids match)", () => {
   let ids = defaultAggregationGroups->Belt.Array.map(g => g.id)
   let expected = [
     "opencode-go-monthly",
-    "opencode-zen-monthly",
     "zai-coding-plan-weekly",
     "kimi-daily",
     "minimax-monthly",

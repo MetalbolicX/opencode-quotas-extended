@@ -6,7 +6,6 @@
 let authKey = (providerId: string): string => {
   switch providerId {
   | "openai" => "openai"
-  | "zen" => "opencode"
   | "go" => "opencode-go"
   | "zai" => "zai-coding-plan"
   | "kimi" => "kimi-for-coding"
@@ -23,7 +22,6 @@ let authKey = (providerId: string): string => {
 let piAuthKey = (providerId: string): option<string> => {
   switch providerId {
   | "openai" => Some("openai-codex")
-  | "zen" => Some("opencode")
   | "go" | "opencode-go" => Some("opencode-go")
   | "zai" | "zai-coding-plan" => Some("zai")
   | "kimi" => Some("kimi-coding")

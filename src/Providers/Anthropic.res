@@ -433,6 +433,7 @@ let createAnthropicProvider = (): Provider.quotaProvider => {
     CredentialResolver.resolve("anthropic")->Promise.then(opt => {
       Promise.resolve(Belt.Option.isSome(opt))
     }),
+  credentialSource: () => CredentialResolver.firstOriginLabel("anthropic"),
   fetchQuotas: () => {
     let http = FetchHttp.make(FetchHttp.noopLogger)
     // A missing/invalid quotas.json only means "no org id override".

@@ -25,6 +25,7 @@ let createKimiProvider = (): Provider.quotaProvider => {
     CredentialResolver.resolve("kimi")->Promise.then(opt =>
       Promise.resolve(Belt.Option.isSome(opt))
     ),
+  credentialSource: () => CredentialResolver.firstOriginLabel("kimi"),
   fetchQuotas: () =>
     ProviderFetch.fetch(
       ~key="kimi",

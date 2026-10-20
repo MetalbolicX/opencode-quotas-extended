@@ -157,7 +157,6 @@ let crossModuleModules: array<string> = [
   // providers
   "Providers/Registry",
   "Providers/OpenAI",
-  "Providers/Zen",
   "Providers/Go",
   "Providers/Zai",
   "Providers/Kimi",

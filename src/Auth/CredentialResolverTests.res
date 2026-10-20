@@ -341,4 +341,243 @@ testAsync("ROE2: resolveOrEmpty calls fn when credential is Some", callback => {
   })
 })
 
+// ─── Source labels (S2) ───────────────────────────────────────────────────────
+// `-l` shows where each credential came from: opencode | pi | claude-code |
+// env | config. These tests inject the env dict and write fixtures under
+// os.tmpdir(), so they never read the developer's real credentials.
+
+let labelCounter = ref(0)
+
+// A counter keeps two tests in the same millisecond from sharing a fixture dir.
+let labelDir = (): string => {
+  labelCounter := labelCounter.contents + 1
+  let dir =
+    Node.osTmpdir() ++
+    "/cr-label-" ++
+    String.make(Date.now()) ++
+    "-" ++
+    Int.toString(labelCounter.contents)
+  let ensure = (path: string): unit => {
+    try {
+      let _ = Node.mkdirSync(path)
+    } catch {
+    | _ => ()
+    }
+  }
+  ensure(dir)
+  ensure(dir ++ "/opencode")
+  ensure(dir ++ "/pi")
+  ensure(dir ++ "/claude")
+  dir
+}
+
+let labelEnv = (~dir: string, ~extra: array<(string, string)>=[]): dict<string> =>
+  Dict.fromArray(
+    Array.concat(
+      [
+        ("XDG_DATA_HOME", dir),
+        ("PI_CODING_AGENT_DIR", dir ++ "/pi"),
+        ("CLAUDE_CONFIG_DIR", dir ++ "/claude"),
+      ],
+      extra,
+    ),
+  )
+
+let writeAuthEntry = (~dir: string, ~harness: string, ~key: string): unit => {
+  let entry = JSON.stringify(
+    JSON.Object(
+      Dict.fromArray([
+        (key, JSON.Object(Dict.fromArray([
+          ("type", JSON.String("api")),
+          ("key", JSON.String("sk-label-secret")),
+        ]))),
+      ]),
+    ),
+  )
+  let path = harness === "pi" ? dir ++ "/pi/auth.json" : dir ++ "/opencode/auth.json"
+  let _ = Node.writeFileSync(path, entry)
+}
+
+let writeClaudeCredentials = (~dir: string): unit => {
+  let content = JSON.stringify(
+    JSON.Object(
+      Dict.fromArray([
+        ("claudeAiOauth", JSON.Object(Dict.fromArray([
+          ("accessToken", JSON.String("claude-access-secret")),
+          ("expiresAt", JSON.Number(9999999999999.0)),
+        ]))),
+      ]),
+    ),
+  )
+  let _ = Node.writeFileSync(dir ++ "/claude/.credentials.json", content)
+}
+
+let writeQuotasConfig = (~dir: string, ~content: string): string => {
+  let path = dir ++ "/quotas.json"
+  let _ = Node.writeFileSync(path, content)
+  path
+}
+
+let labelOf = (~dir: string, ~extra: array<(string, string)>=[], ~configPath: string, key: string) =>
+  CredentialResolver.firstOriginLabelWith(
+    ~env=labelEnv(~dir, ~extra),
+    ~configPath,
+    key,
+  )
+
+test("S2: every origin maps to its published label", () => {
+  assertion(
+    ~message="opencode label",
+    (a, b) => a == b,
+    CredentialResolver.originLabel(#opencode),
+    "opencode",
+  )
+  assertion(~message="pi label", (a, b) => a == b, CredentialResolver.originLabel(#pi), "pi")
+  assertion(
+    ~message="claude-code label",
+    (a, b) => a == b,
+    CredentialResolver.originLabel(#claudeCode),
+    "claude-code",
+  )
+  assertion(~message="env label", (a, b) => a == b, CredentialResolver.originLabel(#env), "env")
+  assertion(
+    ~message="config label",
+    (a, b) => a == b,
+    CredentialResolver.originLabel(#config),
+    "config",
+  )
+})
+
+test("S2: opencode auth.json labels as opencode", () => {
+  let dir = labelDir()
+  writeAuthEntry(~dir, ~harness="opencode", ~key="openai")
+  assertion(
+    ~message="first source is opencode",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath=dir ++ "/quotas.json", "openai"),
+    Some("opencode"),
+  )
+})
+
+test("S2: pi auth.json labels as pi when opencode has nothing", () => {
+  let dir = labelDir()
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+  writeAuthEntry(~dir, ~harness="pi", ~key="openai-codex")
+  assertion(
+    ~message="first source is pi",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath=dir ++ "/quotas.json", "openai"),
+    Some("pi"),
+  )
+})
+
+test("S2: env credential labels as env", () => {
+  let dir = labelDir()
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+  assertion(
+    ~message="first source is env",
+    (a, b) => a == b,
+    labelOf(
+      ~dir,
+      ~extra=[("OPENAI_API_KEY", "sk-env-secret")],
+      ~configPath=dir ++ "/quotas.json",
+      "openai",
+    ),
+    Some("env"),
+  )
+})
+
+test("S2: quotas.json credential labels as config", () => {
+  let dir = labelDir()
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+  let configPath = writeQuotasConfig(
+    ~dir,
+    ~content=JSON.stringify(
+      JSON.Object(
+        Dict.fromArray([
+          ("credentials", JSON.Object(Dict.fromArray([
+            ("openai", JSON.Object(Dict.fromArray([
+              ("type", JSON.String("api")),
+              ("key", JSON.String("sk-config-secret")),
+            ]))),
+          ]))),
+        ]),
+      ),
+    ),
+  )
+  assertion(
+    ~message="first source is config",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath, "openai"),
+    Some("config"),
+  )
+})
+
+test("S2: Anthropic Claude Code login labels as claude-code", () => {
+  let dir = labelDir()
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+  writeClaudeCredentials(~dir)
+  assertion(
+    ~message="claude-code wins for anthropic",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath=dir ++ "/quotas.json", "anthropic"),
+    Some("claude-code"),
+  )
+})
+
+test("S2: only the first candidate is reported (opencode before pi)", () => {
+  let dir = labelDir()
+  writeAuthEntry(~dir, ~harness="opencode", ~key="openai")
+  writeAuthEntry(~dir, ~harness="pi", ~key="openai-codex")
+  assertion(
+    ~message="default order reports opencode, not pi",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath=dir ++ "/quotas.json", "openai"),
+    Some("opencode"),
+  )
+})
+
+test("S2: credentialSources order moves pi to the front", () => {
+  let dir = labelDir()
+  writeAuthEntry(~dir, ~harness="opencode", ~key="openai")
+  writeAuthEntry(~dir, ~harness="pi", ~key="openai-codex")
+  let configPath = writeQuotasConfig(
+    ~dir,
+    ~content="{\"credentialSources\":[\"pi\",\"opencode\"]}",
+  )
+  assertion(
+    ~message="configured order reports pi first",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath, "openai"),
+    Some("pi"),
+  )
+})
+
+test("S2: no candidate labels as None", () => {
+  let dir = labelDir()
+  let _ = Node.writeFileSync(dir ++ "/opencode/auth.json", "{}")
+  assertion(
+    ~message="no source reports None",
+    (a, b) => a == b,
+    labelOf(~dir, ~configPath=dir ++ "/quotas.json", "openai"),
+    None,
+  )
+})
+
+test("S2: labels never contain credential material", () => {
+  let dir = labelDir()
+  writeAuthEntry(~dir, ~harness="opencode", ~key="openai")
+  let label = labelOf(~dir, ~configPath=dir ++ "/quotas.json", "openai")
+  let text = switch label {
+  | Some(value) => value
+  | None => ""
+  }
+  assertion(
+    ~message=`label must not leak the key, got: ${text}`,
+    (a, b) => a == b,
+    String.includes(text, "sk-label-secret"),
+    false,
+  )
+})
+
 let () = runTests()

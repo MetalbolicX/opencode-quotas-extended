@@ -30,22 +30,37 @@ let usageText = `opencode-quotas — display AI provider quota usage.
 Usage: opencode-quotas [flags]
 
 Flags:
-  -l, --list            Show available providers as a numbered list (default when no flags)
+  -l, --list            Show available subscriptions and credential source (default when no flags)
   -p, --provider <id>   Filter to a single provider (e.g. openai, anthropic)
   -c, --color <name>    Color for the usage bar: ${validColorNames}
-  -m, --mode <mode>     Output format: table (default), json, markdown
+  -m, --mode <mode>     Output format for list and usage: table (default), json, markdown
   -h, --help            Show this usage information
 `
 
-// ── List table renderer ────────────────────────────────────────────────────────
+// ── Subscription list (S1/S2/S3) ───────────────────────────────────────────────
 
-let renderListTable = (providers: array<Provider.quotaProvider>): string => {
-  let rows = providers->Array.mapWithIndex((p, idx) => {
-    let num = Int.toString(idx + 1)
-    [num, p.id, p.displayName, "—", "—", "available"]->Array.join("  ")
-  })
-  let header = ["#", "id", "displayName", "status", "percent", "availability"]->Array.join("  ")
-  [header, ...rows]->Array.join("\n")
+// One list row per provider that selects a credential source. The label is the
+// first locally selected source — no quota fetch, no token refresh, no network.
+let collectListRows = (
+  providers: array<Provider.quotaProvider>,
+): Promise.t<array<SubscriptionList.row>> => {
+  let collected: array<SubscriptionList.row> = []
+  let rec next = (index: int): Promise.t<unit> =>
+    switch providers->Array.get(index) {
+    | None => Promise.resolve()
+    | Some(p) =>
+      p.credentialSource()
+      ->Promise.then(label => {
+        switch label {
+        | Some(source) =>
+          collected->Array.push({id: p.id, name: p.displayName, credential: source})->ignore
+        | None => ()
+        }
+        next(index + 1)
+      })
+      ->Promise.catch(. _err => next(index + 1))
+    }
+  next(0)->Promise.then(_ => Promise.resolve(collected))
 }
 
 // ── progressBar structural conversion (design §8) ──────────────────────────────
@@ -97,31 +112,6 @@ let makeReportPipelineLogger = (): ReportPipeline.logger => {
   {debug, info, warn, error}
 }
 
-// ── Filter helpers (local inline to avoid Filter type nominal mismatch) ───────
-
-// Filters providers that successfully return true on isAvailable.
-// Isolates provider failures — one bad provider doesn't kill the list.
-let filterAvailableProvidersInline = (
-  providers: array<Provider.quotaProvider>,
-): Promise.t<array<Provider.quotaProvider>> => {
-  let collected: array<Provider.quotaProvider> = []
-  let pushIfAvail = (p: Provider.quotaProvider, isAvail: bool): Promise.t<unit> => {
-    if isAvail {
-      collected->Array.push(p)->ignore
-    }
-    Promise.resolve()
-  }
-  let chain: Promise.t<unit> = Promise.resolve()
-  let finalChain = providers->Array.reduce(chain, (acc, p) => {
-    (acc->Promise.then(_ =>
-      p.isAvailable()
-      ->Promise.then(isAvail => pushIfAvail(p, isAvail))
-      ->Promise.catch(. _err => pushIfAvail(p, false))
-    ): Promise.t<unit>)
-  })
-  finalChain->Promise.then(_ => Promise.resolve(collected))
-}
-
 // ── Pipeline runner ─────────────────────────────────────────────────────────────
 
 // Wrapper that calls reportQuotas and returns the raw result.
@@ -138,18 +128,21 @@ let printHelp = (): unit => {
   Node.processStdoutWrite(usageText)->ignore
 }
 
-let runList = (_args: ParseArgs.parsedArgs): Promise.t<unit> => {
+let runList = (args: ParseArgs.parsedArgs): Promise.t<unit> => {
   let reg = Registry.buildDefaultRegistry()
-  let all = reg.all()
-  filterAvailableProvidersInline(all)
-  ->Promise.then(avail => {
-    if avail->Array.length === 0 {
+  collectListRows(reg.all())->Promise.then(rows => {
+    if rows->Array.length === 0 {
       let msg = Messages.formatNoSubscriptions()
       Node.processStderrWrite(`${msg}\n`)->ignore
       Node.processExit(1)
       Promise.resolve()
     } else {
-      let rendered = renderListTable(avail)
+      let rendered = switch args.mode {
+      | #json => SubscriptionList.renderJson(~rows)
+      // Table and markdown are the same list by design (S1).
+      | #table | #markdown => SubscriptionList.renderMarkdown(~rows)
+      }
+      // The final newline is emitted exactly once, here at the CLI boundary.
       Node.processStdoutWrite(`${rendered}\n`)->ignore
       Node.processExit(0)
       Promise.resolve()

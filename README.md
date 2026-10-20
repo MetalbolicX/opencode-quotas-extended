@@ -4,7 +4,7 @@ ReScript-based CLI that fetches AI provider quota usage and renders a status rep
 
 ## Overview
 
-This CLI provides AI provider quota monitoring for the opencode editor. It fetches usage data from 8 providers (OpenAI, opencode Zen, opencode Go, z.ai, Kimi, Minimax, Anthropic, Gemini), renders usage status (OK/WRN/ERR) with progress bars, and aggregates multi-provider data.
+This CLI provides AI provider quota monitoring for the opencode editor. It fetches usage data from 7 providers (OpenAI, opencode Go, z.ai, Kimi, Minimax, Anthropic, Gemini), renders usage status (OK/WRN/ERR) with progress bars, and aggregates multi-provider data.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ sources → Bootstrap.res (CLI entry)
 
 - **Domain** (`src/domain/`): Pure ReScript — zero I/O imports. `QuotaData` types, aggregation strategies, history reset detection.
 - **Ports** (`src/ports/`): Interface definitions — `QuotaProvider`, `CredentialSource`, `HistoryStore`, `Renderer`, `Translator`, `HttpClient`, `Logger`.
-- **Adapters** (`src/Providers/`, `src/Auth/`, `src/Infra/`): Concrete implementations — 8 provider adapters, auth sources, HTTP client, config loader.
+- **Adapters** (`src/Providers/`, `src/Auth/`, `src/Infra/`): Concrete implementations — 7 provider adapters, auth sources, HTTP client, config loader.
 - **Rendering** (`src/rendering/`): Table, JSON, and Markdown renderers with ANSI status bars.
 - **i18n** (`src/i18n/`): Translator with English locale (generated from `src/i18n/locales/en.json`).
 - **CLI** (`src/Cli/`): `Bootstrap.res` — rolldown bundles the compiled `lib/es6/src/Cli/Bootstrap.res.mjs` into `dist/cli/index.js`.
@@ -28,7 +28,7 @@ sources → Bootstrap.res (CLI entry)
 
 ## Providers
 
-OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini
+OpenAI · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini
 
 **Production-ready**: OpenAI (OAuth WHAM), z.ai, Minimax (via `mmx` CLI binary), Kimi (subscription), Anthropic (Claude subscription via Claude Code login).
 
@@ -36,9 +36,11 @@ OpenAI OAuth tokens from opencode refresh automatically: when the access token i
 
 Anthropic shows your Claude subscription limits (5h session, weekly, weekly per-model) from `GET https://api.anthropic.com/api/oauth/usage`, using the token Claude Code stores after `claude` browser login (`~/.claude/.credentials.json`, or `$CLAUDE_CONFIG_DIR/.credentials.json`). The file is never written: when the token has expired, the CLI reports `Claude Code token expired — run \`claude\` to refresh`. Launching `claude` once refreshes it. Without a Claude Code login, the Anthropic admin org-usage API (admin-scope key + `orgId`) is still used as a fallback.
 
-**Endpoint pending web scraping** (deferred, not implemented): opencode Zen. opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
+opencode Go uses the official API `GET https://opencode.ai/zen/go/v1/usage` with the `opencode-go` API key from `auth.json` (written by `/connect` in opencode).
 
 **Endpoints live but credential-blocked**: Gemini (Antigravity `antigravity-accounts.json` required). Adapters activate automatically when the credential appears.
+
+Zen is no longer supported: its prepaid balance is not a subscription usage limit. Remove any `aggregatedGroups` entries with `providerId: "zen"` from your config; they no longer receive quota data. `-p zen` now reports an unknown provider. Stored credentials are not deleted.
 
 ## Installation
 
@@ -92,17 +94,48 @@ Change which harnesses are read, and in what order, with `credentialSources`:
 
 Harnesses not listed are skipped. Only opencode's `auth.json` is ever written (rotated OpenAI tokens); pi and Claude Code files are read-only, because those tools rotate their own tokens.
 
+`-l` reports which source was selected for each provider (`opencode`, `pi`,
+`claude-code`, `env`, `config`, or `mmx`) using the first candidate in this order.
+The label is decided locally: listing does not validate the credential or call
+any provider API.
+
 ## CLI
 
 ```bash
-opencode-quotas                        # Full table report
-opencode-quotas --list               # List available providers
-opencode-quotas --provider openai     # Single provider report
+opencode-quotas                        # Available subscriptions (default)
+opencode-quotas --list                 # List available subscriptions
+opencode-quotas --list --mode json     # Same list as JSON
+opencode-quotas --provider openai      # Single provider report
 opencode-quotas --provider openai --color green  # With colored usage bar
 opencode-quotas --mode json           # JSON output
 opencode-quotas --mode markdown       # Markdown table
 opencode-quotas --help                # Show usage
 ```
+
+### Available subscriptions (`-l`, `--list`)
+
+`-l` is also the default when no flags are given. It lists only the providers that
+have a locally selected credential, in registry order:
+
+```
+## Available subscriptions (2)
+
+| # | ID     | Provider         | Credential |
+|--:|--------|------------------|------------|
+| 1 | openai | OpenAI           | opencode   |
+| 2 | zai    | z.ai Coding Plan | opencode   |
+
+Run `opencode-quotas -p <id>` to see usage for one subscription.
+```
+
+- `Credential` is the **first locally selected source**, not a validated credential:
+  `opencode`, `pi`, `claude-code`, `env`, `config`, or `mmx` (an already-authenticated
+  Minimax `mmx` session). It is a label; no credential material is printed.
+- `-m table` and `-m markdown` render that same table; `-m json` prints a
+  2-space-indented array of objects with only `id`, `name` and `credential`.
+- Listing never calls provider `fetchQuotas`, refreshes tokens, or writes credential files. Minimax without a stored key retains its existing `mmx quota show` session probe; that external CLI may contact its service.
+- `-l` together with `-p` is a usage error (exit 2). No subscriptions exits 1, and a
+  missing `auth.json` keeps its existing diagnostic and exit 1.
 
 Run directly from the build output (no global install needed):
 
@@ -151,14 +184,14 @@ Gates (run locally; CI is intentionally not part of this repository):
 
 | Gate | Result |
 |------|--------|
-| `pnpm test` | ✅ 59/59 ReScript test files passed |
+| `pnpm test` | ✅ 61/61 ReScript test files passed |
 | `pnpm res:build` | ✅ clean |
 | `pnpm build` | ✅ `dist/cli/index.js` produced |
 | `bash scripts/check-secrets.sh` | ✅ exit 0 |
 | `node dist/cli/index.js --help` | ✅ works under plain Node |
 
-**8 providers**: OpenAI · opencode Zen · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
-One (Zen) is deferred because it would require web scraping. One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. One (Gemini) is live-but-credential-blocked. Five (OpenAI, z.ai, Kimi, Minimax, Anthropic) are production-ready.
+**7 providers**: OpenAI · opencode Go · z.ai · Kimi · Minimax · Anthropic · Gemini.
+One (Go) now uses the official usage API `GET https://opencode.ai/zen/go/v1/usage`. One (Gemini) is live-but-credential-blocked. Five (OpenAI, z.ai, Kimi, Minimax, Anthropic) are production-ready.
 
 ## Legacy archive
 

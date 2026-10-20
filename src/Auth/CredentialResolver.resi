@@ -7,6 +7,12 @@ type candidate = {credential: Credential.credential, origin: origin}
 
 let resolveAllWith: (~env: dict<string>, ~configPath: string, string) => array<candidate>
 
+let originLabel: origin => string
+
+let firstOriginLabelWith: (~env: dict<string>, ~configPath: string, string) => option<string>
+
+let firstOriginLabel: string => Promise.t<option<string>>
+
 let resolveAll: string => Promise.t<array<candidate>>
 
 let resolve: string => Promise.t<option<Credential.credential>>

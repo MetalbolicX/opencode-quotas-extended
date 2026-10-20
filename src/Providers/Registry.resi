@@ -1,4 +1,4 @@
-// Provider registry — wires all 8 provider creators into a single registry.
+// Provider registry — wires all 7 provider creators into a single registry.
 
 type providerRegistry = {
   ids: unit => array<string>,

@@ -19,7 +19,7 @@ ReScript-based CLI that fetches AI provider quota usage and renders a status rep
 
 ```bash
 pnpm install      # Runs postinstall: pnpm codegen (generates schema + catalog .res modules)
-pnpm test        # Run all ReScript tests (59 files: lib/es6/**/*Tests.res.mjs)
+pnpm test        # Run all ReScript tests (61 files: lib/es6/**/*Tests.res.mjs)
 pnpm res:build   # ReScript compiler → lib/es6/
 pnpm build       # codegen → res:build → rolldown bundle → dist/cli/index.js
 pnpm codegen     # Deterministic asset codegen (schema + catalog); idempotent, --check mode available
@@ -36,7 +36,7 @@ src/
   domain/        # Pure logic — zero I/O, zero Node imports
     Types.res             # QuotaData, HistoryPoint
     Aggregation.res       # max/min/mean/median/most_critical
-    AggregationDefaults.res  # 5 default groups
+    AggregationDefaults.res  # 4 default groups
     Prediction.res        # ETTL module (not wired yet)
     Reset.res             # History reset detection
   ports/         # Interfaces only
@@ -47,12 +47,12 @@ src/
     Renderer.res             # Renderer, RenderContext
     Translator.res, Logger.res
   Providers/     # Concrete provider adapters
-    OpenAI, Zen, Go, Zai, Kimi, Minimax, Anthropic, Gemini
+    OpenAI, Go, Zai, Kimi, Minimax, Anthropic, Gemini
   Auth/          # Credential sources
     CredentialResolver, EnvSource, ConfigSource, AuthJsonSource (opencode + pi), ClaudeCodeSource, Redactor, ProviderKeys
   Infra/         # Infrastructure adapters
     ConfigLoader, FetchHttp, JsonFileHistory, Paths
-  rendering/     # Table/JSON/Markdown renderers, colors, semantic-labels, status-bar
+  rendering/     # Table/JSON/Markdown renderers, subscription-list, colors, semantic-labels, status-bar
   i18n/          # Translator + locales/en.json + generated EnCatalog.res (git-ignored)
   Cli/          # CLI entry: Bootstrap.res → bundled to dist/cli/index.js
 schemas/         # quotas.schema.json + generated ConfigLoader/Schema.res (git-ignored)
@@ -69,6 +69,8 @@ legacy/          # Archived TypeScript source (46 files, pre-cutover, not built/
 - **Ports are interfaces**: adapters satisfy them; domain depends only on ports, never on adapters.
 - **Provider failures reject**: adapter `fetchQuotas()` throws on HTTP/network failures — the pipeline records them in `result.errors`. Only "no credential" resolves to `[]`.
 - **`QuotaData`**: `{ id, providerName, used, limit, unit, reset, window, info?, modelId? }`. There is NO `predictedReset` field (prediction is unwired).
+- **Provider port**: `quotaProvider` carries `credentialSource: unit => promise<option<string>>` next to `isAvailable`. It returns the first locally selected source label (`opencode` | `pi` | `claude-code` | `env` | `config` | `mmx`) using the same resolution key as `isAvailable`; Minimax's `mmx` label reuses the same authenticated-session probe. It is a label only — no secret is ever serialized, and it never calls provider `fetchQuotas` or refreshes tokens. Minimax without a stored key retains its existing `mmx quota show` session probe, whose external CLI may contact its service.
+- **Subscription list (`-l/--list`)**: `src/rendering/SubscriptionList.res` is pure (rows + dynamic padding + `## Available subscriptions (N)` header/footer, numbers right-aligned, first separator ends in `:`). `Cli.runList` builds one row per provider whose `credentialSource` is `Some`, isolating per-provider failures; `-m json` prints the 2-space-indented `{id,name,credential}` array. Table and markdown modes are identical, and the final newline is emitted once at the CLI boundary.
 - **Aggregation default strategy**: `max`. `most_critical` is implemented but requires ETTL history wiring before use.
 - **Config resolution**: `.opencode/quotas.json` from `process.cwd()` (not the bundle location).
 - **Credential candidates**: `CredentialResolver.resolveAll` returns ordered `{credential, origin}` candidates: Claude Code (anthropic only) → harnesses (`credentialSources`, default opencode → pi) → env → config. `resolveEach`/`resolveOrEmpty` fall through on HTTP 401/403 or messages containing `expiredHint`. Only opencode's auth.json is ever written; pi and Claude Code credential files are read-only (their tools rotate tokens). Tests must isolate `XDG_DATA_HOME`, `PI_CODING_AGENT_DIR` and `CLAUDE_CONFIG_DIR` under `os.tmpdir()`.
@@ -95,7 +97,6 @@ Lifecycle hooks: `postinstall` runs codegen on `pnpm install`; `prebuild` runs c
 | OpenAI (OAuth) | ✅ Production |
 | z.ai | ✅ Production |
 | Minimax (mmx CLI) | ✅ Production |
-| opencode Zen | ⚠️ Needs web scraping (deferred) |
 | opencode Go | ✅ Production (official usage API `/zen/go/v1/usage`; credential: auth.json `opencode-go` entry from `/connect`) |
 | Kimi | ✅ Production (subscription usage API; credential: `KIMI_API_KEY` env var or auth.json `kimi-for-coding` OAuth) |
 | Anthropic | ✅ Production (Claude subscription `/api/oauth/usage`; credential: Claude Code `~/.claude/.credentials.json`, read-only). Admin org-usage API key path kept as fallback |

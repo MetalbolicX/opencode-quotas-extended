@@ -1,5 +1,5 @@
 // src/Providers/Registry.res
-// Provider registry — wires all 8 provider creators into a single registry.
+// Provider registry — wires all 7 provider creators into a single registry.
 // Mirrors src/adapters/providers/registry.ts (TS version retained for rollback safety).
 
 // --- Registry type ------------------------------------------------------------
@@ -14,7 +14,6 @@ type providerRegistry = {
 
 let allProviders = (): array<Provider.quotaProvider> => [
   OpenAI.createOpenAIProvider(),
-  Zen.createZenProvider(),
   Go.createGoProvider(),
   Zai.createZaiProvider(),
   Kimi.createKimiProvider(),

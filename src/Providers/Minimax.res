@@ -306,6 +306,12 @@ let decideFetchStep = (
   }
 }
 
+// mmx session fallback shared by isAvailable and credentialSource: the CLI is
+// installed AND already authenticated, so no login round-trip is needed.
+let mmxSessionAvailable = (): bool =>
+  hasMmxBinary() &&
+  parseSessionRows(tryQuotaShow({encoding: "utf8", timeout: 15000, stdio: "pipe"}))->Belt.Option.isSome
+
 // --- Provider ----------------------------------------------------------------
 
 let createMinimaxProvider = (): Provider.quotaProvider => {
@@ -320,11 +326,19 @@ let createMinimaxProvider = (): Provider.quotaProvider => {
       | None =>
         // No stored credential — still available if mmx is installed AND already
         // authenticated (reuse of an existing session).
-        Promise.resolve(hasMmxBinary() && parseSessionRows(
-          tryQuotaShow({encoding: "utf8", timeout: 15000, stdio: "pipe"})
-        )->Belt.Option.isSome)
+        Promise.resolve(mmxSessionAvailable())
       }
     })->Promise.catch(. _err => Promise.resolve(false)),
+  credentialSource: () =>
+    CredentialResolver.firstOriginLabel("minimax-coding-plan")->Promise.then(label =>
+      switch label {
+      | Some(_) => Promise.resolve(label)
+      | None =>
+        // Same session reuse as isAvailable: an already-authenticated mmx CLI is
+        // a local source. No login, no quota fetch, no token write.
+        Promise.resolve(mmxSessionAvailable() ? Some("mmx") : None)
+      }
+    )->Promise.catch(. _err => Promise.resolve(None)),
   fetchQuotas: () => {
     CredentialResolver.resolve("minimax-coding-plan")->Promise.then(opt => {
       // Extract optional API key from whatever credential variant resolved.
